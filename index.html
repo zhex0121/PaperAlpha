@@ -237,42 +237,148 @@ function initChart() {
 
 function executeTrade(type) {
     let amount = parseInt(document.getElementById('tradeAmount').value);
+
     if(!activeTicker || isNaN(amount) || amount<=0){
         alert("Ange ett giltigt antal aktier!");
         return;
     }
 
     const price = stocks[activeTicker].price;
-    const totalCost = price*amount;
+    const totalCost = price * amount;
 
     if(type==='buy'){
+
         if(balance>=totalCost){
+
             balance -= totalCost;
-            portfolio[activeTicker] = (portfolio[activeTicker]||0)+amount;
-        } else { alert("Inte tillräckligt kapital!"); }
-    } else if(type==='sell'){
-        if(portfolio[activeTicker] && portfolio[activeTicker]>=amount){
+
+            if(!portfolio[activeTicker]){
+                portfolio[activeTicker] = {
+                    shares:0,
+                    totalCost:0
+                };
+            }
+
+            portfolio[activeTicker].shares += amount;
+            portfolio[activeTicker].totalCost += totalCost;
+
+        } else {
+            alert("Inte tillräckligt kapital!");
+        }
+
+    }
+
+    else if(type==='sell'){
+
+        if(portfolio[activeTicker] && portfolio[activeTicker].shares>=amount){
+
+            const avgPrice =
+            portfolio[activeTicker].totalCost /
+            portfolio[activeTicker].shares;
+
             balance += totalCost;
-            portfolio[activeTicker] -= amount;
-            if(portfolio[activeTicker]===0) delete portfolio[activeTicker];
-        } else { alert("Du har inte så många aktier!"); }
+
+            portfolio[activeTicker].shares -= amount;
+
+            portfolio[activeTicker].totalCost -= avgPrice * amount;
+
+            if(portfolio[activeTicker].shares===0){
+                delete portfolio[activeTicker];
+            }
+
+        } else {
+
+            alert("Du har inte så många aktier!");
+
+        }
+
     }
 
     updatePortfolio();
+
 }
 
-function updatePortfolio() {
-    document.getElementById('balanceDisplay').innerText = balance.toLocaleString('sv-SE',{minimumFractionDigits:2})+" SEK";
-    const container = document.getElementById('portfolioDisplay');
-    container.innerHTML='<h4 style="border-bottom:1px solid var(--border); padding-bottom:5px;">PORTFÖLJ</h4>';
-    for(let s in portfolio){
-        container.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-            <span>${s} (${portfolio[s]} st)</span>
-            <span>${(portfolio[s]*stocks[s].price).toFixed(0)} kr</span>
-        </div>`;
-    }
+function updatePortfolio(){
+
+document.getElementById('balanceDisplay')
+.innerText =
+balance.toLocaleString('sv-SE',
+{minimumFractionDigits:2})+" SEK";
+
+const container =
+document.getElementById('portfolioDisplay');
+
+container.innerHTML =
+'<h4 style="border-bottom:1px solid var(--border); padding-bottom:5px;">PORTFÖLJ</h4>';
+
+for(let s in portfolio){
+
+const shares = portfolio[s].shares;
+
+const avgPrice =
+portfolio[s].totalCost / shares;
+
+const currentValue =
+shares * stocks[s].price;
+
+const pnl =
+currentValue - portfolio[s].totalCost;
+
+const pnlPercent =
+(pnl / portfolio[s].totalCost)*100;
+
+container.innerHTML += `
+
+<div style="
+margin-bottom:12px;
+padding-bottom:10px;
+border-bottom:1px solid #1a1a1a;
+">
+
+<div style="
+display:flex;
+justify-content:space-between;
+font-weight:bold;
+">
+
+<span>${s} (${shares} st)</span>
+
+<span>
+${currentValue.toFixed(0)} kr
+</span>
+
+</div>
+
+<div style="
+font-size:0.75rem;
+color:var(--text-dim);
+margin-top:4px;
+">
+
+Avg. price per share:
+${avgPrice.toFixed(2)} kr
+
+</div>
+
+<div class="${pnl>=0?'up':'down'}"
+style="
+font-size:0.75rem;
+margin-top:2px;
+">
+
+PnL:
+${pnl>=0?'+':''}${pnl.toFixed(0)} kr
+(${pnlPercent.toFixed(2)}%)
+
+</div>
+
+</div>
+
+`;
+
 }
 
+}
 function filterStocks() { renderStockList(document.getElementById('searchInput').value); }
 
 // Live price simulation
@@ -284,6 +390,7 @@ setInterval(()=>{
         stocks[s].history.shift();
     });
     updateActiveDisplay();
+    updatePortfolio();
     if(chart && activeTicker){
         chart.data.datasets[0].data = stocks[activeTicker].history;
         chart.update('none');
