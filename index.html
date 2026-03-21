@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
+
 <meta charset="UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Handelsplattform</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
 
 <style>
 
@@ -41,8 +48,6 @@ height:100vh;
 overflow:hidden;
 
 }
-
-/* Marknadslista */
 
 .market-side{
 
@@ -126,8 +131,6 @@ border-left:3px solid var(--accent);
 
 }
 
-/* Main */
-
 .main-content{
 
 display:flex;
@@ -151,8 +154,6 @@ position:relative;
 min-height:0;
 
 }
-
-/* Handelssida */
 
 .trade-side{
 
@@ -216,17 +217,8 @@ margin-top:20px;
 
 }
 
-.up{
-
-color:var(--up);
-
-}
-
-.down{
-
-color:var(--down);
-
-}
+.up{color:var(--up);}
+.down{color:var(--down);}
 
 </style>
 
@@ -374,6 +366,8 @@ let portfölj={};
 
 let chart=null;
 
+/* Init aktier */
+
 symboler.forEach(s=>{
 
 let basPris=Math.random()*2000+50;
@@ -384,13 +378,19 @@ ticker:s,
 
 pris:basPris,
 
-history:Array.from(
+history:Array.from({length:50},(_,i)=>({
 
-{length:50},
+x:i,
 
-()=>basPris+(Math.random()-0.5)*20
+o:basPris,
 
-),
+h:basPris+10,
+
+l:basPris-10,
+
+c:basPris
+
+})),
 
 change:(Math.random()*4-2).toFixed(2)
 
@@ -466,6 +466,64 @@ document.getElementById('activePrice')
 
 document.getElementById('activePrice')
 .className=s.change>=0?'up':'down';
+
+}
+
+function initChart(){
+
+const ctx=
+document.getElementById('mainChart')
+.getContext('2d');
+
+if(chart) chart.destroy();
+
+chart=new Chart(ctx,{
+
+type:'candlestick',
+
+data:{
+
+datasets:[{
+
+data:aktier[aktivAktie].history,
+
+color:{
+up:'#00ffaa',
+down:'#ff3d71',
+unchanged:'#999'
+}
+
+}]
+
+},
+
+options:{
+
+responsive:true,
+
+maintainAspectRatio:false,
+
+plugins:{
+legend:{display:false}
+},
+
+scales:{
+
+x:{
+grid:{color:'#1a1a1a'},
+ticks:{color:'#666'}
+},
+
+y:{
+grid:{color:'#1a1a1a'},
+ticks:{color:'#666'}
+}
+
+}
+
+}
+
+});
 
 }
 
@@ -671,18 +729,44 @@ document.getElementById('searchInput').value
 
 }
 
+/* Live pris */
+
 setInterval(()=>{
 
 Object.keys(aktier).forEach(s=>{
 
-const change=
-1+(Math.random()-0.5)*0.01;
+let gammaltPris=aktier[s].pris;
 
-aktier[s].pris*=change;
+let nyttPris=
 
-aktier[s].history.push(
-aktier[s].pris
-);
+gammaltPris*
+(1+(Math.random()-0.5)*0.02);
+
+let high=
+
+Math.max(gammaltPris,nyttPris)
++Math.random()*10;
+
+let low=
+
+Math.min(gammaltPris,nyttPris)
+-Math.random()*10;
+
+aktier[s].pris=nyttPris;
+
+aktier[s].history.push({
+
+x:Date.now(),
+
+o:gammaltPris,
+
+h:high,
+
+l:low,
+
+c:nyttPris
+
+});
 
 aktier[s].history.shift();
 
@@ -695,9 +779,10 @@ uppdateraPortfölj();
 if(chart&&aktivAktie){
 
 chart.data.datasets[0].data=
+
 aktier[aktivAktie].history;
 
-chart.update('none');
+chart.update();
 
 }
 
