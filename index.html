@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="sv">
 <head>
@@ -13,6 +14,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
 <style>
 
@@ -366,6 +371,10 @@ let portfölj={};
 
 let chart=null;
 
+const CHART_WINDOW_MS=3*60*1000;
+
+const MAX_CANDLES=120;
+
 /* Init aktier */
 
 symboler.forEach(s=>{
@@ -378,19 +387,9 @@ ticker:s,
 
 pris:basPris,
 
-history:Array.from({length:50},(_,i)=>({
+history:[],
 
-x:i,
-
-o:basPris,
-
-h:basPris+10,
-
-l:basPris-10,
-
-c:basPris
-
-})),
+chartSessionStart:null,
 
 change:(Math.random()*4-2).toFixed(2)
 
@@ -469,6 +468,38 @@ document.getElementById('activePrice')
 
 }
 
+function sättDiagramTidsfönster(){
+
+if(!chart||!aktivAktie)return;
+
+const s=aktier[aktivAktie];
+
+if(!s.history.length)return;
+
+if(!s.chartSessionStart)s.chartSessionStart=s.history[0].x;
+
+const nu=Date.now();
+
+const start=s.chartSessionStart;
+
+if(typeof chart.resetZoom==='function')chart.resetZoom();
+
+if(nu<=start+CHART_WINDOW_MS){
+
+chart.options.scales.x.min=start;
+
+chart.options.scales.x.max=start+CHART_WINDOW_MS;
+
+}else{
+
+chart.options.scales.x.min=nu-CHART_WINDOW_MS;
+
+chart.options.scales.x.max=nu;
+
+}
+
+}
+
 function initChart(){
 
 const ctx=
@@ -490,7 +521,7 @@ data:aktier[aktivAktie].history,
 color:{
 up:'#00ffaa',
 down:'#ff3d71',
-unchanged:'#999'
+unchanged:'#00ffaa'
 }
 
 }]
@@ -503,20 +534,96 @@ responsive:true,
 
 maintainAspectRatio:false,
 
+animation:false,
+
 plugins:{
-legend:{display:false}
+legend:{display:false},
+tooltip:{
+enabled:true,
+displayColors:false,
+intersect:true,
+mode:'nearest',
+callbacks:{
+title:()=>'',
+label:function(ctx){
+
+const r=ctx.raw||ctx.parsed;
+
+if(!r)return'';
+
+const c=r.c!==undefined?r.c:r.close;
+
+if(c===undefined)return'';
+
+return Number(c).toFixed(2);
+
+}
+}
+},
+zoom:{
+pan:{
+enabled:true,
+mode:'xy'
+},
+zoom:{
+wheel:{enabled:true},
+pinch:{enabled:true},
+mode:'xy'
+}
+}
 },
 
 scales:{
 
 x:{
+type:'time',
+time:{
+unit:'minute',
+minUnit:'minute',
+tooltipFormat:'dd/MM HH:mm',
+displayFormats:{minute:'HH:mm'}
+},
 grid:{color:'#1a1a1a'},
-ticks:{color:'#666'}
+ticks:{
+color:'#666',
+maxRotation:0,
+autoSkip:true,
+maxTicksLimit:5,
+autoSkipPadding:28,
+callback:function(value,index,ticks){
+
+const d=new Date(value);
+
+const label=d.toLocaleTimeString('sv-SE',{
+hour:'2-digit',
+minute:'2-digit',
+hour12:false
+});
+
+if(index>0&&ticks&&ticks[index-1]){
+
+const prev=new Date(ticks[index-1].value);
+
+const prevLabel=prev.toLocaleTimeString('sv-SE',{
+hour:'2-digit',
+minute:'2-digit',
+hour12:false
+});
+
+if(label===prevLabel)return '';
+
+}
+
+return label;
+
+}
+}
 },
 
 y:{
 grid:{color:'#1a1a1a'},
-ticks:{color:'#666'}
+ticks:{color:'#666'},
+grace:'5%'
 }
 
 }
@@ -524,6 +631,8 @@ ticks:{color:'#666'}
 }
 
 });
+
+sättDiagramTidsfönster();
 
 }
 
@@ -768,7 +877,7 @@ c:nyttPris
 
 });
 
-aktier[s].history.shift();
+if(aktier[s].history.length>MAX_CANDLES)aktier[s].history.shift();
 
 });
 
@@ -782,7 +891,9 @@ chart.data.datasets[0].data=
 
 aktier[aktivAktie].history;
 
-chart.update();
+sättDiagramTidsfönster();
+
+chart.update('none');
 
 }
 
