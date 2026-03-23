@@ -33,54 +33,21 @@ height:100vh;
 overflow:hidden;
 }
 
-.market-side{
-display:grid;
-grid-template-rows:auto 1fr;
-height:100vh;
-background:var(--surface);
-border-right:1px solid var(--border);
-}
-
+.market-side{display:grid; grid-template-rows:auto 1fr; height:100vh; background:var(--surface); border-right:1px solid var(--border);}
 .search-box{padding:15px; border-bottom:1px solid var(--border);}
-
-input{
-width:100%;
-background:#1e1e1e;
-border:1px solid var(--border);
-padding:10px;
-color:white;
-border-radius:4px;
-box-sizing:border-box;
-}
-
+input{width:100%; background:#1e1e1e; border:1px solid var(--border); padding:10px; color:white; border-radius:4px; box-sizing:border-box;}
 .stock-list{overflow-y:auto; scrollbar-width:thin; padding-right:5px;}
-
-.stock-item{
-padding:12px 15px;
-border-bottom:1px solid var(--border);
-cursor:pointer;
-display:flex;
-justify-content:space-between;
-transition:background 0.2s;
-}
-
+.stock-item{padding:12px 15px; border-bottom:1px solid var(--border); cursor:pointer; display:flex; justify-content:space-between; transition:background 0.2s;}
 .stock-item:hover{background:#1a1a1a;}
 .stock-item.active{background:#222; border-left:3px solid var(--accent);}
-
 .main-content{display:flex; flex-direction:column; padding:20px; background:var(--bg); overflow:hidden;}
 .chart-container{flex-grow:1; position:relative; min-height:0;}
-
-#activePrice {
-    transition: color 0.4s ease;
-}
-
+#activePrice { transition: color 0.4s ease; }
 .trade-side{border-left:1px solid var(--border); padding:20px; background:var(--surface);}
 .stat-box{margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid var(--border);}
-
 .btn{width:100%; padding:12px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:10px;}
 .btn-buy{background:var(--up); color:black;}
 .btn-sell{background:var(--down); color:white;}
-
 .up{color:var(--up);}
 .down{color:var(--down);}
 </style>
@@ -111,7 +78,9 @@ transition:background 0.2s;
     </div>
     <div id="tradeControls" style="display:none;">
         <label style="font-size:0.8rem; color:var(--text-dim)">ANTAL</label>
-        <input type="number" id="tradeAmount" value="1" min="1" style="margin:10px 0 20px 0;">
+        <input type="number" id="tradeAmount" value="1" style="margin:10px 0 20px 0;" oninput="döljVarning()">
+        <div id="errorPopup" style="color:var(--down); font-size:0.8rem; margin-top:-15px; margin-bottom:15px; display:none; font-weight:bold;">Gör om, gör rätt!</div>
+        
         <button class="btn btn-buy" onclick="genomförAffär('köp')">KÖP</button>
         <button class="btn btn-sell" onclick="genomförAffär('sälj')">SÄLJ</button>
     </div>
@@ -139,6 +108,14 @@ const MAX_CANDLES=120;
 const CANDLE_MS=60000;
 const PRICE_UPDATE_MS=2000;
 
+function visaVarning() {
+    document.getElementById('errorPopup').style.display = 'block';
+}
+
+function döljVarning() {
+    document.getElementById('errorPopup').style.display = 'none';
+}
+
 function genereraStartCandles(aktie, antal=50){
   let pris = aktie.pris;
   let nu = Date.now();
@@ -146,9 +123,7 @@ function genereraStartCandles(aktie, antal=50){
   for(let i=0;i<antal;i++){
     let open = pris;
     let close = open * (1 + (Math.random()-0.5)*0.01);
-    let high = Math.max(open, close) + Math.random()*2;
-    let low = Math.min(open, close) - Math.random()*2;
-    aktie.history.push({x: startTid, o: open, h: high, l: low, c: close});
+    aktie.history.push({x: startTid, o: open, h: Math.max(open,close)+2, l: Math.min(open,close)-2, c: close});
     pris = close;
     startTid += CANDLE_MS;
   }
@@ -164,12 +139,7 @@ function renderStockList(filter=""){
     const container=document.getElementById('stockList');
     container.innerHTML="";
     const sökord = filter.toLowerCase();
-    Object.keys(aktier)
-    .filter(s => {
-        const parts = s.toLowerCase().split(' (');
-        return parts[0].startsWith(sökord) || (parts[1] && parts[1].startsWith(sökord));
-    })
-    .forEach(s=>{
+    Object.keys(aktier).filter(s => s.toLowerCase().includes(sökord)).forEach(s=>{
         const div=document.createElement('div');
         div.className=`stock-item ${aktivAktie===s?'active':''}`;
         div.onclick=()=>väljAktie(s);
@@ -182,9 +152,7 @@ function väljAktie(ticker){
     aktivAktie=ticker;
     document.getElementById('tradeControls').style.display='block';
     document.getElementById('activeSymbol').innerText=ticker;
-    const el = document.getElementById('activePrice');
-    el.innerText = aktier[ticker].pris.toFixed(2) + " SEK";
-    el.style.color = "var(--text)";
+    uppdateraAktiv();
     initChart();
     renderStockList(document.getElementById('searchInput').value);
 }
@@ -194,13 +162,9 @@ function uppdateraAktiv(){
     const s = aktier[aktivAktie];
     const el = document.getElementById('activePrice');
     const gammaltPris = parseFloat(el.innerText);
-    const nyttPris = s.pris;
-
-    el.innerText = nyttPris.toFixed(2) + " SEK";
-
-    if (nyttPris > gammaltPris) el.style.color = "var(--up)";
-    else if (nyttPris < gammaltPris) el.style.color = "var(--down)";
-
+    el.innerText = s.pris.toFixed(2) + " SEK";
+    if (s.pris > gammaltPris) el.style.color = "var(--up)";
+    else if (s.pris < gammaltPris) el.style.color = "var(--down)";
     setTimeout(() => { el.style.color = "var(--text)"; }, 700);
 }
 
@@ -212,7 +176,17 @@ function initChart(){
         data:{datasets:[{data:aktier[aktivAktie].history, color:{up:'#00ffaa',down:'#ff3d71',unchanged:'#00ffaa'}}]},
         options:{
             responsive:true, maintainAspectRatio:false, animation:false,
-            plugins:{legend:{display:false}, zoom:{pan:{enabled:true,mode:'xy'},zoom:{wheel:{enabled:true},mode:'xy'}}},
+            plugins:{
+                legend:{display:false},
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return " Pris: " + context.parsed.c.toFixed(2) + " kr";
+                        }
+                    }
+                },
+                zoom:{pan:{enabled:true,mode:'xy'},zoom:{wheel:{enabled:true},mode:'xy'}}
+            },
             scales:{
                 x:{type:'time', grid:{color:'#1a1a1a'}, ticks:{color:'#666'}},
                 y:{grid:{color:'#1a1a1a'}, ticks:{color:'#666'}, grace:'5%'}
@@ -223,15 +197,19 @@ function initChart(){
 
 function genomförAffär(typ){
     let antal=parseInt(document.getElementById('tradeAmount').value);
-    if(!aktivAktie||isNaN(antal)||antal<=0) return;
+    if(!aktivAktie||isNaN(antal)||antal<=0) { visaVarning(); return; }
+    
     const pris=aktier[aktivAktie].pris;
     const kostnad=pris*antal;
-    if(typ==='köp' && saldo>=kostnad){
+
+    if(typ==='köp'){
+        if(saldo < kostnad) { visaVarning(); return; }
         saldo-=kostnad;
         if(!portfölj[aktivAktie]) portfölj[aktivAktie]={antal:0, totaltInköp:0};
         portfölj[aktivAktie].antal+=antal;
         portfölj[aktivAktie].totaltInköp+=kostnad;
-    } else if(typ==='sälj' && portfölj[aktivAktie]?.antal>=antal){
+    } else if(typ==='sälj'){
+        if(!portfölj[aktivAktie] || portfölj[aktivAktie].antal < antal) { visaVarning(); return; }
         const snitt=portfölj[aktivAktie].totaltInköp/portfölj[aktivAktie].antal;
         saldo+=pris*antal;
         portfölj[aktivAktie].antal-=antal;
@@ -251,16 +229,13 @@ function uppdateraPortfölj(){
         const värde = antal * aktier[s].pris;
         const resultat = värde - portfölj[s].totaltInköp;
         const procent = (resultat / portfölj[s].totaltInköp) * 100;
-
         container.innerHTML += `
             <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #1a1a1a;">
                 <div style="display:flex; justify-content:space-between; font-weight:bold;">
                     <span style="cursor:pointer; color:var(--accent);" onclick="väljAktie('${s}')">${s} (${antal} st)</span>
                     <span>${värde.toFixed(0)} kr</span>
                 </div>
-                <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
-                    Inköpspris: ${snitt.toFixed(2)} kr
-                </div>
+                <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">Inköpspris: ${snitt.toFixed(2)} kr</div>
                 <div class="${resultat >= 0 ? 'up' : 'down'}" style="font-size:0.75rem; margin-top:2px;">
                     Resultat: ${resultat >= 0 ? '+' : ''}${resultat.toFixed(0)} kr (${procent.toFixed(2)}%)
                 </div>
