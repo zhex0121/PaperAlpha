@@ -376,6 +376,41 @@ const CHART_WINDOW_MS=3*60*1000;
 
 const MAX_CANDLES=120;
 
+function genereraStartCandles(aktie, antal=20){
+
+let pris=aktie.pris;
+let tid=Date.now()-((antal-1)*2000);
+
+for(let i=0;i<antal;i++){
+
+let open=pris;
+
+let close=
+open*(1+(Math.random()-0.5)*0.02);
+
+let high=
+Math.max(open,close)+Math.random()*10;
+
+let low=
+Math.min(open,close)-Math.random()*10;
+
+aktie.history.push({
+x:tid,
+o:open,
+h:high,
+l:low,
+c:close
+});
+
+pris=close;
+tid+=2000;
+
+}
+
+aktie.pris=pris;
+
+}
+  
 /* Init aktier */
 
 symboler.forEach(s=>{
@@ -395,6 +430,8 @@ chartSessionStart:null,
 change:(Math.random()*4-2).toFixed(2)
 
 };
+
+genereraStartCandles(aktier[s],20);
 
 });
 
@@ -777,10 +814,17 @@ justify-content:space-between;
 font-weight:bold;
 ">
 
-<span>
-
+<span 
+style="
+cursor:pointer;
+color:#2962ff;
+text-decoration:none;
+"
+onclick="väljAktie('${s}')"
+onmouseover="this.style.textDecoration='underline'"
+onmouseout="this.style.textDecoration='none'"
+>
 ${s} (${antal} st)
-
 </span>
 
 <span>
