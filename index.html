@@ -3,7 +3,6 @@
 <head>
 
 <meta charset="UTF-8">
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Handelsplattform</title>
@@ -41,7 +40,6 @@ overflow:hidden;
 .market-side{
 display:grid;
 grid-template-rows:auto 1fr;
-height:100vh;
 background:var(--surface);
 border-right:1px solid var(--border);
 }
@@ -58,14 +56,6 @@ border:1px solid var(--border);
 padding:10px;
 color:white;
 border-radius:4px;
-box-sizing:border-box;
-}
-
-.stock-list{
-overflow-y:auto;
-scrollbar-width:thin;
-scrollbar-color:var(--accent) transparent;
-padding-right:5px;
 }
 
 .stock-item{
@@ -74,7 +64,6 @@ border-bottom:1px solid var(--border);
 cursor:pointer;
 display:flex;
 justify-content:space-between;
-transition:background 0.2s;
 }
 
 .stock-item:hover{
@@ -90,14 +79,11 @@ border-left:3px solid var(--accent);
 display:flex;
 flex-direction:column;
 padding:20px;
-background:var(--bg);
-overflow:hidden;
 }
 
 .chart-container{
 flex-grow:1;
 position:relative;
-min-height:0;
 }
 
 .trade-side{
@@ -106,20 +92,13 @@ padding:20px;
 background:var(--surface);
 }
 
-.stat-box{
-margin-bottom:20px;
-padding-bottom:20px;
-border-bottom:1px solid var(--border);
-}
-
 .btn{
 width:100%;
-padding:12px;
+padding:10px;
 border:none;
-border-radius:4px;
-font-weight:bold;
+margin-top:8px;
 cursor:pointer;
-margin-top:10px;
+font-weight:bold;
 }
 
 .btn-buy{
@@ -130,11 +109,6 @@ color:black;
 .btn-sell{
 background:var(--down);
 color:white;
-}
-
-.portfolio-list{
-font-size:0.85rem;
-margin-top:20px;
 }
 
 .up{color:var(--up);}
@@ -151,30 +125,21 @@ margin-top:20px;
 <div class="search-box">
 
 <input
-type="text"
 id="searchInput"
 placeholder="Sök aktie..."
 oninput="filtreraAktier()">
 
 </div>
 
-<div class="stock-list" id="stockList"></div>
+<div id="stockList"></div>
 
 </div>
 
 <div class="main-content">
 
-<div>
+<h2 id="activeSymbol">Välj en aktie</h2>
 
-<h2 id="activeSymbol">
-Välj en aktie
-</h2>
-
-<h1 id="activePrice">
-0.00
-</h1>
-
-</div>
+<h1 id="activePrice">0.00</h1>
 
 <div class="chart-container">
 <canvas id="mainChart"></canvas>
@@ -184,33 +149,28 @@ Välj en aktie
 
 <div class="trade-side">
 
-<div class="stat-box">
+<div>
 
 <div style="color:var(--text-dim)">
-Tillgängligt saldo
+Saldo
 </div>
 
 <div id="balanceDisplay"
-style="font-size:1.5rem;font-weight:bold;">
-
-100 000 SEK
-
+style="font-size:1.4rem;font-weight:bold;">
+100000
 </div>
 
 </div>
 
 <div id="tradeControls" style="display:none;">
 
-<label style="font-size:0.8rem;color:var(--text-dim)">
-ANTAL
-</label>
+<label>ANTAL</label>
 
 <input
-type="number"
 id="tradeAmount"
+type="number"
 value="1"
-min="1"
-style="margin:10px 0 20px 0;">
+min="1">
 
 <button class="btn btn-buy"
 onclick="genomförAffär('köp')">
@@ -224,22 +184,14 @@ SÄLJ
 
 </div>
 
-<div class="portfolio-list" id="portfolioDisplay">
-
-<h4 style="border-bottom:1px solid var(--border);padding-bottom:5px;">
-PORTFÖLJ
-</h4>
-
-</div>
+<div id="portfolioDisplay"></div>
 
 </div>
 
 <script>
 
 const symboler=[
-"AAPL","MSFT","GOOGL","AMZN","NVDA","TSLA",
-"META","BRK.B","UNH","V","JPM","JNJ","LLY",
-"XOM","WMT","MA","AVGO","PG","ORCL","ADBE"
+"AAPL","MSFT","NVDA","TSLA","AMZN"
 ];
 
 let aktier={};
@@ -251,118 +203,145 @@ let chart=null;
 const CHART_WINDOW_MS=3*60*1000;
 const MAX_CANDLES=120;
 
-/* Init */
+/* init */
+
 symboler.forEach(s=>{
 
-let basPris=Math.random()*2000+50;
+let pris=Math.random()*500+100;
 
 aktier[s]={
 ticker:s,
-pris:basPris,
-history:[],
-chartSessionStart:null,
-change:(Math.random()*4-2).toFixed(2)
+pris:pris,
+history:[]
 };
 
 });
 
-function väljAktieFrånPortfölj(ticker){
+/* portfolio click */
 
-väljAktie(ticker);
+function väljAktieFrånPortfölj(t){
 
-document.getElementById('tradeAmount').value=
-portfölj[ticker]?.antal || 1;
+väljAktie(t);
+
+document.getElementById("tradeAmount").value=1;
 
 }
 
-function renderStockList(filter=""){
+/* stocks */
 
-const container=document.getElementById('stockList');
+function renderStockList(){
 
-container.innerHTML="";
+let c=document.getElementById("stockList");
 
-Object.keys(aktier)
-.filter(s=>s.includes(filter.toUpperCase()))
-.forEach(s=>{
+c.innerHTML="";
 
-const div=document.createElement('div');
+Object.keys(aktier).forEach(s=>{
 
-div.className=
-`stock-item ${aktivAktie===s?'active':''}`;
+let d=document.createElement("div");
 
-div.onclick=()=>väljAktie(s);
+d.className=
+"stock-item"+(aktivAktie==s?" active":"");
 
-div.innerHTML=
+d.onclick=()=>väljAktie(s);
 
-`<div><b>${s}</b></div>
+d.innerHTML=
+`<b>${s}</b>
+<span>${aktier[s].pris.toFixed(2)}</span>`;
 
-<div class="${
-aktier[s].change>=0?'up':'down'
-}">
-${aktier[s].pris.toFixed(2)}
-</div>`;
-
-container.appendChild(div);
+c.appendChild(d);
 
 });
 
 }
 
-function väljAktie(ticker){
+function väljAktie(s){
 
-aktivAktie=ticker;
+aktivAktie=s;
 
-document.getElementById('tradeControls')
-.style.display='block';
+document.getElementById("tradeControls")
+.style.display="block";
 
-document.getElementById('activeSymbol')
-.innerText=ticker;
-
-uppdateraAktiv();
+document.getElementById("activeSymbol")
+.innerText=s;
 
 initChart();
 
-renderStockList(
-document.getElementById('searchInput').value
-);
+renderStockList();
 
 }
 
-function uppdateraAktiv(){
+/* chart */
 
-if(!aktivAktie)return;
+function sättDiagramTidsfönster(){
 
-const s=aktier[aktivAktie];
+if(!chart)return;
 
-document.getElementById('activePrice')
-.innerText=s.pris.toFixed(2)+" SEK";
+let data=aktier[aktivAktie].history;
 
-document.getElementById('activePrice')
-.className=s.change>=0?'up':'down';
+if(!data.length)return;
+
+let nu=Date.now();
+
+chart.options.scales.x.min=
+nu-CHART_WINDOW_MS;
+
+chart.options.scales.x.max=
+nu;
 
 }
 
-/* TRADING */
+function initChart(){
+
+let ctx=
+document.getElementById("mainChart");
+
+if(chart) chart.destroy();
+
+chart=new Chart(ctx,{
+
+type:"candlestick",
+
+data:{
+datasets:[{
+data:aktier[aktivAktie].history
+}]
+},
+
+options:{
+animation:false,
+responsive:true,
+plugins:{
+legend:{display:false}
+},
+scales:{
+x:{type:"time"},
+y:{}
+}
+
+}
+
+});
+
+}
+
+/* trading */
 
 function genomförAffär(typ){
 
-let antal=parseInt(
-document.getElementById('tradeAmount').value
+let antal=
+parseInt(
+document.getElementById("tradeAmount").value
 );
 
-if(!aktivAktie||isNaN(antal)||antal<=0){
+if(!antal)return;
 
-alert("Ange giltigt antal!");
-return;
+let pris=aktier[aktivAktie].pris;
 
-}
+if(typ=="köp"){
 
-const pris=aktier[aktivAktie].pris;
-const kostnad=pris*antal;
+let kostnad=pris*antal;
 
-if(typ==='köp'){
-
-if(saldo>=kostnad){
+if(saldo<kostnad)return;
 
 saldo-=kostnad;
 
@@ -376,42 +355,24 @@ totaltInköp:0
 }
 
 portfölj[aktivAktie].antal+=antal;
+
 portfölj[aktivAktie].totaltInköp+=kostnad;
 
 }
-else{
-alert("Otillräckligt saldo");
-}
 
-}
+if(typ=="sälj"){
 
-if(typ==='sälj'){
+if(!portfölj[aktivAktie])return;
 
-if(
-portfölj[aktivAktie] &&
-portfölj[aktivAktie].antal>=antal
-){
+if(portfölj[aktivAktie].antal<antal)
+return;
 
-const snitt=
-portfölj[aktivAktie].totaltInköp/
-portfölj[aktivAktie].antal;
-
-saldo+=kostnad;
+saldo+=pris*antal;
 
 portfölj[aktivAktie].antal-=antal;
 
-portfölj[aktivAktie].totaltInköp-=snitt*antal;
-
-if(portfölj[aktivAktie].antal===0){
-
+if(portfölj[aktivAktie].antal==0)
 delete portfölj[aktivAktie];
-
-}
-
-}
-else{
-alert("Du äger inte så många");
-}
 
 }
 
@@ -419,105 +380,47 @@ uppdateraPortfölj();
 
 }
 
+/* portfolio */
+
 function uppdateraPortfölj(){
 
-document.getElementById('balanceDisplay')
-.innerText=
-saldo.toLocaleString('sv-SE',
-{minimumFractionDigits:2})+" SEK";
+document.getElementById("balanceDisplay")
+.innerText=saldo.toFixed(0)+" SEK";
 
-const container=
-document.getElementById('portfolioDisplay');
+let c=
+document.getElementById("portfolioDisplay");
 
-container.innerHTML=
-'<h4 style="border-bottom:1px solid var(--border); padding-bottom:5px;">PORTFÖLJ</h4>';
+c.innerHTML="<h3>PORTFÖLJ</h3>";
 
 for(let s in portfölj){
 
-const antal=portfölj[s].antal;
+let antal=portfölj[s].antal;
 
-const snitt=
-portfölj[s].totaltInköp/antal;
-
-const värde=
-antal*aktier[s].pris;
-
-const resultat=
-värde-portfölj[s].totaltInköp;
-
-const procent=
-(resultat/portfölj[s].totaltInköp)*100;
-
-container.innerHTML+=`
+c.innerHTML+=`
 
 <div onclick="väljAktieFrånPortfölj('${s}')"
-style="
-margin-bottom:12px;
-padding-bottom:10px;
-border-bottom:1px solid #1a1a1a;
-cursor:pointer;
-transition:0.15s;
-"
-onmouseover="this.style.background='#1a1a1a'"
-onmouseout="this.style.background='transparent'"
->
+style="padding:8px;
+border-bottom:1px solid #222;
+cursor:pointer;">
 
-<div style="
-display:flex;
-justify-content:space-between;
-font-weight:bold;
-">
+<b>${s}</b>
+(${antal})
 
-<span>
-${s} (${antal} st)
-</span>
+<div style="display:flex;gap:4px;margin-top:4px;">
 
-<span>
-${värde.toFixed(0)} kr
-</span>
+<button onclick="
+event.stopPropagation();
+väljAktie('${s}');
+document.getElementById('tradeAmount').value=1;
+genomförAffär('köp');
+">+</button>
 
-</div>
-
-<div style="
-font-size:0.75rem;
-color:var(--text-dim);
-margin-top:4px;
-">
-
-Snittpris:
-${snitt.toFixed(2)} kr
-
-</div>
-
-<div class="${
-resultat>=0?'up':'down'
-}"
-
-style="
-font-size:0.75rem;
-margin-top:2px;
-">
-
-Resultat:
-${resultat>=0?'+':''}
-${resultat.toFixed(0)} kr
-(${procent.toFixed(2)}%)
-
-</div>
-
-<div style="margin-top:6px; display:flex; gap:5px;">
-
-<button
-onclick="event.stopPropagation(); väljAktie('${s}'); genomförAffär('köp');"
-style="flex:1;background:#00ffaa;border:none;padding:4px;cursor:pointer;">
-+
-</button>
-
-<button
-onclick="event.stopPropagation(); väljAktie('${s}'); genomförAffär('sälj');"
-style="flex:1;background:#ff3d71;border:none;padding:4px;color:white;cursor:pointer;">
--
-</button>
+<button onclick="
+event.stopPropagation();
+väljAktie('${s}');
+document.getElementById('tradeAmount').value=1;
+genomförAffär('sälj');
+">-</button>
 
 </div>
 
@@ -529,67 +432,51 @@ style="flex:1;background:#ff3d71;border:none;padding:4px;color:white;cursor:poin
 
 }
 
-function filtreraAktier(){
-
-renderStockList(
-document.getElementById('searchInput').value
-);
-
-}
-
-/* Live pris */
+/* live price */
 
 setInterval(()=>{
 
 Object.keys(aktier).forEach(s=>{
 
-let gammaltPris=aktier[s].pris;
+let old=aktier[s].pris;
 
-let nyttPris=
-gammaltPris*
-(1+(Math.random()-0.5)*0.02);
+let newP=
+old*(1+(Math.random()-0.5)*0.01);
 
-let high=
-Math.max(gammaltPris,nyttPris)
-+Math.random()*10;
-
-let low=
-Math.min(gammaltPris,nyttPris)
--Math.random()*10;
-
-aktier[s].pris=nyttPris;
+aktier[s].pris=newP;
 
 aktier[s].history.push({
 
 x:Date.now(),
-o:gammaltPris,
-h:high,
-l:low,
-c:nyttPris
+o:old,
+h:Math.max(old,newP),
+l:Math.min(old,newP),
+c:newP
 
 });
 
-if(aktier[s].history.length>MAX_CANDLES)
+if(aktier[s].history.length>
+MAX_CANDLES)
 aktier[s].history.shift();
 
 });
 
-uppdateraAktiv();
-uppdateraPortfölj();
-
-if(chart&&aktivAktie){
+if(aktivAktie){
 
 chart.data.datasets[0].data=
 aktier[aktivAktie].history;
 
-chart.update('none');
+sättDiagramTidsfönster();
+
+chart.update();
 
 }
+
+uppdateraPortfölj();
 
 },2000);
 
 renderStockList();
-uppdateraPortfölj();
 
 </script>
 
