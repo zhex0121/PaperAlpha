@@ -516,26 +516,31 @@ container.appendChild(div);
 
 }
 
+
+
+
+
+  
 function väljAktie(ticker){
+    aktivAktie = ticker;
 
-aktivAktie=ticker;
+    document.getElementById('tradeControls').style.display = 'block';
+    document.getElementById('activeSymbol').innerText = ticker;
 
-document.getElementById('tradeControls')
-.style.display='block';
+    uppdateraAktiv();
+    
+    // Se till att vi kör updateChartView så fort charten skapas i initChart
+    initChart(); 
 
-document.getElementById('activeSymbol')
-.innerText=ticker;
-
-uppdateraAktiv();
-
-initChart();
-
-renderStockList(
-document.getElementById('searchInput').value
-);
-
+    renderStockList(document.getElementById('searchInput').value);
 }
 
+
+
+
+
+
+  
 function uppdateraAktiv(riktning=null){
 
 if(!aktivAktie)return;
@@ -744,9 +749,6 @@ chart.options.plugins.zoom.onZoom = function() {
 
 // VIKTIGT: Anropa updateChartView direkt här för att sätta 75%-vyn innan ritning
     updateChartView();
-  
-sättDiagramTidsfönster();
-
 }
 
 
