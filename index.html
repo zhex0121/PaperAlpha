@@ -372,38 +372,51 @@ let portfölj={};
 
 let chart=null;
 
-const CHART_WINDOW_MS=3*60*1000;
+const CHART_WINDOW_MS=20*60*1000;
 
 const MAX_CANDLES=120;
+
+const CANDLE_MS=60000;
+const PRICE_UPDATE_MS=2000;
 
 function genereraStartCandles(aktie, antal=20){
 
 let pris=aktie.pris;
-let tid=Date.now()-((antal-1)*2000);
+
+let nu=Date.now();
+
+let startTid=nu-(antal*CANDLE_MS);
 
 for(let i=0;i<antal;i++){
 
 let open=pris;
 
 let close=
-open*(1+(Math.random()-0.5)*0.02);
+open*(1+(Math.random()-0.5)*0.01);
 
 let high=
-Math.max(open,close)+Math.random()*10;
+Math.max(open,close)+Math.random()*5;
 
 let low=
-Math.min(open,close)-Math.random()*10;
+Math.min(open,close)-Math.random()*5;
 
 aktie.history.push({
-x:tid,
+
+x:startTid,
+
 o:open,
+
 h:high,
+
 l:low,
+
 c:close
+
 });
 
 pris=close;
-tid+=2000;
+
+startTid+=CANDLE_MS;
 
 }
 
@@ -889,40 +902,64 @@ setInterval(()=>{
 
 Object.keys(aktier).forEach(s=>{
 
-let gammaltPris=aktier[s].pris;
+let aktie=aktier[s];
+
+let gammaltPris=aktie.pris;
 
 let nyttPris=
 
 gammaltPris*
-(1+(Math.random()-0.5)*0.02);
+(1+(Math.random()-0.5)*0.01);
 
-let high=
+aktie.pris=nyttPris;
 
-Math.max(gammaltPris,nyttPris)
-+Math.random()*10;
+let nu=Date.now();
 
-let low=
+let senasteCandle=
 
-Math.min(gammaltPris,nyttPris)
--Math.random()*10;
+aktie.history[aktie.history.length-1];
 
-aktier[s].pris=nyttPris;
+if(!senasteCandle) return;
 
-aktier[s].history.push({
+if(nu-senasteCandle.x<CANDLE_MS){
 
-x:Date.now(),
+// uppdatera nuvarande candle
 
-o:gammaltPris,
+senasteCandle.c=nyttPris;
 
-h:high,
+senasteCandle.h=
 
-l:low,
+Math.max(senasteCandle.h,nyttPris);
+
+senasteCandle.l=
+
+Math.min(senasteCandle.l,nyttPris);
+
+}else{
+
+// skapa ny candle
+
+aktie.history.push({
+
+x:nu,
+
+o:senasteCandle.c,
+
+h:nyttPris,
+
+l:nyttPris,
 
 c:nyttPris
 
 });
 
-if(aktier[s].history.length>MAX_CANDLES)aktier[s].history.shift();
+if(aktie.history.length>MAX_CANDLES){
+
+aktie.history.shift();
+
+}
+
+}
 
 });
 
@@ -942,8 +979,8 @@ chart.update('none');
 
 }
 
-},2000);
-
+},PRICE_UPDATE_MS);
+  
 renderStockList();
 
 uppdateraPortfölj();
