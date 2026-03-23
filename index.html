@@ -396,6 +396,8 @@ const symboler=[
 
 let aktier={};
 
+let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
+  
 let aktivAktie=null;
 
 let saldo=100000;
@@ -729,26 +731,40 @@ grace:'5%'
 
 });
 
+chart.options.plugins.zoom.onPan = function() {
+    if(chartMode === 'live'){
+        liveAutoScrollEnabled = false; // user manually moved chart
+    }
+};
+chart.options.plugins.zoom.onZoom = function() {
+    if(chartMode === 'live'){
+        liveAutoScrollEnabled = false; // user manually zoomed
+    }
+};
+
 sättDiagramTidsfönster();
 
 }
 
 updateChartView();
+
+
+
+
+
   
 function setChartMode(mode){
+    chartMode = mode;
 
-chartMode=mode;
+    document.getElementById('liveBtn').style.background =
+        mode==='live' ? '#2962ff' : '#1e1e1e';
+    document.getElementById('historyBtn').style.background =
+        mode==='history' ? '#2962ff' : '#1e1e1e';
 
-document.getElementById('liveBtn')
-.style.background=
-mode==='live' ? '#2962ff' : '#1e1e1e';
+    // Reset auto-scroll when switching to live
+    liveAutoScrollEnabled = (mode === 'live');
 
-document.getElementById('historyBtn')
-.style.background=
-mode==='history' ? '#2962ff' : '#1e1e1e';
-
-updateChartView();
-
+    updateChartView();
 }
 
 
@@ -764,19 +780,18 @@ function updateChartView(){
         const liveData = history.slice(-LIVE_CANDLES);
         chart.data.datasets[0].data = liveData;
 
-        // Auto zoom/pan: newest candle slightly right
-        if(liveData.length){
+        // Auto zoom/pan only if auto-scroll enabled
+        if(liveAutoScrollEnabled && liveData.length){
             const newest = liveData[liveData.length-1].x;
             const oldest = liveData[0].x;
             const range = newest - oldest;
 
-            // Shift the view so newest candle is 2/3 to the right
-            const offset = range / 3; 
+            const offset = range / 3; // newest slightly right
             chart.options.scales.x.min = oldest - offset;
             chart.options.scales.x.max = newest + offset;
         }
 
-        // Disable zoom/pan in live mode
+        // Disable manual zoom/pan in live mode
         chart.options.plugins.zoom.pan.enabled = false;
         chart.options.plugins.zoom.zoom.wheel.enabled = false;
         chart.options.plugins.zoom.zoom.pinch.enabled = false;
@@ -785,13 +800,14 @@ function updateChartView(){
 
         // Historical mode: full history, free zoom/pan
         chart.data.datasets[0].data = history;
-        chart.options.scales.x.min = undefined;
-        chart.options.scales.x.max = undefined;
+        // Keep user zoom/pan by not resetting min/max
+        // Only reset if user explicitly switches to LIVE
+        chart.options.scales.x.min = chart.options.scales.x.min;
+        chart.options.scales.x.max = chart.options.scales.x.max;
 
         chart.options.plugins.zoom.pan.enabled = true;
         chart.options.plugins.zoom.zoom.wheel.enabled = true;
         chart.options.plugins.zoom.zoom.pinch.enabled = true;
-
     }
 
     chart.update('none');
