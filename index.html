@@ -763,12 +763,15 @@ function setChartMode(mode){
     document.getElementById('historyBtn').style.background =
         mode==='history' ? '#2962ff' : '#1e1e1e';
 
-    // Reset auto-scroll when switching to live
     liveAutoScrollEnabled = (mode === 'live');
 
-    ();
-}
+    // OM vi byter till historik, zooma ut direkt en gång
+    if(mode === 'history' && chart) {
+        chart.resetZoom();
+    }
 
+    updateChartView();
+}
 
   
 function updateChartView(){
@@ -809,9 +812,6 @@ function updateChartView(){
     } else {
         // --- HISTORIK-LÄGE ---
         chart.data.datasets[0].data = history;
-        
-        // Denna rad tvingar fram en utzoomning så man ser hela historiken direkt
-        chart.resetZoom();
 
         // Återställ y-axeln till auto
         chart.options.scales.y.min = undefined;
