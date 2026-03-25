@@ -224,10 +224,8 @@ margin-top:20px;
 
 }
 
-#portfolioDisplay{
-
-display:none;
-
+#portfolioDisplay {
+    display: block; 
 }
 
 .up{color:var(--up);}
@@ -636,25 +634,22 @@ document.getElementById('tradeControls').style.display = 'none';
 
 }
 
-function showLoggedInUI(){
 
-authReady=true;
+    
+function showLoggedInUI() {
+    authReady = true;
+    showAuthModal(false);
+    document.getElementById('accountBar').style.display = 'flex';
+    document.getElementById('accountEmail').innerText = currentUser?.email || '';
+    
+    const first = (currentUser?.email || '?').trim()[0]?.toUpperCase() || '';
+    document.getElementById('avatarBtn').innerText = first;
+    document.getElementById('portfolioDisplay').style.display = 'block'; 
 
-showAuthModal(false);
-
-document.getElementById('accountBar').style.display='flex';
-
-document.getElementById('accountEmail').innerText = currentUser?.email || '';
-
-const first=(currentUser?.email||'?').trim()[0]?.toUpperCase() || '';
-
-document.getElementById('avatarBtn').innerText = first;
-
-document.getElementById('portfolioDisplay').style.display='none'; // avatar click toggles
-
-syncTradeControlsVisibility();
-
+    syncTradeControlsVisibility();
 }
+
+
 
 function setAuthError(msg){
 
