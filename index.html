@@ -162,16 +162,21 @@ min-height:0;
 
 }
 
-.trade-side{
-
-border-left:1px solid var(--border);
-
-padding:20px;
-
-background:var(--surface);
-
+.trade-side {
+    position: relative; 
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    background: var(--surface);
 }
 
+.logout-btn {
+    position: absolute;
+    top: 15px;    /* Distance from top */
+    right: 20px;  /* Distance from right edge */
+    margin: 0;    /* Remove any default margins */
+    z-index: 10;  /* Ensure it stays on top */
+}
+    
 .stat-box{
 
 margin-bottom:20px;
@@ -247,6 +252,7 @@ min-height:22px;
     display: flex;
     align-items: center;
     gap: 10px;
+    min-height: 40px; /* Keeps space consistent */
 }
 
 .avatar-btn{
@@ -393,6 +399,8 @@ margin-top:0;
     margin-top: 5px;
     margin-bottom: 5px;
 }
+
+
     
 </style>
 
@@ -473,7 +481,7 @@ Välj en aktie
 <div id="accountBar" class="account-bar" style="display:none;">
     <div class="account-main-row">
         <button id="avatarBtn" class="avatar-btn" onclick="toggleEmailView()"></button>
-        <button class="small-btn" onclick="handleLogout()">LOGGA UT</button>
+        <button class="small-btn logout-btn" onclick="handleLogout()">LOGGA UT</button>
     </div>
     <div id="accountEmail" class="account-email"></div>
 </div>
