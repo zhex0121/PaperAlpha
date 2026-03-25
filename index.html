@@ -324,15 +324,14 @@ margin-top:0;
 .auth-modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.85);
-    display: none; /* ÄNDRA FRÅN FLEX TILL NONE */
+    background: rgba(0, 0, 0, 0.85); /* Lite mörkare för bättre fokus */
+    display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px); /* Snygg suddig bakgrund */
 }
 
-    
 .auth-card {
     width: min(400px, 92vw);
     background: var(--surface);
@@ -564,7 +563,7 @@ PORTFÖLJ
 
 </div>
 
-<div id="authModal" class="auth-modal">
+<div id="authModal" class="auth-modal" style="display:none;">
 
 <div class="auth-card">
 
@@ -853,31 +852,54 @@ async function signUp() {
 
 
   
-async function initSupabaseAuth() {
-    // 1. Kolla sessionen direkt
-    const { data: { session } } = await supabaseClient.auth.getSession();
+async function initSupabaseAuth(){
 
-    if (session?.user) {
-        // Om inloggad: Sätt användaren och visa inloggat UI
+    // Visa inget alls medan vi kollar session
+    authReady = false;
+
+    const { data: { session } } =
+    await supabaseClient.auth.getSession();
+
+    if(session?.user){
+
         currentUser = session.user;
         showLoggedInUI();
         await ensureProfileAndLoad();
-    } else {
-        // Om INTE inloggad: VISA modalen nu
-        showLoggedOutUI(); 
+
+    }else{
+
+        showLoggedOutUI();
+
     }
 
-    // 2. Lyssna på framtida ändringar
-    supabaseClient.auth.onAuthStateChange((event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-            currentUser = session.user;
+    authReady = true;
+
+    supabaseClient.auth.onAuthStateChange((event, session)=>{
+
+        if(event === 'SIGNED_IN' && session?.user){
+
+            currentUser=session.user;
+
             showLoggedInUI();
+
             ensureProfileAndLoad().catch(console.error);
-        } else if (event === 'SIGNED_OUT') {
-            currentUser = null;
-            showLoggedOutUI();
+
         }
+
+        if(event === 'SIGNED_OUT'){
+
+            currentUser=null;
+
+            saldo=STARTING_BALANCE;
+
+            portfölj={};
+
+            showLoggedOutUI();
+
+        }
+
     });
+
 }
 
     
