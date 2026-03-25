@@ -725,7 +725,7 @@ await sparaPortföljTillSupabase();
 
 }catch(e){
 
-document.getElementById('tradeError').innerText="保存失败";
+document.getElementById('tradeError').innerText="Det gick inte att spara";
 
 }
 
@@ -794,7 +794,7 @@ const password=(passEl?.value||'').trim();
 
 if(!email || !password){
 
-setAuthError('请输入 Email 和密码');
+setAuthError('Vänligen fyll i email och lösenord!');
 
 return;
 
@@ -842,7 +842,7 @@ return;
 
 if(!data?.session){
 
-setAuthError('已注册：如果需要邮箱确认，请先在邮件里完成确认后再登录。');
+setAuthError('Detta email har redan registrerats. Testa att logga in!');
 
 }
 
@@ -1360,7 +1360,7 @@ async function genomförAffär(typ){
 
 if(!currentUser){
 
-document.getElementById('tradeError').innerText="请先登录";
+document.getElementById('tradeError').innerText="Vänligen logga in först!";
 
 showAuthModal(true);
 
