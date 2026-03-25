@@ -323,43 +323,41 @@ margin-top:0;
 
 }
 
-.auth-modal{
-
-position:fixed;
-
-inset:0;
-
-background:rgba(0,0,0,0.6);
-
-display:flex;
-
-align-items:center;
-
-justify-content:center;
-
-z-index:9999;
-
+.auth-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85); /* Lite mörkare för bättre fokus */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px); /* Snygg suddig bakgrund */
 }
 
-.auth-card{
-
-width:min(440px,92vw);
-
-background:var(--surface);
-
-border:1px solid var(--border);
-
-border-radius:10px;
-
-padding:18px;
-
+.auth-card {
+    width: min(400px, 92vw);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px; /* Mer luft! */
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
 }
 
-.auth-title{
-
-margin:0 0 12px 0;
-
+.auth-title {
+    margin: 0 0 25px 0;
+    text-align: center;
+    font-size: 1.5rem;
+    letter-spacing: 1px;
 }
+
+/* Fixar avståndet för felmeddelandet så det inte ligger på inputfälten */
+#authError {
+    margin: 15px 0;
+    min-height: 20px;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
 
 .auth-actions{
 
@@ -461,7 +459,7 @@ Välj en aktie
 
 <div id="accountEmail" class="account-email"></div>
 
-<button class="small-btn" onclick="handleLogout()">UTLOGGNING</button>
+<button class="small-btn" onclick="handleLogout()">LOGGA UT</button>
 
 </div>
 
@@ -794,7 +792,7 @@ const password=(passEl?.value||'').trim();
 
 if(!email || !password){
 
-setAuthError('Vänligen fyll i email och lösenord!');
+setAuthError('Vänligen fyll i både e-post och lösenord!');
 
 return;
 
@@ -810,44 +808,54 @@ setAuthError(error.message);
 
 }
 
-async function signUp(){
+async function signIn() {
+    setAuthError('');
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value.trim();
 
-setAuthError('');
+    if (!email || !password) {
+        setAuthError('Vänligen fyll i både e-post och lösenord.');
+        return;
+    }
 
-const emailEl=document.getElementById('authEmail');
-
-const passEl=document.getElementById('authPassword');
-
-const email=(emailEl?.value||'').trim();
-
-const password=(passEl?.value||'').trim();
-
-if(!email || !password){
-
-setAuthError('请输入 Email 和密码');
-
-return;
-
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+        // Gör Supabase felmeddelanden lite mer användarvänliga om man vill, 
+        // annars funkar error.message
+        setAuthError('Fel e-post eller lösenord. Försök igen!');
+    }
 }
 
-const { data, error } = await supabaseClient.auth.signUp({ email, password });
 
-if(error){
 
-setAuthError(error.message);
+  
+async function signUp() {
+    setAuthError('');
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value.trim();
 
-return;
+    if (!email || !password) {
+        setAuthError('Du måste fylla i e-post och lösenord för att skapa konto.');
+        return;
+    }
 
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+    
+    if (error) {
+        setAuthError('Kunde inte skapa konto: ' + error.message);
+        return;
+    }
+
+    if (!data?.session) {
+        setAuthError('Kontot finns redan. Prova att logga in istället!');
+    }
 }
 
-if(!data?.session){
 
-setAuthError('Detta email har redan registrerats. Testa att logga in!');
 
-}
 
-}
 
+  
 async function initSupabaseAuth(){
 
 showLoggedOutUI();
