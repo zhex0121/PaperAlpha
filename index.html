@@ -790,50 +790,19 @@ if(error) throw error;
 
     
 
-async function handleLogout() {
-    try {
+async function handleLogout(){
+    try{
         await supabaseClient.auth.signOut();
-        // Tvinga sidan att ladda om så att alla variabler nollställs
-        window.location.reload(); 
-    } catch (e) {
-        console.error("Logout failed", e);
+
+        // Tvinga logout UI direkt
+        currentUser = null;
+        showLoggedOutUI();
+
+    }catch(e){
+        console.error(e);
     }
 }
 
-
-
-
-
-    
-async function signIn(){
-
-setAuthError('');
-
-const emailEl=document.getElementById('authEmail');
-
-const passEl=document.getElementById('authPassword');
-
-const email=(emailEl?.value||'').trim();
-
-const password=(passEl?.value||'').trim();
-
-if(!email || !password){
-
-setAuthError('Vänligen fyll i både e-post och lösenord!');
-
-return;
-
-}
-
-const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-
-if(error){
-
-setAuthError(error.message);
-
-}
-
-}
 
 async function signIn() {
     setAuthError('');
@@ -883,38 +852,11 @@ async function signUp() {
 
 
   
-async function initSupabaseAuth() {
-    // 1. Lyssna på ALLA ändringar (inlogg, utlogg, password recovery etc)
-    supabaseClient.auth.onAuthStateChange((event, session) => {
-        console.log("Auth event:", event); // Bra för debugging
+async function initSupabaseAuth(){
 
-        if (session?.user) {
-            currentUser = session.user;
-            showLoggedInUI();
-            ensureProfileAndLoad().catch(console.error);
-        } else {
-            // Här rensar vi UI:t direkt när Supabase säger att vi är utloggade
-            currentUser = null;
-            saldo = 100000;
-            portfölj = {};
-            showLoggedOutUI();
-        }
-    });
+showLoggedOutUI();
 
-    // 2. Kolla nuvarande status direkt vid start
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) {
-        showLoggedOutUI();
-    }
-}
-
-
-
-
-
-
-    
-supabaseClient.auth.onAuthStateChange((_event, session)=>{
+const { data: { session } } = await supabaseClient.auth.getSession();
 
 if(session?.user){
 
@@ -922,9 +864,25 @@ currentUser=session.user;
 
 showLoggedInUI();
 
+await ensureProfileAndLoad();
+
+}
+
+supabaseClient.auth.onAuthStateChange((event, session)=>{
+
+if(event === 'SIGNED_IN' && session?.user){
+
+currentUser=session.user;
+
+showLoggedInUI();
+
 ensureProfileAndLoad().catch(console.error);
 
-}else{
+}
+
+if(event === 'SIGNED_OUT'){
+
+currentUser=null;
 
 showLoggedOutUI();
 
