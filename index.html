@@ -324,14 +324,15 @@ margin-top:0;
 .auth-modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.85); /* Lite mörkare för bättre fokus */
-    display: flex;
+    background: rgba(0, 0, 0, 0.85);
+    display: none; /* ÄNDRA FRÅN FLEX TILL NONE */
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    backdrop-filter: blur(4px); /* Snygg suddig bakgrund */
+    backdrop-filter: blur(4px);
 }
 
+    
 .auth-card {
     width: min(400px, 92vw);
     background: var(--surface);
@@ -563,7 +564,7 @@ PORTFÖLJ
 
 </div>
 
-<div id="authModal" class="auth-modal" style="display:flex;">
+<div id="authModal" class="auth-modal">
 
 <div class="auth-card">
 
@@ -852,37 +853,32 @@ async function signUp() {
 
 
   
-async function initSupabaseAuth(){
-    // Visa modalen direkt som utgångspunkt
-    showLoggedOutUI();
-
-    // 1. Kolla direkt om vi redan har en session (vid sidladdning)
+async function initSupabaseAuth() {
+    // 1. Kolla sessionen direkt
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if(session?.user){
+
+    if (session?.user) {
+        // Om inloggad: Sätt användaren och visa inloggat UI
         currentUser = session.user;
         showLoggedInUI();
-        ensureProfileAndLoad().catch(console.error);
+        await ensureProfileAndLoad();
+    } else {
+        // Om INTE inloggad: VISA modalen nu
+        showLoggedOutUI(); 
     }
 
-    // 2. Lyssna på ALLA förändringar dynamiskt
+    // 2. Lyssna på framtida ändringar
     supabaseClient.auth.onAuthStateChange((event, session) => {
-        console.log("Auth Event:", event); // Bra för debugging
-
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') && session?.user) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
             currentUser = session.user;
             showLoggedInUI();
             ensureProfileAndLoad().catch(console.error);
-        }
-
-        if (event === 'SIGNED_OUT') {
+        } else if (event === 'SIGNED_OUT') {
             currentUser = null;
-            saldo = 100000; // Återställ lokalt saldo
-            portfölj = {};  // Töm lokal portfölj
             showLoggedOutUI();
         }
     });
 }
-
 
     
 
