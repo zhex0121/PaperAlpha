@@ -607,11 +607,18 @@ const symboler=[
 
 let aktier={};
 
+function formatMoney(number) {
+    return new Number(number).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
 let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
   
 let aktivAktie=null;
 
-let saldo=100000;
+let saldo=10000;
 
 let portfölj={};
 
@@ -1504,10 +1511,7 @@ function uppdateraPortfölj(){
 document.getElementById('balanceDisplay')
 
 .innerText=
-saldo.toLocaleString(
-'sv-SE',
-{minimumFractionDigits:2, useGrouping: false}
-)+" SEK";
+formatMoney(saldo) +" SEK";
 
 const container=
 document.getElementById('portfolioDisplay');
