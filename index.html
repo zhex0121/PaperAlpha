@@ -926,7 +926,7 @@ async function initSupabaseAuth(){
 
         if (event === 'SIGNED_OUT') {
             currentUser = null;
-            saldo = 100000; // Återställ lokalt saldo
+            saldo = 10000; // Återställ lokalt saldo
             portfölj = {};  // Töm lokal portfölj
             showLoggedOutUI();
         }
@@ -1443,7 +1443,7 @@ totaltInköp:0
 
 portfölj[aktivAktie].antal+=antal;
 
-portfölj[aktivAktie].totaltInköp+=kostnad;
+portfölj[aktivAktie].totaltInköp+=kostnadUSD; 
 
 rensaTradeFel();
 
@@ -1506,7 +1506,7 @@ document.getElementById('balanceDisplay')
 .innerText=
 saldo.toLocaleString(
 'sv-SE',
-{minimumFractionDigits:2}
+{minimumFractionDigits:2, useGrouping: false}
 )+" SEK";
 
 const container=
@@ -1562,7 +1562,7 @@ ${s} (${antal} st)
 
 <span>
 
-${värde.toFixed(0)} USD
+${värde.toFixed(0)} SEK
 
 </span>
 
@@ -1592,7 +1592,7 @@ Resultat:
 
 ${resultat>=0?'+':''}
 
-${resultat.toFixed(0)} USD
+${resultat.toFixed(0)} SEK
 
 (${procent.toFixed(2)}%)
 
