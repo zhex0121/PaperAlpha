@@ -456,13 +456,13 @@ HISTORISKT
 
 <h2 id="activeSymbol">
 
-Välj en aktie
+Ansluter till servern...
 
 </h2>
 
 <h1 id="activePrice">
 
-0.00
+Laddar priser...
 
 </h1>
 
@@ -968,7 +968,7 @@ symboler.forEach(s => {
 
     aktier[s] = {
         ticker: s,
-        pris: 0,
+        pris: null,
         history: [],
         chartSessionStart: null,
         change: (Math.random() * 4 - 2).toFixed(2),
