@@ -1,10 +1,23 @@
+
 <!DOCTYPE html>
 <html lang="sv">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PaperAlpha</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
+        :root {
+            --bg: #050505;
+            --surface: #121212;
+            --border: #282828;
+            --accent: #2962ff;
+            --up: #00ffaa;
+            --down: #ff3d71;
+            --text: #ffffff;
+            --text-dim: #b3b3b3;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,26 +26,145 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #050505 0%, #0a0a0a 100%);
-            color: #ffffff;
+            background: linear-gradient(135deg, var(--bg) 0%, #0a0a0a 100%);
+            color: var(--text);
             height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .top-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(18, 18, 18, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+
+        .logo-link {
+            text-decoration: none;
+            color: var(--text);
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .profile-section {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .login-button {
+             background: none;
+             border: 1px solid var(--accent);
+             color: var(--text);
+             font-size: 0.9rem;
+             font-weight: 600;
+             cursor: pointer;
+             padding: 8px 16px;
+             border-radius: 20px;
+             transition: all 0.2s ease;
+        }
+
+        .login-button:hover {
+             background: var(--accent);
+        }
+
+
+        .profile-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #1e1e1e;
+            border: 1px solid var(--border);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
+            font-size: 1rem;
+        }
+
+        .profile-btn:hover {
+            border-color: var(--accent);
+            transform: scale(1.05);
+        }
+
+        .profile-dropdown {
+            position: absolute;
+            top: 50px;
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 220px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1001;
+        }
+
+        .profile-dropdown.show {
+            display: block;
+        }
+
+        .profile-email {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            word-break: break-all;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 8px;
+            background: var(--down);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s ease;
+        }
+
+        .logout-btn:hover {
+            background: #ff2951;
         }
 
         .container {
             text-align: center;
             max-width: 800px;
             padding: 0 20px;
+            margin-top: 60px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
         h1 {
             font-size: 3.5rem;
             font-weight: 700;
             margin-bottom: 1rem;
-            background: linear-gradient(45deg, #2962ff, #00ffaa);
+            background: linear-gradient(45deg, var(--accent), var(--up));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -41,14 +173,14 @@
 
         .subtitle {
             font-size: 1.2rem;
-            color: #b3b3b3;
+            color: var(--text-dim);
             margin-bottom: 3rem;
             font-weight: 400;
         }
 
         .start-button {
-            background: linear-gradient(45deg, #2962ff, #00ffaa);
-            color: #ffffff;
+            background: linear-gradient(45deg, var(--accent), var(--up));
+            color: var(--text);
             border: none;
             padding: 20px 60px;
             font-size: 1.3rem;
@@ -57,59 +189,266 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 10px 30px rgba(41, 98, 255, 0.3);
-            letter-spacing: 0.5px;
             text-decoration: none;
             display: inline-block;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .start-button:before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
         }
 
         .start-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 15px 40px rgba(41, 98, 255, 0.4);
         }
-
-        .start-button:hover:before {
-            left: 100%;
+        
+        /* Auth Modal Styles */
+        .auth-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+            display: none; /* Hidden by default */
         }
 
-        .start-button:active {
-            transform: translateY(0);
+        .auth-card {
+            width: min(400px, 92vw);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }
 
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2.5rem;
-            }
-            
-            .subtitle {
-                font-size: 1rem;
-                margin-bottom: 2rem;
-            }
-            
-            .start-button {
-                padding: 16px 40px;
-                font-size: 1.1rem;
-            }
+        .auth-title {
+            margin: 0 0 25px 0;
+            text-align: center;
+            font-size: 1.5rem;
         }
+        
+        .auth-card input {
+            width: 100%;
+            background: #1e1e1e;
+            border: 1px solid var(--border);
+            padding: 12px;
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-top: 10px;
+        }
+
+        #authError {
+            margin: 15px 0;
+            min-height: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--down);
+        }
+
+        .auth-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .auth-actions .btn {
+            width: 100%;
+            margin-top: 0;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-buy { background: var(--up); color: black; }
+        .btn-sell { background: var(--down); color: white; }
+
     </style>
 </head>
 <body>
+    <div class="top-banner">
+        <a href="index.html" class="logo-link">PaperAlpha</a>
+        <div class="profile-section">
+            <div id="logged-out-view">
+                <button class="login-button">Logga in</button>
+            </div>
+            <div id="logged-in-view" style="display: none;">
+                <button class="profile-btn" id="profileBtn">
+                    <span id="profileInitial"></span>
+                </button>
+                <div class="profile-dropdown" id="profileDropdown">
+                    <div class="profile-email" id="profileEmail"></div>
+                    <button class="logout-btn">Logga ut</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <h1>PaperAlpha</h1>
         <p class="subtitle">Lär dig handla aktier utan risk</p>
         <a href="game.html" class="start-button">Starta Spel</a>
     </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-card">
+            <h3 class="auth-title">PaperAlpha</h3>
+            <input type="email" id="authEmail" placeholder="Email">
+            <input type="password" id="authPassword" placeholder="Lösenord">
+            <div id="authError"></div>
+            <div class="auth-actions">
+                <button class="btn btn-buy" onclick="signIn()">LOGGA IN</button>
+                <button class="btn btn-sell" onclick="signUp()">REGISTRERA</button>
+            </div>
+             <button onclick="showAuthModal(false)" style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 20px; width:100%; text-align:center;">Avbryt</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Supabase Setup ---
+        const SUPABASE_URL = 'https://noofczjkampvgqtjqkaf.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vb2ZjemprYW1wdmdxdGpxa2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MzM3NDcsImV4cCI6MjA5MDAwOTc0N30.0WDwZobgRdKx7yTPN9zWHe0Paa6-uQEEES5bSrwlSVM';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true
+            }
+        });
+
+        // --- Element References ---
+        const loggedOutView = document.getElementById('logged-out-view');
+        const loggedInView = document.getElementById('logged-in-view');
+        const loginButton = loggedOutView.querySelector('.login-button');
+        
+        const profileBtn = document.getElementById('profileBtn');
+        const profileInitial = document.getElementById('profileInitial');
+        const profileDropdown = document.getElementById('profileDropdown');
+        const profileEmail = document.getElementById('profileEmail');
+        const logoutButton = loggedInView.querySelector('.logout-btn');
+
+        const authModal = document.getElementById('authModal');
+        const authError = document.getElementById('authError');
+
+        let currentUser = null;
+
+        // --- UI Functions ---
+        function showAuthModal(show) {
+            authModal.style.display = show ? 'flex' : 'none';
+        }
+
+        function showLoggedInUI(user) {
+            loggedOutView.style.display = 'none';
+            loggedInView.style.display = 'flex';
+            profileEmail.textContent = user.email;
+            profileInitial.textContent = user.email.charAt(0).toUpperCase();
+            currentUser = user;
+        }
+
+        function showLoggedOutUI() {
+            loggedOutView.style.display = 'block';
+            loggedInView.style.display = 'none';
+            profileDropdown.classList.remove('show');
+            currentUser = null;
+        }
+
+        // --- Auth Logic ---
+        async function signIn() {
+            setAuthError('');
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+
+            if (!email || !password) {
+                setAuthError('Vänligen fyll i både e-post och lösenord.');
+                return;
+            }
+
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                setAuthError('Fel e-post eller lösenord. Försök igen!');
+            } else {
+                showAuthModal(false); // Close modal on success
+            }
+        }
+
+        async function signUp() {
+            setAuthError('');
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+
+            if (!email || !password) {
+                setAuthError('Du måste fylla i e-post och lösenord för att skapa konto.');
+                return;
+            }
+            if (password.length < 6) {
+                setAuthError('Lösenordet måste vara minst 6 tecken långt.');
+                return;
+            }
+
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
+            
+            if (error) {
+                setAuthError('Kunde inte skapa konto: ' + error.message);
+            } else if (!data?.session) {
+                 setAuthError('Kontot finns redan. Prova att logga in istället!');
+            } else {
+                alert('Registrering lyckades! Vänligen kolla din e-post för att verifiera ditt konto.');
+                showAuthModal(false);
+            }
+        }
+
+        async function handleLogout() {
+            await supabaseClient.auth.signOut();
+        }
+        
+        function setAuthError(msg) {
+            authError.innerText = msg || '';
+        }
+
+        // --- Event Listeners ---
+        loginButton.addEventListener('click', () => {
+            setAuthError('');
+            showAuthModal(true);
+        });
+
+        logoutButton.addEventListener('click', handleLogout);
+
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileDropdown.classList.toggle('show');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!loggedInView.contains(e.target)) {
+                profileDropdown.classList.remove('show');
+            }
+        });
+        
+        // --- Supabase Auth State Listener ---
+        async function setupAuthListener() {
+            // Get initial session
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session?.user) {
+                showLoggedInUI(session.user);
+            } else {
+                showLoggedOutUI();
+            }
+
+            // Listen for changes
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                if (session?.user) {
+                    showLoggedInUI(session.user);
+                } else {
+                    showLoggedOutUI();
+                }
+            });
+        }
+        
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', setupAuthListener);
+
+    </script>
 </body>
 </html>
