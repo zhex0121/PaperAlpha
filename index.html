@@ -418,6 +418,15 @@ id="searchInput"
 placeholder="Sök..."
 oninput="filtreraAktier()">
 
+
+<input
+  type="text"
+  id="tradeAmount"
+  value="1"
+  style="margin:10px 0 20px 0;"
+  oninput="this.value = this.value.replace(/[^\d,]/g,'');"
+/>
+    
 </div>
 
 <div
@@ -1613,19 +1622,21 @@ try{
         return;
     }
 
-    const råVärde=document.getElementById('tradeAmount').value.trim();
+  const råVärde = document.getElementById('tradeAmount').value.trim();
 
-    if(!aktivAktie||!/^\d*\.?\d+$/.test(råVärde)){
-        visaTradeFel();
-        return;
-    }
+// Ny regex: endast siffror och ett komma
+if (!aktivAktie || !/^\d*(,\d+)?$/.test(råVärde)) {
+    visaTradeFel();
+    return;
+}
 
-    let antal=parseFloat(råVärde);
+// Konvertera komma till punkt för JavaScript
+let antal = parseFloat(råVärde.replace(',', '.'));
 
-    if(!Number.isFinite(antal)||antal<=0){
-        visaTradeFel();
-        return;
-    }
+if (!Number.isFinite(antal) || antal <= 0) {
+    visaTradeFel();
+    return;
+}
 
     const pris=aktier[aktivAktie].pris;
 
