@@ -524,7 +524,8 @@ ANTAL
 type="number"
 id="tradeAmount"
 value="1"
-min="1"
+min="0.0001"
+step="0.0001"
 style="margin:10px 0 20px 0;">
 
 <div id="tradeError" class="trade-error"></div>
@@ -1604,14 +1605,14 @@ try{
 
     const råVärde=document.getElementById('tradeAmount').value.trim();
 
-    if(!aktivAktie||!/^\d+$/.test(råVärde)){
+    if(!aktivAktie||!/^\d*\.?\d+$/.test(råVärde)){
         visaTradeFel();
         return;
     }
 
-    let antal=parseInt(råVärde,10);
+    let antal=parseFloat(råVärde);
 
-    if(isNaN(antal)||antal<=0){
+    if(!Number.isFinite(antal)||antal<=0){
         visaTradeFel();
         return;
     }
@@ -1639,7 +1640,8 @@ try{
                     };
                 }
 
-                portfölj[aktivAktie].antal+=antal;
+                portfölj[aktivAktie].antal=
+Number((portfölj[aktivAktie].antal+antal).toFixed(6));
                 portfölj[aktivAktie].totaltInköp+=kostnadUSD; 
                 rensaTradeFel();
                 
@@ -1653,11 +1655,12 @@ try{
         if(typ==='sälj'){
             if(
                 portfölj[aktivAktie] &&
-                portfölj[aktivAktie].antal>=antal
+portfölj[aktivAktie].antal+0.0000001>=antal
             ){
                 const snitt=portfölj[aktivAktie].totaltInköp/portfölj[aktivAktie].antal;
                 saldo+=kostnad;
-                portfölj[aktivAktie].antal-=antal;
+                portfölj[aktivAktie].antal=
+Number((portfölj[aktivAktie].antal-antal).toFixed(6));
                 portfölj[aktivAktie].totaltInköp-=snitt*antal;
 
                 if(portfölj[aktivAktie].antal===0){
@@ -1787,7 +1790,7 @@ onclick="väljAktie('${s}')"
 onmouseover="this.style.textDecoration='underline'"
 onmouseout="this.style.textDecoration='none'"
 >
-${s} (${antal} st)
+${s} (${Number(antal.toFixed(4))} st)
 </span>
 
 <span>
