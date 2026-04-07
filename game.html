@@ -554,11 +554,15 @@ margin-top:0;
 <div class="market-side">
 
 <div class="search-box">
-    <input
-    type="text"
-    id="searchInput"
-    placeholder="Sök..."
-    oninput="filtreraAktier()">
+    <form autocomplete="off">
+<input
+type="text"
+id="searchInput"
+placeholder="Sök..."
+autocomplete="off"
+name="q"
+oninput="filtreraAktier()">
+</form>
 </div>
 
 <div
@@ -708,9 +712,9 @@ PORTFÖLJ
 
 <h3 class="auth-title">PaperAlpha</h3>
 
-<input type="email" id="authEmail" placeholder="Email">
+<input type="email" id="authEmail" placeholder="Email" autocomplete="username">
 
-<input type="password" id="authPassword" placeholder="Lösenord" style="margin-top:10px;">
+<input type="password" id="authPassword" placeholder="Lösenord" autocomplete="current-password" style="margin-top:10px;">
 
 <div id="authError" class="trade-error"></div>
 
