@@ -84,11 +84,12 @@ overflow:hidden;
 }
 
 .profile-section {
+    position: relative;   /* ADD THIS */
     display: flex;
     align-items: center;
     gap: 15px;
 }
-
+    
 .profile-btn {
     width: 40px;
     height: 40px;
@@ -300,13 +301,6 @@ min-height:0;
     background: var(--surface);
 }
 
-.logout-btn {
-    position: absolute;
-    top: 15px;    /* Distance from top */
-    right: 20px;  /* Distance from right edge */
-    margin: 0;    /* Remove any default margins */
-    z-index: 10;  /* Ensure it stays on top */
-}
     
 .stat-box{
 
