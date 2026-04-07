@@ -263,6 +263,104 @@
         .btn-buy { background: var(--up); color: black; }
         .btn-sell { background: var(--down); color: white; }
 
+        /* Game Modal Styles */
+        .game-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+            display: none;
+        }
+
+        .game-card {
+            width: min(500px, 92vw);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .game-title {
+            margin: 0 0 25px 0;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .game-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .game-tab {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .game-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .game-tab-content {
+            display: none;
+        }
+
+        .game-tab-content.active {
+            display: block;
+        }
+
+        .game-card input {
+            width: 100%;
+            background: #1e1e1e;
+            border: 1px solid var(--border);
+            padding: 12px;
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-top: 10px;
+        }
+
+        .game-card label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .game-card select {
+            width: 100%;
+            background: #1e1e1e;
+            border: 1px solid var(--border);
+            padding: 12px;
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-top: 5px;
+        }
+
+        #gameError {
+            margin: 15px 0;
+            min-height: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--down);
+        }
+
     </style>
 </head>
 <body>
@@ -287,7 +385,7 @@
     <div class="container">
         <h1>PaperAlpha</h1>
         <p class="subtitle">Lär dig handla aktier utan risk</p>
-        <a href="game.html" class="start-button">Starta Spel</a>
+        <a href="#" class="start-button" onclick="showGameModal(true)">Starta Tävling</a>
     </div>
 
     <!-- Auth Modal -->
@@ -302,6 +400,50 @@
                 <button class="btn btn-sell" onclick="signUp()">REGISTRERA</button>
             </div>
              <button onclick="showAuthModal(false)" style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 20px; width:100%; text-align:center;">Avbryt</button>
+        </div>
+    </div>
+
+    <!-- Game Modal -->
+    <div id="gameModal" class="game-modal">
+        <div class="game-card">
+            <h3 class="game-title">Tävling</h3>
+            
+            <div class="game-tabs">
+                <button class="game-tab active" onclick="switchGameTab('create')">SKAPA</button>
+                <button class="game-tab" onclick="switchGameTab('join')">GÅ MED</button>
+            </div>
+
+            <div id="createTab" class="game-tab-content active">
+                <label>Namn på tävling</label>
+                <input type="text" id="gameName" placeholder="Ange namn på tävling">
+                
+                <label>Längd</label>
+                <select id="gameDuration">
+                    <option value="60">1 timme</option>
+                    <option value="180">3 timmar</option>
+                    <option value="1440">1 dag</option>
+                    <option value="4320">3 dagar</option>
+                    <option value="10080">1 vecka</option>
+                </select>
+                
+                <label>Startkapital (SEK)</label>
+                <input type="number" id="gameBalance" value="10000" min="1000" max="1000000" step="1000">
+                
+                <div id="gameError"></div>
+                
+                <button class="btn btn-buy" onclick="createGame()" style="margin-top: 20px;">SKAPA TÄVLING</button>
+            </div>
+
+            <div id="joinTab" class="game-tab-content">
+                <label>Tävlingskod</label>
+                <input type="text" id="gameCode" placeholder="Ange tävlingskod">
+                
+                <div id="gameError"></div>
+                
+                <button class="btn btn-sell" onclick="joinGame()" style="margin-top: 20px;">GÅ MED I TÄVLING</button>
+            </div>
+            
+            <button onclick="showGameModal(false)" style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 20px; width:100%; text-align:center;">Avbryt</button>
         </div>
     </div>
 
@@ -448,6 +590,166 @@
         
         // --- Initial Load ---
         document.addEventListener('DOMContentLoaded', setupAuthListener);
+
+        // --- Game Modal Functions ---
+        function showGameModal(show) {
+            if (show && !currentUser) {
+                setAuthError('Du måste vara inloggad för att starta eller gå med i en tävling.');
+                showAuthModal(true);
+                return;
+            }
+            document.getElementById('gameModal').style.display = show ? 'flex' : 'none';
+            if (show) {
+                setGameError('');
+            }
+        }
+
+        function switchGameTab(tab) {
+            const tabs = document.querySelectorAll('.game-tab');
+            const contents = document.querySelectorAll('.game-tab-content');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+            
+            if (tab === 'create') {
+                tabs[0].classList.add('active');
+                document.getElementById('createTab').classList.add('active');
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('joinTab').classList.add('active');
+            }
+            
+            setGameError('');
+        }
+
+        function setGameError(msg) {
+            document.getElementById('gameError').innerText = msg || '';
+        }
+
+        async function createGame() {
+            setGameError('');
+            
+            const name = document.getElementById('gameName').value.trim();
+            const duration = document.getElementById('gameDuration').value;
+            const balance = document.getElementById('gameBalance').value;
+            
+            if (!name) {
+                setGameError('Ange ett namn på tävlingen.');
+                return;
+            }
+            
+            if (!duration || !balance) {
+                setGameError('Välj längd och startkapital.');
+                return;
+            }
+            
+            try {
+                // Generate invite code
+                const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                console.log('Generated invite code:', inviteCode);
+                
+                // Calculate end time
+                const startTime = new Date().toISOString();
+                const endTime = new Date(Date.now() + parseInt(duration) * 60 * 1000).toISOString();
+                
+                // Create league in Supabase
+                const { data, error } = await supabaseClient
+                    .from('leagues')
+                    .insert({
+                        name: name,
+                        creator_id: currentUser.id,
+                        starting_balance: parseFloat(balance),
+                        start_time: startTime,
+                        end_time: endTime,
+                        invite_code: inviteCode
+                    })
+                    .select()
+                    .single();
+                
+                if (error) throw error;
+                
+                console.log('League created successfully:', data);
+                
+                // Add creator as member
+                const { error: memberError } = await supabaseClient
+                    .from('league_members')
+                    .insert({
+                        league_id: data.id,
+                        user_id: currentUser.id,
+                        balance: parseFloat(balance),
+                        portfolio: {}
+                    });
+                
+                if (memberError) throw memberError;
+                
+                console.log('Member added successfully, redirecting to game...');
+                
+                // Redirect to game with league info
+                window.location.href = `game.html?league=${data.id}&code=${inviteCode}`;
+                
+            } catch (error) {
+                console.error('Create game error:', error);
+                setGameError('Kunde inte skapa tävling. Försök igen.');
+            }
+        }
+
+        async function joinGame() {
+            setGameError('');
+            
+            const code = document.getElementById('gameCode').value.trim().toUpperCase();
+            
+            if (!code) {
+                setGameError('Ange en tävlingskod.');
+                return;
+            }
+            
+            try {
+                // Find league by invite code
+                const { data: league, error } = await supabaseClient
+                    .from('leagues')
+                    .select('*')
+                    .eq('invite_code', code)
+                    .single();
+                
+                if (error || !league) {
+                    setGameError('Hittade ingen tävling med den koden.');
+                    return;
+                }
+                
+                // Check if already a member
+                const { data: existingMember } = await supabaseClient
+                    .from('league_members')
+                    .select('*')
+                    .eq('league_id', league.id)
+                    .eq('user_id', currentUser.id)
+                    .maybeSingle();
+                
+                if (existingMember) {
+                    // Already a member, redirect to game
+                    window.location.href = `game.html?league=${league.id}&code=${code}`;
+                    return;
+                }
+                
+                // Add as new member
+                const { error: memberError } = await supabaseClient
+                    .from('league_members')
+                    .insert({
+                        league_id: league.id,
+                        user_id: currentUser.id,
+                        balance: league.starting_balance,
+                        portfolio: {}
+                    });
+                
+                if (memberError) throw memberError;
+                
+                // Redirect to game
+                window.location.href = `game.html?league=${league.id}&code=${code}`;
+                
+            } catch (error) {
+                console.error('Join game error:', error);
+                setGameError('Kunde inte gå med i tävling. Försök igen.');
+            }
+        }
 
     </script>
 </body>
