@@ -1803,11 +1803,11 @@ try{
 
     const pris=aktier[aktivAktie].pris;
 
-    // 检查价格是否有效
-    if(!pris || pris <= 0 || !Number.isFinite(pris)){
-        document.getElementById('tradeError').innerText="Gör om, gör rätt!";
-        return;
-    }
+   
+if(!pris || pris <= 0 || !Number.isFinite(pris)){
+    visaTradeFel("Priserna laddar fortfarande. Vänta ett ögonblick och försök igen.");
+    return;
+}
 
     const kostnadUSD=pris*antal;
     const kostnad=kostnadUSD*currentExchangeRate; // 转换为SEK
