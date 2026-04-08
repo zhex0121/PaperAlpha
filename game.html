@@ -1831,7 +1831,7 @@ Number((portfölj[aktivAktie].antal+antal).toPrecision(12));
                 
                 console.log(`Köpte ${antal} st ${aktivAktie} för ${kostnadUSD} USD`);
             } else {
-                const affordableAmount = (saldo / kostnad * antal);
+const affordableAmount = Math.floor((saldo / kostnad * antal) * 10000) / 10000;
     const isExpensive = pris * currentExchangeRate > saldo;
     
     const info = isExpensive
