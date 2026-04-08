@@ -645,7 +645,6 @@ Laddar priser...
   <div style="margin-top:8px; display:flex; align-items:center; gap:6px;">
     <span style="color:var(--text-dim); font-size:0.78rem;">Tillgängligt för köp</span>
     <span id="balanceDisplay" style="font-size:0.88rem; font-weight:600; color:var(--text-dim);">
-      Laddar...
     </span>
   </div>
 </div>
@@ -929,8 +928,6 @@ document.getElementById('accountBar').style.display='none';
 document.getElementById('tradeControls').style.display='none';
 
 document.getElementById('portfolioDisplay').style.display='none';
-
-document.getElementById('balanceDisplay').innerText='Logga in för att handla';
 
 document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
     
@@ -1943,8 +1940,8 @@ for (let s in portfölj) {
 }
 
 document.getElementById('balanceDisplay').innerText = currentUser
-  ? (prisarLaddar ? "Laddar..." : formatMoney(saldo) + " SEK")
-  : "Logga in för att handla";
+  ? (prisarLaddar ? "" : formatMoney(saldo) + " SEK")
+  : "";
     
 document.getElementById('portfolioValueDisplay').innerText = currentUser
   ? (prisarLaddar ? "Laddar..." : formatMoney(totalPortfolioValue) + " SEK")
