@@ -1929,20 +1929,25 @@ window.tradeLock=false;
     
 function uppdateraPortfölj(){
 
-document.getElementById('balanceDisplay').innerText = currentUser
-  ? formatMoney(saldo) + " SEK"
-  : "Logga in för att handla";
-
 // Calculate total portfolio market value
 let totalPortfolioValue = saldo;
+let prisarLaddar = false;
+
 for (let s in portfölj) {
   const pris = aktier[s].pris;
-  if (pris && Number.isFinite(pris)) {
-    totalPortfolioValue += portfölj[s].antal * pris * currentExchangeRate;
+  if (!pris || !Number.isFinite(pris)) {
+    prisarLaddar = true; // A holding has no price yet — can't show accurate total
+    break;
   }
+  totalPortfolioValue += portfölj[s].antal * pris * currentExchangeRate;
 }
+
+document.getElementById('balanceDisplay').innerText = currentUser
+  ? (prisarLaddar ? "Laddar..." : formatMoney(saldo) + " SEK")
+  : "Logga in för att handla";
+    
 document.getElementById('portfolioValueDisplay').innerText = currentUser
-  ? formatMoney(totalPortfolioValue) + " SEK"
+  ? (prisarLaddar ? "Laddar..." : formatMoney(totalPortfolioValue) + " SEK")
   : "Logga in för att handla";
 
 const container=
