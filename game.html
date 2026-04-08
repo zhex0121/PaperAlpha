@@ -1480,10 +1480,12 @@ priceEl.classList.remove('up','down');
 
 }
 
-// AFTER:
+
 function visaTradeFel(info = ""){
     document.getElementById('tradeError').innerHTML =
         info ? `<div style="color:white;font-weight:400;font-size:0.8rem;">${info}</div>` : '';
+    clearTimeout(window.tradeErrorTimeout);
+    window.tradeErrorTimeout = setTimeout(() => rensaTradeFel(), 10000);
 }
 
 
