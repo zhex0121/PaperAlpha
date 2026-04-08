@@ -524,30 +524,38 @@
         }
 
         async function signUp() {
-            setAuthError('');
-            const email = document.getElementById('authEmail').value.trim();
-            const password = document.getElementById('authPassword').value.trim();
+    setAuthError('');
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value.trim();
 
-            if (!email || !password) {
-                setAuthError('Du måste fylla i e-post och lösenord för att skapa konto.');
-                return;
-            }
-            if (password.length < 6) {
-                setAuthError('Lösenordet måste vara minst 6 tecken långt.');
-                return;
-            }
+    if (!email || !password) {
+        setAuthError('Du måste fylla i e-post och lösenord för att skapa konto.');
+        return;
+    }
+    if (password.length < 8) {
+        setAuthError('Lösenordet måste vara minst 8 tecken långt.');
+        return;
+    }
 
-            const { data, error } = await supabaseClient.auth.signUp({ email, password });
-            
-            if (error) {
-                setAuthError('Kunde inte skapa konto: ' + error.message);
-            } else if (!data?.session) {
-                 setAuthError('Kontot finns redan. Prova att logga in istället!');
-            } else {
-                alert('Registrering lyckades! Vänligen kolla din e-post för att verifiera ditt konto.');
-                showAuthModal(false);
-            }
-        }
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+    
+    if (error) {
+        setAuthError('Kunde inte skapa konto: ' + error.message);
+        return;
+    }
+
+    // Om Confirm Email är avstängt i Supabase, kommer data.session finnas här
+    if (data?.session) {
+        // Succé! Användaren är nu inloggad.
+        showAuthModal(false); // Stäng rutan direkt
+        // Om du har en funktion för att ladda om användardata, kör den här, t.ex:
+        // checkUser(); 
+    } else {
+        // Om session saknas betyder det oftast att kontot redan finns 
+        // eller att verifiering fortfarande krävs i Supabase-inställningarna.
+        setAuthError('Kontot skapat, men inloggning misslyckades. Prova att logga in.');
+    }
+}
 
         async function handleLogout() {
             await supabaseClient.auth.signOut();
