@@ -1483,8 +1483,9 @@ priceEl.classList.remove('up','down');
 // AFTER:
 function visaTradeFel(info = ""){
     document.getElementById('tradeError').innerHTML =
-        `Gör om, gör rätt!${info ? `<div style="color:white;font-weight:400;font-size:0.8rem;margin-top:4px;">${info}</div>` : ''}`;
+        info ? `<div style="color:var(--down);font-weight:400;font-size:0.8rem;">${info}</div>` : '';
 }
+
 
 function rensaTradeFel(){
     document.getElementById('tradeError').innerHTML="";
@@ -1877,9 +1878,8 @@ Number((portfölj[aktivAktie].antal-antal).toFixed(6));
         try {
             await sparaPortföljTillSupabase();
 console.log("Transaction saved successfully!");
-            
-            // 添加保存成功的视觉反馈
-            document.getElementById('tradeError').innerText = "Sparat!";
+         
+            document.getElementById('tradeError').innerHTML = '<div style="color:var(--up);font-weight:400;font-size:0.8rem;">Sparat!</div>';
             setTimeout(() => rensaTradeFel(), 1500);
         } catch (saveError) {
             console.error("Failed to save transaction:", saveError);
