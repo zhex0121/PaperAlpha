@@ -295,10 +295,13 @@ min-height:0;
 }
 
 .trade-side {
-    position: relative; 
-    border-left: 1px solid var(--border);
-    padding: 20px;
-    background: var(--surface);
+  position: relative;
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
     
@@ -346,12 +349,16 @@ color:white;
 
 }
 
-.portfolio-list{
-
-font-size:0.85rem;
-
-margin-top:20px;
-
+.portfolio-list {
+  font-size: 0.85rem;
+  margin-top: 20px;
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+  padding-right: 5px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 
