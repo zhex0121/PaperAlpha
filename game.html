@@ -361,7 +361,7 @@ color:white;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Subtle scrollbars (Chrome, Edge, Safari) */
+/* Shorter, subtle scrollbars (Chrome, Edge, Safari) */
 .stock-list::-webkit-scrollbar,
 .portfolio-list::-webkit-scrollbar {
     width: 6px;
@@ -376,6 +376,8 @@ color:white;
 .portfolio-list::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.12);
     border-radius: 10px;
+    min-height: 20px;       /* ensures the thumb is never too tiny */
+    max-height: 80px;       /* caps the thumb height to make it shorter */
 }
 
 /* Slight hover visibility */
