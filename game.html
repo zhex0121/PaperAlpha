@@ -295,13 +295,15 @@ min-height:0;
 }
 
 .trade-side {
-  position: relative;
-  border-left: 1px solid var(--border);
-  padding: 20px;
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+    position: relative;
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    background: var(--surface);
+    display: flex;         /* Added: Helps manage vertical spacing */
+    flex-direction: column; /* Added: Stacks elements top to bottom */
+    height: calc(100vh - 60px); 
+    box-sizing: border-box;
+    min-height: 0;
 }
 
     
@@ -350,15 +352,16 @@ color:white;
 }
 
 .portfolio-list {
-  font-size: 0.85rem;
-  margin-top: 20px;
-  max-height: calc(100vh - 320px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.15) transparent;
-  padding-right: 5px;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+    font-size: 0.85rem;
+    margin-top: 10px;      /* Adjusted: Space between title and list */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
+    padding-right: 5px;
+    scroll-behavior: smooth;
+    
+    /* This calculation keeps the list within the screen height */
+    max-height: calc(100vh - 380px); 
 }
 
 /* Shorter, subtle scrollbars (Chrome, Edge, Safari) */
@@ -720,13 +723,11 @@ SÄLJ
 
 </div>
 
-<div style="border-bottom:1px solid var(--border); padding-bottom:5px; font-weight:bold; color:var(--text);">
-  PORTFÖLJ
+<div style="border-bottom:1px solid var(--border); padding-bottom:5px; margin-top: 20px;">
+    <h4 style="margin: 0; font-size: 0.85rem; letter-spacing: 1px;">PORTFÖLJ</h4>
 </div>
 
-<div class="portfolio-list" id="portfolioDisplay">
-  <!-- Lista av innehåll kommer här -->
-</div>
+<div class="portfolio-list" id="portfolioDisplay"></div>
 
 </div>
 
@@ -1989,12 +1990,10 @@ if (currentUser && !prisarLaddar) {
         : "Logga in för att handla";
 }
 
-const container=
-document.getElementById('portfolioDisplay');
+const container = document.getElementById('portfolioDisplay');
 
-container.innerHTML=
-
-'<h4 style="border-bottom:1px solid var(--border); padding-bottom:5px;">PORTFÖLJ</h4>';
+// Change the line below to just empty quotes
+container.innerHTML = "";
 
 for(let s in portfölj){
 
