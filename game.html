@@ -781,6 +781,8 @@ let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
   
 let aktivAktie=null;
 
+let hydrated = false;
+    
 let saldo=10000;
 
 let previousPortValue = null; 
@@ -807,38 +809,27 @@ detectSessionInUrl:true
 }
 }
 );
-
-
-
-
-
-
     
 
-setInterval(()=>{
-
-if(authReady && currentUser){
-
-sparaPortföljTillSupabase();
-
-}
-
-},20000);
+setInterval(() => {
+  if (authReady && currentUser && hydrated) {
+    sparaPortföljTillSupabase();
+  }
+}, 20000);
 
 
-
-window.addEventListener(
-"beforeunload",
-async ()=>{
-
-sparaTillLokalt();
-
-if(currentUser){
-
-await sparaPortföljTillSupabase();
-
-}
-
+window.addEventListener("beforeunload", () => {
+  sparaTillLokalt();
+  if (currentUser && hydrated) {
+    navigator.sendBeacon(
+      "https://jdpwqtoltrkrflopvicr.supabase.co/rest/v1/profiles",
+      JSON.stringify({
+        user_id: currentUser.id,
+        balance: saldo,
+        portfolio: portfölj
+      })
+    );
+  }
 });
 
 
@@ -1106,11 +1097,11 @@ async function ensureProfileAndLoad() {
             console.log("Loaded portfolio:", portfölj);
         }
 
-        // 更新界面
-        uppdateraPortfölj();
-        
-        // 保存到本地作为备份
-        sparaTillLokalt();
+        // EFTER att allt är klart:
+uppdateraPortfölj();
+sparaTillLokalt();
+
+hydrated = true;
         
     } catch (err) {
         console.error("Failed to load profile:", err);
@@ -1118,6 +1109,7 @@ async function ensureProfileAndLoad() {
         saldo = 10000;
         portfölj = {};
         uppdateraPortfölj();
+        hydrated = true;
     }
 }
 
@@ -1135,7 +1127,7 @@ portfölj:portfölj
 
 async function sparaPortföljTillSupabase(){
 
-if(!currentUser) return;
+if (!currentUser || !hydrated) return;
 
 const snapshot=getPortfolioSnapshot();
 
@@ -2166,13 +2158,16 @@ document.getElementById('tradeAmount').addEventListener('input', rensaTradeFel);
     
     
 <script>
-document.addEventListener('visibilitychange', function() {
+let lastReload = 0;
+
+document.addEventListener('visibilitychange', function () {
   if (!document.hidden) {
+    const now = Date.now();
+    if (now - lastReload < 2000) return; // max 1 reload per 2s
+    lastReload = now;
     location.reload();
   }
 });
-
-
     
 </script>
 
