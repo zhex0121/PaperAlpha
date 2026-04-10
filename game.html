@@ -2023,84 +2023,33 @@ procent =
 }
 
 
-container.innerHTML+=`
+container.innerHTML += `
+  <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #1a1a1a;">
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+        <span style="cursor:pointer; color:#2962ff; text-decoration:none; word-break:break-word; line-height:1.2;"
+              onclick="vljAktie('${s}')"
+              onmouseover="this.style.textDecoration='underline'"
+              onmouseout="this.style.textDecoration='none'">
+          ${s} ${Number(antal).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} st
+        </span>
 
-<div style="
-margin-bottom:12px;
-padding-bottom:10px;
-border-bottom:1px solid #1a1a1a;
-">
+        <span style="white-space:nowrap; flex-shrink:0; margin-left:12px;">
+          ${vrde !== null ? Number(vrde).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '--'} SEK
+        </span>
+      </div>
 
-<div style="
-display:flex;
-justify-content:space-between;
-font-weight:bold;
-">
+      <div style="font-size:0.75rem; color:var(--text-dim); margin-top:2px;">
+        Snittpris: ${Number(snitt).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+      </div>
 
-<span 
-style="
-cursor:pointer;
-color:#2962ff;
-text-decoration:none;
-"
-onclick="väljAktie('${s}')"
-onmouseover="this.style.textDecoration='underline'"
-onmouseout="this.style.textDecoration='none'"
->
-${s} (${Number(antal).toLocaleString('sv-SE',{ minimumFractionDigits:0, maximumFractionDigits:4 })} st)
-</span>
-
-<span>
-
-${värde===null ? '--' : Number(värde).toLocaleString('sv-SE',{
-minimumFractionDigits:0,
-maximumFractionDigits:0
-})+' SEK'}
-
-</span>
-
-</div>
-
-<div style="
-font-size:0.75rem;
-color:var(--text-dim);
-margin-top:4px;
-">
-
-Snittpris:
-${Number(snitt).toLocaleString('sv-SE',{
-minimumFractionDigits:2,
-maximumFractionDigits:2
-})} USD
-
-</div>
-
-<div class="${
-resultat===null
-? ''
-: resultat>=0?'up':'down'
-}"
-
-style="
-font-size:0.75rem;
-margin-top:2px;
-">
-
-Resultat:
-
-${
-resultat===null
-? 'Laddar priser...'
-:
-`${resultat>=0?'+':''}${Number(resultat).toLocaleString('sv-SE',{ minimumFractionDigits:0, maximumFractionDigits:2 })} SEK`
-}
-
-${procent===null ? '' : '('+Number(procent).toLocaleString('sv-SE',{ minimumFractionDigits:2, maximumFractionDigits:2 })+'%)'}
-
-</div>
-
-</div>
-
+      <div class="${resultat !== null && resultat >= 0 ? 'up' : 'down'}"
+           style="font-size:0.75rem; margin-top:2px;">
+        Resultat: ${resultat !== null ? Number(resultat).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : 'Laddar priser...'} SEK
+        ${procent !== null ? `(${Number(procent).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` : ''}
+      </div>
+    </div>
+  </div>
 `;
 
 }
