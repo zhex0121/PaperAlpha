@@ -2028,14 +2028,14 @@ container.innerHTML += `
     <div style="display:flex; flex-direction:column; gap:4px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
         <span style="cursor:pointer; color:#2962ff; text-decoration:none; word-break:break-word; line-height:1.2;"
-              onclick="vljAktie('${s}')"
+              onclick="väljAktie('${s}')"
               onmouseover="this.style.textDecoration='underline'"
               onmouseout="this.style.textDecoration='none'">
           ${s} ${Number(antal).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} st
         </span>
 
         <span style="white-space:nowrap; flex-shrink:0; margin-left:12px;">
-          ${vrde !== null ? Number(vrde).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '--'} SEK
+          ${värde !== null ? Number(värde).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '--'} SEK
         </span>
       </div>
 
