@@ -782,6 +782,8 @@ let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
 let aktivAktie=null;
 
 let hydrated = false;
+
+let isLoadingProfile = false;
     
 let saldo=10000;
 
@@ -1016,33 +1018,33 @@ function showLoggedInUI() {
 
 
 function setAuthError(msg){
-
 document.getElementById('authError').innerText = msg || '';
-
 }
 
+
+    
 async function ensureProfileAndLoad() {
-    if (!currentUser) return;
+
+    if (!currentUser || isLoadingProfile) return;
+
+    isLoadingProfile = true;
+
     const userId = currentUser.id;
 
     console.log("Loading profile for user:", userId);
 
     try {
-        // 从 Supabase 查询
+
         const { data: profile, error } = await supabaseClient
             .from('profiles')
             .select('balance, portfolio, email')
             .eq('user_id', userId)
             .maybeSingle();
 
-        if (error) {
-            console.error("Profile query error:", error);
-            throw error;
-        }
+        if (error) throw error;
 
         if (!profile) {
-            // 如果是新用户，在数据库创建初始存档
-            console.log("Creating new profile for user:", userId);
+
             const { error: insertError } = await supabaseClient
                 .from('profiles')
                 .insert({
@@ -1051,64 +1053,37 @@ async function ensureProfileAndLoad() {
                     balance: 10000,
                     portfolio: {}
                 });
-            
-            if (insertError) {
-                console.error("Profile creation error:", insertError);
-                throw insertError;
-            }
-            
+
+            if (insertError) throw insertError;
+
             saldo = 10000;
             portfölj = {};
-            console.log("New profile created with default values");
+
         } else {
-            // 如果是老用户，先尝试从本地加载（快速显示）
-            const lokalData = laddaFrånLokalt();
-            if (lokalData) {
-                console.log("Using local backup while cloud loads...");
-                saldo = lokalData.saldo;
-                portfölj = lokalData.portfölj;
-                uppdateraPortfölj(); // 立即更新界面
-            }
-            
-            // 然后从云端加载最新数据
-            console.log("Loading existing profile from cloud:", profile);
+
             saldo = Number(profile.balance) || 10000;
-            
-            // 关键点：确保读取到的 portfolio 是对象格式
+
             const rawPortfolio = profile.portfolio || {};
             portfölj = {};
-            
-            // 只加载有效的股票数据
+
             Object.keys(rawPortfolio).forEach(ticker => {
-                if (rawPortfolio[ticker] && typeof rawPortfolio[ticker] === 'object') {
+                if (rawPortfolio[ticker]) {
                     portfölj[ticker] = {
                         antal: Number(rawPortfolio[ticker].antal || 0),
                         totaltInköp: Number(rawPortfolio[ticker].totaltInköp || 0)
                     };
-                    
-                    // 过滤掉无效的持仓
-                    if (portfölj[ticker].antal <= 0) {
-                        delete portfölj[ticker];
-                    }
                 }
             });
-            
-            console.log("Loaded portfolio:", portfölj);
         }
 
-        // EFTER att allt är klart:
-uppdateraPortfölj();
-sparaTillLokalt();
+        uppdateraPortfölj();
+        sparaTillLokalt();
+        hydrated = true;
 
-hydrated = true;
-        
     } catch (err) {
         console.error("Failed to load profile:", err);
-        // 如果加载失败，使用默认值
-        saldo = 10000;
-        portfölj = {};
-        uppdateraPortfölj();
-        hydrated = true;
+    } finally {
+        isLoadingProfile = false;
     }
 }
 
@@ -1314,37 +1289,29 @@ await ensureProfileAndLoad();
 }
 
 supabaseClient.auth.onAuthStateChange(
-async (event,session)=>{
+async (event, session) => {
 
-if(session?.user){
+    if (event === "SIGNED_IN" && session?.user) {
 
-currentUser=session.user;
+        currentUser = session.user;
 
-showLoggedInUI();
+        showLoggedInUI();
 
-await ensureProfileAndLoad();
+        await ensureProfileAndLoad(); 
+    } 
+    else if (event === "SIGNED_OUT") {
 
-}
-else{
+        currentUser = null;
+        saldo = 10000;
+        portfölj = {};
 
-currentUser=null;
+        showLoggedOutUI();
+        uppdateraPortfölj();
 
-saldo=10000;
-
-portfölj={};
-
-showLoggedOutUI();
-
-uppdateraPortfölj();
-
-}
+    }
 
 });
-
 }
-
-
-    
 
     
 
@@ -1802,7 +1769,9 @@ function updateChartView(){
   
   
 async function genomförAffär(typ){
-
+    
+console.log("TRADE CLICKED", currentUser, hydrated, tradeLock);
+    
 if(window.tradeLock) return;
 
 window.tradeLock=true;
@@ -2153,6 +2122,43 @@ setChartMode('live');
 
 // 5. Håll kvar din error-rensares lyssnare
 document.getElementById('tradeAmount').addEventListener('input', rensaTradeFel);
+
+
+let tabSyncInProgress = false;
+
+document.addEventListener("visibilitychange", async () => {
+
+    window.tradeLock = false;
+
+    if (document.hidden) return;
+
+    if (!currentUser) return;
+
+    if (tabSyncInProgress) return; // prevent double reload
+
+    tabSyncInProgress = true;
+
+    console.log("Tab became active again");
+
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        if (session?.user) {
+            currentUser = session.user;
+
+            await ensureProfileAndLoad();
+            uppdateraPortfölj();
+
+            console.log("State refreshed after tab switch");
+        }
+
+    } catch (e) {
+        console.error("Refresh after tab switch failed:", e);
+    } finally {
+        tabSyncInProgress = false;
+    }
+});
+    
 </script>
 </body>
 </html>
