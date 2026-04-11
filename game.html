@@ -882,7 +882,7 @@ async function fetchExchangeRate() {
     try {
         const response = await fetch('https://server-api-092b.onrender.com/api/config');
         const data = await response.json();
-        if (data.usdToSek) {
+        if (dat.usdToSek) {
              const oldRate = currentExchangeRate;
             currentExchangeRate = data.usdToSek;
             fxReady = true;
