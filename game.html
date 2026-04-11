@@ -2208,12 +2208,15 @@ document.addEventListener("visibilitychange", async () => {
     } finally {
         tabSyncInProgress = false;
     }
-console.log("Sync result:", {
+
+    console.log("Sync result:", {
     user: currentUser?.id,
     saldo,
     portfolioSize: Object.keys(portfölj).length
 });
-    
+
+});
+
 </script>
 </body>
 </html>
