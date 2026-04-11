@@ -882,13 +882,13 @@ async function fetchExchangeRate() {
     try {
         const response = await fetch('https://server-api-092b.onrender.com/api/config');
         const data = await response.json();
-        if (dat.sdTek) {
-             const oldRate = currehangeRate;
-            currexchangeRate = data.usdToSek;
+        if (data.usdToSek) {
+             const oldRate = currentExchangeRate;
+            currentExchangeRate = data.usdToSek;
             fxReady = true;
-            console.log("FX laddad:", currtExchangeRate);
-             if (odRate !== currExchangeRate) {
-                console.log(`汇率更新: ${oldRate} → ${currenhangeRate}`);
+            console.log("FX laddad:", currentExchangeRate);
+             if (oldRate !== currentExchangeRate) {
+                console.log(`汇率更新: ${oldRate} → ${currentExchangeRate}`);
                 
                 // 重新计算并更新显示
                 if (currentUser) {
