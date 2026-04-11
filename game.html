@@ -1044,7 +1044,7 @@ async function ensureProfileAndLoad() {
 
     const userId = currentUser.id;
 
-    console.log("Loading profile for user:", userId);
+   console.log("Loading profile for user:", userId);
 
     try {
 
@@ -1055,7 +1055,13 @@ async function ensureProfileAndLoad() {
             .maybeSingle();
 
         if (error) throw error;
-
+        
+        if (!profile) {
+            console.log("No profile found → creating new");
+        } else {
+            console.log("Profile loaded:", profile);
+        }
+        
         if (!profile) {
 
             const { error: insertError } = await supabaseClient
@@ -1092,6 +1098,7 @@ async function ensureProfileAndLoad() {
         uppdateraPortfölj();
         sparaTillLokalt();
         hydrated = true;
+        console.log("Hydration complete");
 
     } catch (err) {
         console.error("Failed to load profile:", err);
@@ -1118,10 +1125,12 @@ if (!currentUser || !hydrated) return;
 
 const snapshot=getPortfolioSnapshot();
 
-if(snapshot===lastSavedState){
-return;
+if(snapshot === lastSavedState){
+    console.log("Save skipped (no changes)");
+    return;
 }
 
+    
 lastSavedState=snapshot;
 
 saveQueue=saveQueue.then(async ()=>{
@@ -1137,7 +1146,7 @@ cleanPortfolio[symbol]={
 antal:Number(portfölj[symbol].antal),
 
 totaltInköp:Number(portfölj[symbol].totaltInköp)
-
+    
 };
 
 });
@@ -1162,6 +1171,9 @@ if(error) throw error;
 
 sparaTillLokalt();
 
+if(!error){
+    console.log("Save success at", new Date().toISOString());
+}
 }
 catch(e){
 
@@ -1302,7 +1314,8 @@ async function initSupabaseAuth() {
 
     supabaseClient.auth.onAuthStateChange(
         async (event, session) => {
-
+            console.log("Auth event:", event, "User:", session?.user?.id);
+            
             if (event === "SIGNED_IN" && session?.user) {
 
                 currentUser = session.user;
@@ -1533,7 +1546,7 @@ chart.options.scales.x.max=nu;
 }
 
 function initChart(){
-
+console.log("Initializing chart for:", aktivAktie);
 const ctx=
 document.getElementById('mainChart')
 .getContext('2d');
@@ -1728,6 +1741,9 @@ function setChartMode(mode){
 
   
 function updateChartView(){
+    console.log("Updating chart view:", chartMode, {
+        candles: aktier[aktivAktie]?.history?.length
+    });
     if(!chart || !aktivAktie) return;
 
     const history = aktier[aktivAktie].history;
@@ -1785,11 +1801,16 @@ function updateChartView(){
   
 async function genomförAffär(typ){
     
-console.log("TRADE CLICKED", currentUser, hydrated, window.tradeLock);
+console.log("TRADE CLICKED", {
+    user: currentUser?.id,
+    hydrated,
+    locked: window.tradeLock
+});
 
 if (!appReady) return;
 
 if (!fxReady) {
+    console.warn("Trade blocked: FX not ready");
     visaTradeFel("Växelkursen laddas fortfarande. Vänta ett ögonblick och försök igen.");
     return;
 }
@@ -1832,6 +1853,14 @@ if(!pris || pris <= 0 || !Number.isFinite(pris)){
     const kostnad=kostnadUSD*currentExchangeRate;
 
     try {
+        console.log("Trade attempt:", {
+    typ,
+    aktivAktie,
+    antal,
+    pris,
+    saldo,
+    fx: currentExchangeRate
+});
         if(typ==='köp'){
             if(saldo>=kostnad){
                 saldo-=kostnad;
@@ -2179,6 +2208,10 @@ document.addEventListener("visibilitychange", async () => {
     } finally {
         tabSyncInProgress = false;
     }
+console.log("Sync result:", {
+    user: currentUser?.id,
+    saldo,
+    portfolioSize: Object.keys(portfölj).length
 });
     
 </script>
