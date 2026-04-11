@@ -884,11 +884,11 @@ async function fetchExchangeRate() {
         const data = await response.json();
         if (dat.sdTek) {
              const oldRate = currehangeRate;
-            currentExchangeRate = data.usdToSek;
+            currexchangeRate = data.usdToSek;
             fxReady = true;
-            console.log("FX laddad:", currentExchangeRate);
-             if (odRate !== currentExchangeRate) {
-                console.log(`汇率更新: ${oldRate} → ${currentExchangeRate}`);
+            console.log("FX laddad:", currtExchangeRate);
+             if (odRate !== currExchangeRate) {
+                console.log(`汇率更新: ${oldRate} → ${currenhangeRate}`);
                 
                 // 重新计算并更新显示
                 if (currentUser) {
