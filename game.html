@@ -844,7 +844,7 @@ window.addEventListener("beforeunload", () => {
 
 
     
-// 本地存储备份
+
 function sparaTillLokalt() {
     if (currentUser) {
         const data = {
@@ -862,7 +862,7 @@ function laddaFrånLokalt() {
         if (saved) {
             try {
                 const data = JSON.parse(saved);
-                // 只在30分钟内使用本地数据
+              //Only use local data within 30 minutes
                 if (Date.now() - data.timestamp < 30 * 60 * 1000) {
                     return data;
                 }
@@ -888,14 +888,14 @@ async function fetchExchangeRate() {
             fxReady = true;
             console.log("FX laddad:", currentExchangeRate);
              if (oldRate !== currentExchangeRate) {
-                console.log(`汇率更新: ${oldRate} → ${currentExchangeRate}`);
+                console.log(`Exchange rate updated: ${oldRate} → ${currentExchangeRate}`);
                 
-                // 重新计算并更新显示
+                // Recalculate and update display
                 if (currentUser) {
                     uppdateraPortfölj();
                 }
                 
-                // 如果有选中的股票，更新价格显示
+                // If a stock is selected, update price display
                 if (aktivAktie) {
                     uppdateraAktiv();
                 }
@@ -1184,32 +1184,32 @@ return saveQueue;
 
 async function handleLogout(){
     try{
-        // 先保存当前数据到云端
+        
         if(currentUser) {
             await sparaPortföljTillSupabase();
-            // 清理本地存储
+            
             localStorage.removeItem(`paperalpha_${currentUser.id}`);
         }
         
-        // 登出 Supabase
+     
         const { error } = await supabaseClient.auth.signOut();
         if (error) {
             console.error("Supabase logout error:", error);
         }
 
-        // 强制清理状态
+      
         currentUser = null;
         saldo = 10000;
         portfölj = {};
         
-        // 更新UI到登出状态
+      
         showLoggedOutUI();
         
         console.log("Utloggad och data rensad");
 
     }catch(e){
         console.error("Logout fel:", e);
-        // 即使出错也要清理界面
+     
         currentUser = null;
         saldo = 10000;
         portfölj = {};
@@ -1375,7 +1375,7 @@ symboler.forEach(s => {
     const categories = { "Index": [], "Krypto": [], "Råvaror": [], "Aktier": [] };
 
     Object.keys(aktier).forEach(s => {
-        // 简单的分类逻辑
+       
         let cat = "Aktier";
         if (s.includes("SPY") || s.includes("QQQ") || s.includes("DIA")) cat = "Index";
         else if (s.includes("BINANCE")) cat = "Krypto";
@@ -1390,7 +1390,7 @@ symboler.forEach(s => {
     ["Index", "Krypto", "Råvaror", "Aktier"].forEach(catName => {
         if (categories[catName].length === 0) return;
         
-        // 添加分类小标题
+  
         const header = document.createElement('div');
         header.style.padding = "10px";
         header.style.background = "#222";
@@ -1829,7 +1829,7 @@ if(!pris || pris <= 0 || !Number.isFinite(pris)){
 }
 
     const kostnadUSD=pris*antal;
-    const kostnad=kostnadUSD*currentExchangeRate; // 转换为SEK
+    const kostnad=kostnadUSD*currentExchangeRate;
 
     try {
         if(typ==='köp'){
@@ -1890,10 +1890,10 @@ previousPortValue = null; // No flash on trade
         
         uppdateraPortfölj();
         
-        // 先保存到本地
+      
         sparaTillLokalt();
         
-        // 保存到云端
+ 
         try {
             await sparaPortföljTillSupabase();
 console.log("Transaction saved successfully!");
