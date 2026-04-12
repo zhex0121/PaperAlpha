@@ -618,12 +618,20 @@ id="stockList">
 
 <!-- League Information View -->
 <div id="leagueInfoView" style="display: none; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-    <div style="max-width: 600px; width: 100%;">
+    <div style="max-width: 800px; width: 100%;">
         <h1 id="leagueName" style="font-size: 2.5rem; margin-bottom: 2rem; color: var(--text);"></h1>
         
-        <div style="margin-bottom: 3rem;">
+        <div style="margin-bottom: 2rem;">
             <div style="color: var(--text-dim); font-size: 1.1rem; margin-bottom: 0.5rem;">Tävlingen slutar</div>
             <div id="leagueEndTime" style="font-size: 1.8rem; font-weight: bold; color: var(--accent);"></div>
+        </div>
+        
+        <!-- Leaderboard -->
+        <div id="leaderboardContainer" style="margin: 2rem 0; width: 100%;">
+            <h3 style="color: var(--text); margin-bottom: 1rem; font-size: 1.3rem;">Ledartavla</h3>
+            <div id="leaderboardList" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-height: 300px; overflow-y: auto;">
+                <div style="color: var(--text-dim); text-align: center; padding: 2rem;">Laddar ledartavla...</div>
+            </div>
         </div>
         
         <div style="margin-top: 2rem;">
@@ -989,12 +997,126 @@ function showLeagueInfo() {
         
         document.getElementById('leagueEndTime').innerText = timeString.trim();
     }
+    
+    // Load leaderboard
+    loadLeaderboard();
 }
 
 function showChartView() {
     currentView = 'chart';
     document.getElementById('leagueInfoView').style.display = 'none';
     document.getElementById('chartView').style.display = 'block';
+}
+
+async function loadLeaderboard() {
+    if (!currentLeagueId || !currentLeague) return;
+    
+    try {
+        console.log("Loading leaderboard for league:", currentLeagueId);
+        
+        // Get all members of the league
+        const { data: members, error: membersError } = await supabaseClient
+            .from('league_members')
+            .select('user_id, balance, portfolio')
+            .eq('league_id', currentLeagueId);
+            
+        if (membersError) {
+            console.error("Error fetching league members:", membersError);
+            return;
+        }
+        
+        if (!members || members.length === 0) {
+            document.getElementById('leaderboardList').innerHTML = 
+                '<div style="color: var(--text-dim); text-align: center; padding: 2rem;">Inga medlemmar hittades</div>';
+            return;
+        }
+        
+        // Calculate portfolio values for all members
+        const leaderboardPromises = members.map(async (member) => {
+            let portfolioValue = 0;
+            
+            if (member.portfolio && typeof member.portfolio === 'object') {
+                for (const [symbol, holding] of Object.entries(member.portfolio)) {
+                    if (holding && holding.antal > 0) {
+                        const currentPrice = await fetchPrice(symbol);
+                        if (currentPrice) {
+                            portfolioValue += currentPrice * holding.antal;
+                        }
+                    }
+                }
+            }
+            
+            const totalValue = Number(member.balance || 0) + (portfolioValue * currentExchangeRate);
+            
+            return {
+                userId: member.user_id,
+                balance: Number(member.balance || 0),
+                portfolioValue: portfolioValue * currentExchangeRate,
+                totalValue: totalValue
+            };
+        });
+        
+        const leaderboardData = await Promise.all(leaderboardPromises);
+        
+        // Sort by total value (descending)
+        leaderboardData.sort((a, b) => b.totalValue - a.totalValue);
+        
+        // Get user emails for display
+        const userIds = leaderboardData.map(item => item.userId);
+        const { data: profiles, error: profilesError } = await supabaseClient
+            .from('profiles')
+            .select('user_id, email')
+            .in('user_id', userIds);
+            
+        if (profilesError) {
+            console.error("Error fetching user profiles:", profilesError);
+        }
+        
+        const emailMap = {};
+        if (profiles) {
+            profiles.forEach(profile => {
+                emailMap[profile.user_id] = profile.email;
+            });
+        }
+        
+        // Display leaderboard
+        const leaderboardHtml = leaderboardData.map((entry, index) => {
+    const email = emailMap[entry.userId] || 'Okänd användare';
+    const isCurrentUser = entry.userId === currentUser?.id;
+    const displayName = email.split('@')[0]; 
+
+    return `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; margin-bottom: 0.5rem; background: ${isCurrentUser ? 'var(--accent)' : 'var(--bg)'}; border-radius: 4px; border: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <!-- 排名数字圆圈 -->
+                <div style="width: 30px; height: 30px; border-radius: 50%; background: ${index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : 'var(--surface)'}; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; color: ${index <= 2 ? '#000' : 'var(--text)'};">
+                    ${index + 1}
+                </div>
+                <div>
+                    <!-- 只保留名字 -->
+                    <div style="font-weight: bold; color: ${isCurrentUser ? '#000' : 'var(--text)'};">
+                        ${displayName}${isCurrentUser ? ' (Du)' : ''}
+                    </div>
+                    <!-- 删掉了原本在这里的 Saldo 和 Portfölj 的 div -->
+                </div>
+            </div>
+            <!-- 右侧保留的总资产 -->
+            <div style="font-weight: bold; font-size: 1.1rem; color: ${isCurrentUser ? '#000' : 'var(--up)'};">
+                ${formatMoney(entry.totalValue)}
+            </div>
+        </div>
+    `;
+}).join('');
+
+        
+        document.getElementById('leaderboardList').innerHTML = leaderboardHtml;
+        console.log("Leaderboard loaded successfully");
+        
+    } catch (error) {
+        console.error("Error loading leaderboard:", error);
+        document.getElementById('leaderboardList').innerHTML = 
+            '<div style="color: var(--down); text-align: center; padding: 2rem;">Kunde inte ladda ledartavla</div>';
+    }
 }
 
 function updateViewBasedOnAuth() {
@@ -1671,7 +1793,13 @@ maximumFractionDigits:2
             
             const div = document.createElement('div');
             div.className = `stock-item ${aktivAktie === s ? 'active' : ''}`;
-            div.onclick = () => väljAktie(s);
+            
+            // Check if we're in league mode and this is the active stock
+            if (currentLeagueId && currentLeague && aktivAktie === s) {
+                div.onclick = () => showLeagueInfo();
+            } else {
+                div.onclick = () => väljAktie(s);
+            }
 
             // Dela upp namnet snyggt: "Apple (AAPL)" blir "Apple" och "AAPL"
             const delar = s.split(' (');
@@ -1940,7 +2068,7 @@ chart.options.plugins.zoom.onZoom = function() {
 };
 
 // VIKTIGT: Anropa updateChartView direkt här för att sätta 75%-vyn innan ritning
-    updateChartView();
+updateChartView();
 }
 
 
@@ -1961,10 +2089,10 @@ function setChartMode(mode){
     if(mode === 'history' && chart && aktivAktie){
 
         const history = aktier[aktivAktie].history;
-
-        if(typeof chart.resetZoom === 'function'){
-            chart.resetZoom();
-        }
+        
+            if(typeof chart.resetZoom === 'function'){
+                chart.resetZoom();
+            }
 
         if(history.length){
             const first = history[0].x;
@@ -1974,7 +2102,7 @@ function setChartMode(mode){
 
             chart.options.scales.x.min = first - padding;
             chart.options.scales.x.max = last + padding;
-
+            
             chart.options.scales.y.min = undefined;
             chart.options.scales.y.max = undefined;
 
@@ -1983,7 +2111,7 @@ function setChartMode(mode){
     }
 
 
-  
+
     updateChartView();
 }
   
