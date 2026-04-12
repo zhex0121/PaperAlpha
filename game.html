@@ -616,48 +616,68 @@ id="stockList">
 
 <div class="main-content">
 
-<div style="margin-bottom:10px;">
-
-<button class="btn"
-style="width:auto;background:#1e1e1e;color:white;margin-right:5px;"
-onclick="setChartMode('live')"
-id="liveBtn">
-
-REALTID
-
-</button>
-
-<button class="btn"
-style="width:auto;background:#1e1e1e;color:white;"
-onclick="setChartMode('history')"
-id="historyBtn">
-
-HISTORISKT
-
-</button>
-
-</div>
-  
-<div>
-
-<h2 id="activeSymbol">
-
-Ansluter till servern...
-
-</h2>
-
-<h1 id="activePrice">
-
-Laddar priser...
-
-</h1>
-
+<!-- League Information View -->
+<div id="leagueInfoView" style="display: none; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+    <div style="max-width: 600px; width: 100%;">
+        <h1 id="leagueName" style="font-size: 2.5rem; margin-bottom: 2rem; color: var(--text);"></h1>
+        
+        <div style="margin-bottom: 3rem;">
+            <div style="color: var(--text-dim); font-size: 1.1rem; margin-bottom: 0.5rem;">Tävlingen slutar</div>
+            <div id="leagueEndTime" style="font-size: 1.8rem; font-weight: bold; color: var(--accent);"></div>
+        </div>
+        
+        <div style="margin-top: 2rem;">
+            <div style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 0.5rem;">Inbjudningskod</div>
+            <div id="leagueInviteCode" style="font-size: 1.5rem; font-weight: bold; color: var(--up); letter-spacing: 2px;"></div>
+        </div>
+    </div>
 </div>
 
-<div class="chart-container">
+<!-- Chart View (hidden by default) -->
+<div id="chartView" style="display: none;">
+    <div style="margin-bottom:10px;">
 
-<canvas id="mainChart"></canvas>
+        <button class="btn"
+        style="width:auto;background:#1e1e1e;color:white;margin-right:5px;"
+        onclick="setChartMode('live')"
+        id="liveBtn">
 
+        REALTID
+
+        </button>
+
+        <button class="btn"
+        style="width:auto;background:#1e1e1e;color:white;"
+        onclick="setChartMode('history')"
+        id="historyBtn">
+
+        HISTORISKT
+
+        </button>
+
+        </div>
+          
+        <div>
+
+        <h2 id="activeSymbol">
+
+        Ansluter till servern...
+
+        </h2>
+
+        <h1 id="activePrice">
+
+        Laddar priser...
+
+        </h1>
+
+        </div>
+
+        <div class="chart-container">
+
+        <canvas id="mainChart"></canvas>
+
+        </div>
 </div>
 
 </div>
@@ -931,6 +951,60 @@ let currentLeague = null;
 let currentLeagueId = null;
 let currentLeagueCode = null;
 
+// View management
+let currentView = 'league'; // 'league' or 'chart'
+
+// View management functions
+function showLeagueInfo() {
+    if (!currentLeague || !currentUser) {
+        showChartView();
+        return;
+    }
+    
+    currentView = 'league';
+    document.getElementById('leagueInfoView').style.display = 'flex';
+    document.getElementById('chartView').style.display = 'none';
+    
+    // Update league information
+    document.getElementById('leagueName').innerText = currentLeague.name;
+    document.getElementById('leagueInviteCode').innerText = currentLeague.invite_code;
+    
+    // Format and display end time
+    const endTime = new Date(currentLeague.end_time);
+    const now = new Date();
+    
+    if (endTime <= now) {
+        document.getElementById('leagueEndTime').innerText = 'Tävlingen har avslutats';
+    } else {
+        // Calculate time remaining
+        const timeDiff = endTime - now;
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        let timeString = '';
+        if (days > 0) timeString += `${days}d `;
+        if (hours > 0) timeString += `${hours}t `;
+        if (minutes > 0 || timeString === '') timeString += `${minutes}m`;
+        
+        document.getElementById('leagueEndTime').innerText = timeString.trim();
+    }
+}
+
+function showChartView() {
+    currentView = 'chart';
+    document.getElementById('leagueInfoView').style.display = 'none';
+    document.getElementById('chartView').style.display = 'block';
+}
+
+function updateViewBasedOnAuth() {
+    if (currentUser && currentLeagueId && currentLeague) {
+        showLeagueInfo();
+    } else {
+        showChartView();
+    }
+}
+
     
     
 async function fetchPrice(ticker) {
@@ -980,7 +1054,10 @@ document.getElementById('tradeControls').style.display='none';
 
 document.getElementById('portfolioDisplay').style.display='none';
 
-document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
+document.getElementById('balanceDisplay').innerText='Logga in för att handla';
+
+// Show chart view when logged out
+showChartView();
     
 }
 
@@ -1147,6 +1224,9 @@ async function ensureProfileAndLoad() {
         // Update UI
         uppdateraPortfölj();
         
+        // Update view based on league status
+        updateViewBasedOnAuth();
+        
         // Save locally as backup
         sparaTillLokalt();
         
@@ -1223,6 +1303,7 @@ async function loadIndividualProfile() {
         }
 
         uppdateraPortfölj();
+        updateViewBasedOnAuth();
         sparaTillLokalt();
         
     } catch (err) {
@@ -1499,6 +1580,7 @@ showLoggedOutUI();
 
                 showLoggedOutUI();
                 uppdateraPortfölj();
+                updateViewBasedOnAuth();
 
                 appReady = false; // optional but correct
             }
@@ -1620,6 +1702,9 @@ function väljAktie(ticker){
     document.getElementById('tradeControls').style.display = 'none';
     }
     document.getElementById('activeSymbol').innerText = ticker;
+
+    // Show chart view when stock is selected
+    showChartView();
 
     uppdateraAktiv();
     
@@ -2328,9 +2413,9 @@ renderStockList();
 // 2. Uppdatera portföljvisningen
 if(currentUser) uppdateraPortfölj();
 
-// 3. Välj en aktie automatiskt (t.ex. Apple)
-// Detta kommer köra väljAktie -> initChart -> updateChartView (med 75%-logiken)
-setTimeout(()=>väljAktie("Apple (AAPL)"),1000);
+// 3. Update view based on auth state (show league info or chart)
+// This will show league info if user is in a league, otherwise chart view
+updateViewBasedOnAuth();
 
 // 4. Se till att Live-knappen lyser blått och systemet vet att vi är i live-mode
 setChartMode('live');
@@ -2370,6 +2455,7 @@ document.addEventListener("visibilitychange", async () => {
                 portfölj = {};
                 showLoggedOutUI();
                 uppdateraPortfölj();
+                updateViewBasedOnAuth();
             }
         });
         console.log("State refreshed after tab switch");
