@@ -1005,8 +1005,15 @@ function showChartView() {
     document.getElementById('chartView').style.display = 'block';
 }
 
+let leaderboardLoading = false;
+    
 async function loadLeaderboard() {
     if (!currentLeagueId || !currentLeague) return;
+    if (leaderboardLoading) {
+    console.log("Skipping duplicate leaderboard load");
+    return;
+    }
+    leaderboardLoading = true;
     
     try {
         console.log("Loading leaderboard for league:", currentLeagueId);
@@ -1113,7 +1120,10 @@ async function loadLeaderboard() {
         console.error("Error loading leaderboard:", error);
         document.getElementById('leaderboardList').innerHTML = 
             '<div style="color: var(--down); text-align: center; padding: 2rem;">Kunde inte ladda ledartavla</div>';
+    } finally {
+        leaderboardLoading = false;
     }
+
 }
 
 function updateViewBasedOnAuth() {
@@ -2584,10 +2594,6 @@ renderStockList();
 // 2. Uppdatera portföljvisningen
 if(currentUser) uppdateraPortfölj();
 
-// 3. Update view based on auth state (show league info or chart)
-// This will show league info if user is in a league, otherwise chart view
-updateViewBasedOnAuth();
-
 // 4. Se till att Live-knappen lyser blått och systemet vet att vi är i live-mode
 setChartMode('live');
 
@@ -2616,7 +2622,6 @@ document.addEventListener("visibilitychange", async () => {
 
         await ensureProfileAndLoad(); // isLoadingProfile guard prevents double-run
         uppdateraPortfölj();
-        updateViewBasedOnAuth();
     } catch (e) {
         console.error("Refresh after tab switch failed:", e);
     }
