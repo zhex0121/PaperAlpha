@@ -1289,10 +1289,13 @@ document.getElementById('authError').innerText = msg || '';
 
     
 async function ensureProfileAndLoad() {
-
     if (!currentUser) return;
+    if (isLoadingProfile) {
+        console.log("Profile load already in progress, skipping duplicate call");
+        return;
+    }
+    isLoadingProfile = true;
     const userId = currentUser.id;
-
     console.log("Loading league data for user:", userId);
 
     try {
@@ -1387,13 +1390,19 @@ async function ensureProfileAndLoad() {
         // Save locally as backup
         sparaTillLokalt();
         
-    } catch (err) {
+   } catch (err) {
         console.error("Failed to load league data:", err);
-        // Fall back to individual profile mode if league loading fails
         console.log("Falling back to individual profile mode");
-        await loadIndividualProfile();
+        try {
+            await loadIndividualProfile();
+        } finally {
+            isLoadingProfile = false;
+        }
+        return;
     }
+    isLoadingProfile = false;
 }
+
 
 // Fallback function for individual profile mode
 async function loadIndividualProfile() {
@@ -1710,6 +1719,9 @@ showLoggedOutUI();
     supabaseClient.auth.onAuthStateChange(
         async (event, session) => {
             console.log("Auth event:", event, "User:", session?.user?.id);
+
+            // TOKEN_REFRESHED fires on tab wake-up; visibilitychange already handles the reload
+            if (event === "TOKEN_REFRESHED") return;
             
             if (event === "SIGNED_IN" && session?.user) {
 
@@ -2583,35 +2595,32 @@ setChartMode('live');
 document.getElementById('tradeAmount').addEventListener('input', rensaTradeFel);
 
 
-let tabSyncInProgress = false;
-
 document.addEventListener("visibilitychange", async () => {
     window.tradeLock = false;
 
     if (document.hidden) return;
     if (!currentUser) return;
-    if (tabSyncInProgress) return;
 
-    tabSyncInProgress = true;
     console.log("Tab became active again");
 
     try {
+        // getSession() will silently refresh the token if needed.
+        // If a refresh happens, onAuthStateChange fires TOKEN_REFRESHED (now ignored).
+        // We handle the data reload here, guarded by isLoadingProfile.
         const { data: { session } } = await supabaseClient.auth.getSession();
 
-        if (session?.user) {
-            currentUser = session.user;
-            await ensureProfileAndLoad();
-            uppdateraPortfölj();
-            updateViewBasedOnAuth();
-            console.log("State refreshed after tab switch");
+        if (!session?.user) {
+            // Session actually expired — let auth state change handle logout
+            return;
         }
+
+        await ensureProfileAndLoad(); // isLoadingProfile guard prevents double-run
+        uppdateraPortfölj();
+        updateViewBasedOnAuth();
     } catch (e) {
         console.error("Refresh after tab switch failed:", e);
-    } finally {
-        tabSyncInProgress = false;
     }
 });
-
 
 
 </script>
