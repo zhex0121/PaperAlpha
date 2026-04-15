@@ -1240,32 +1240,22 @@ function updateViewBasedOnAuth() {
 
 
 async function fetchHistory(ticker, resolution='D') {
-    const cleanTicker = ticker.includes("(") ? ticker.split("(")[1].replace(")","").trim() : ticker;
+    const cleanTicker = ticker.includes("(")
+        ? ticker.split("(")[1].replace(")","").trim()
+        : ticker;
 
     try {
-        console.log(`Fetching historical data for ${ticker} (${cleanTicker})...`);
-        const resp = await fetch(`https://server-api-092b.onrender.com/api/chart/${encodeURIComponent(cleanTicker)}?resolution=${resolution}`);
-        if (!resp.ok) {
-            console.error(`HTTP error for ${ticker}:`, resp.status, resp.statusText);
-            throw new Error(`Failed to fetch history: ${resp.status}`);
-        }
+        const resp = await fetch(
+            `https://server-api-092b.onrender.com/api/chart/${encodeURIComponent(cleanTicker)}?resolution=${resolution}`
+        );
+
         const data = await resp.json();
-        console.log(`Received ${data.length} candles for ${ticker}`);
-        
-        if (!Array.isArray(data) || data.length === 0) {
-            console.warn(`No historical data available for ${ticker}`);
-            return [];
-        }
-        
-        // Ensure numeric conversion and validate data
-        const validData = data.filter(c => 
-            c && 
-            typeof c.x === 'number' && !isNaN(c.x) &&
-            typeof c.o === 'number' && !isNaN(c.o) && c.o > 0 &&
-            typeof c.h === 'number' && !isNaN(c.h) && c.h > 0 &&
-            typeof c.l === 'number' && !isNaN(c.l) && c.l > 0 &&
-            typeof c.c === 'number' && !isNaN(c.c) && c.c > 0
-        ).map(c => ({
+
+        console.log("RAW DATA:", data);
+
+        if (!Array.isArray(data)) return [];
+
+        const cleaned = data.map(c => ({
             x: Number(c.x),
             o: Number(c.o),
             h: Number(c.h),
@@ -1273,14 +1263,23 @@ async function fetchHistory(ticker, resolution='D') {
             c: Number(c.c),
             v: Number(c.v || 0)
         }));
-        
-        console.log(`Valid candles for ${ticker}: ${validData.length}/${data.length}`);
-        return validData;
+
+        const sorted = cleaned.sort((a, b) => a.x - b.x);
+
+        console.log("FINAL DATA:", sorted.length);
+
+        return sorted;
+
     } catch (e) {
-        console.error("Historical data error for", ticker, e);
+        console.error("Historical data error:", e);
         return [];
     }
 }
+
+
+
+
+
     
 async function fetchPrice(ticker) {
   try {
