@@ -77,6 +77,39 @@ overflow:hidden;
     z-index: 1000;
 }
 
+.in-game-top-info {
+    flex: 1;
+    min-width: 0;
+    margin: 0 14px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.in-game-top-info .sep {
+    opacity: 0.45;
+    margin: 0 8px;
+}
+
+.in-game-top-info .value {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.in-game-top-info .code {
+    color: var(--up);
+    font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+    .in-game-top-info .time-part {
+        display: none; /* hide time first when space tight */
+    }
+}
+    
 .logo-link {
     text-decoration: none;
     color: #ffffff;
@@ -574,6 +607,7 @@ margin-top:0;
 
 <div class="top-banner">
     <a href="index.html" class="logo-link">PaperAlpha</a>
+    <div id="inGameTopInfo" class="in-game-top-info" style="display:none;"></div>
     <div class="profile-section">
         <div id="loginPrompt" class="login-prompt" style="color: var(--text-dim); font-size: 0.9rem;">
             <button class="login-button" onclick="showAuthModal(true)">Logga in</button>
@@ -830,6 +864,10 @@ let portfölj={};
 
 let chart=null;
 
+let currentPlayerRank = null;
+let currentPlayerCount = null;
+let topInfoTimer = null;
+
 const SUPABASE_URL='https://jdpwqtoltrkrflopvicr.supabase.co';
 
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkcHdxdG9sdHJrcmZsb3B2aWNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDYwMzUsImV4cCI6MjA5MTIyMjAzNX0.MfZrnYRgEHSJlL24DiyoXw7OZ5qXeBKww0BlS-XVW6A';
@@ -997,6 +1035,7 @@ function showLeagueInfo() {
     
     // Load leaderboard
     loadLeaderboard();
+    updateInGameTopInfo();
 }
 
 function showChartView() {
@@ -1005,6 +1044,57 @@ function showChartView() {
     document.getElementById('chartView').style.display = 'block';
 }
 
+function formatLeagueTimeLeft(endTimeValue) {
+    if (!endTimeValue) return '-';
+    const endTime = new Date(endTimeValue);
+    const now = new Date();
+
+    if (endTime <= now) return 'Avslutad';
+
+    const diff = endTime - now;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (days > 0) return `${days}d ${hours}t`;
+    if (hours > 0) return `${hours}t ${minutes}m`;
+    return `${minutes}m`;
+}
+
+function updateInGameTopInfo() {
+    const el = document.getElementById('inGameTopInfo');
+    if (!el) return;
+
+    const inGame = !!(currentUser && currentLeagueId && currentLeague);
+    if (!inGame) {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+    }
+
+    el.style.display = 'block';
+
+    const name = currentLeague.name || '-';
+    const code = currentLeague.invite_code || '-';
+    const rank = `${currentPlayerRank ?? '-'} / ${currentPlayerCount ?? '-'}`;
+    const timeLeft = formatLeagueTimeLeft(currentLeague.end_time);
+
+    el.innerHTML = `
+        <span>Spel: <span class="value">${name}</span></span>
+        <span class="sep">•</span>
+        <span>Kod: <span class="code">${code}</span></span>
+        <span class="sep">•</span>
+        <span>Plats: <span class="value">${rank}</span></span>
+        <span class="sep time-part">•</span>
+        <span class="time-part">Slut om: <span class="value">${timeLeft}</span></span>
+    `;
+}
+
+function startTopInfoTimer() {
+    if (topInfoTimer) clearInterval(topInfoTimer);
+    topInfoTimer = setInterval(updateInGameTopInfo, 30000);
+}
+    
 let leaderboardLoading = false;
     
 async function loadLeaderboard() {
@@ -1029,11 +1119,15 @@ async function loadLeaderboard() {
             return;
         }
         
-        if (!members || members.length === 0) {
-            document.getElementById('leaderboardList').innerHTML = 
-                '<div style="color: var(--text-dim); text-align: center; padding: 2rem;">Inga medlemmar hittades</div>';
-            return;
-        }
+       if (!members || members.length === 0) {
+    currentPlayerCount = 0;
+    currentPlayerRank = null;
+    updateInGameTopInfo();
+
+    document.getElementById('leaderboardList').innerHTML = 
+        '<div style="color: var(--text-dim); text-align: center; padding: 2rem;">Inga medlemmar hittades</div>';
+    return;
+       }
         
         // Calculate portfolio values for all members
         const leaderboardPromises = members.map(async (member) => {
@@ -1064,6 +1158,15 @@ async function loadLeaderboard() {
         
         // Sort by total value (descending)
         leaderboardData.sort((a, b) => b.totalValue - a.totalValue);
+        currentPlayerCount = leaderboardData.length;
+        currentPlayerRank = null;
+        for (let i = 0; i < leaderboardData.length; i++) {
+            if (leaderboardData[i].userId === currentUser?.id) {
+                currentPlayerRank = i + 1;
+                break;
+            }
+        }
+        updateInGameTopInfo();
         
         // Get user emails for display
         const userIds = leaderboardData.map(item => item.userId);
@@ -1132,6 +1235,7 @@ function updateViewBasedOnAuth() {
     } else {
         showChartView();
     }
+    updateInGameTopInfo();
 }
 
 
@@ -1229,7 +1333,8 @@ document.getElementById('balanceDisplay').innerText='Logga in för att handla';
 
 // Show chart view when logged out
 showChartView();
-    
+
+updateInGameTopInfo();
 }
 
 function syncTradeControlsVisibility(){
@@ -1288,6 +1393,8 @@ function showLoggedInUI() {
     
     document.getElementById('portfolioDisplay').style.display = 'block'; 
 
+    updateInGameTopInfo();
+    
     syncTradeControlsVisibility();
 }
 
@@ -1704,6 +1811,7 @@ setInterval(fetchExchangeRate, 12 * 60 * 60 * 1000);
 const urlParams = new URLSearchParams(window.location.search);
 currentLeagueId = urlParams.get('league');
 currentLeagueCode = urlParams.get('code');
+startTopInfoTimer();
 
 console.log('League parameters detected:', { leagueId: currentLeagueId, code: currentLeagueCode });
 
