@@ -99,11 +99,6 @@ overflow:hidden;
     font-weight: 600;
 }
 
-.in-game-top-info .code {
-    color: var(--up);
-    font-weight: 700;
-}
-
 @media (max-width: 1100px) {
     .in-game-top-info .time-part {
         display: none; /* hide time first when space tight */
@@ -1082,7 +1077,7 @@ function updateInGameTopInfo() {
     el.innerHTML = `
         <span>Spel: <span class="value">${name}</span></span>
         <span class="sep">•</span>
-        <span>Kod: <span class="code">${code}</span></span>
+       <span>Kod: <span class="value">${code}</span></span>
         <span class="sep">•</span>
         <span>Plats: <span class="value">${rank}</span></span>
         <span class="sep time-part">•</span>
