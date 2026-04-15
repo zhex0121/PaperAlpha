@@ -2149,9 +2149,9 @@ function setChartMode(mode){
 
   
 function updateChartView(){
-    console.log("Updating chart view:", chartMode, {
-        candles: aktier[aktivAktie]?.history?.length
-    });
+    //inactive console.log("Updating chart view:", chartMode, {
+        //candles: aktier[aktivAktie]?.history?.length
+    //});
     if(!chart || !aktivAktie) return;
 
     const history = aktier[aktivAktie].history;
