@@ -2766,6 +2766,8 @@ if(currentUser) uppdateraPortfölj();
 // 4. Se till att Live-knappen lyser blått och systemet vet att vi är i live-mode
 setChartMode('live');
 
+väljAktie(symboler[0]);
+    
 // 5. Håll kvar din error-rensares lyssnare
 document.getElementById('tradeAmount').addEventListener('input', rensaTradeFel);
 
