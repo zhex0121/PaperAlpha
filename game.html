@@ -108,10 +108,10 @@ overflow:hidden;
 .view-top-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     margin-bottom: 10px;
     flex-shrink: 0;
+    justify-content: flex-start;
 }
 
 .chart-mode-buttons {
@@ -124,6 +124,7 @@ overflow:hidden;
     display: flex;
     justify-content: flex-end;
     flex-shrink: 0;
+    margin-left: auto; /* keeps it on the far right even when left side is hidden */
 }
 .view-toggle-pill {
     background: #1e1e1e;
