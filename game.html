@@ -708,35 +708,18 @@ id="stockList">
 
 <!-- Chart View (hidden by default) -->
 <div id="chartView" style="display: none;">
-    <div style="margin-bottom:10px;">
-
-        <button class="btn"
-        style="width:auto;background:#1e1e1e;color:white;margin-right:5px;"
-        onclick="setChartMode('live')"
-        id="liveBtn">
-
-        REALTID
-
-        </button>
-
-        <button class="btn"
-        style="width:auto;background:#1e1e1e;color:white;"
-        onclick="setChartMode('history')"
-        id="historyBtn">
-
-        HISTORISKT
-
-        </button>
-    
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+    <div>
+        <button class="btn" style="width:auto;background:#1e1e1e;color:white;margin-right:5px;" onclick="setChartMode('live')" id="liveBtn">REALTID</button>
+        <button class="btn" style="width:auto;background:#1e1e1e;color:white;" onclick="setChartMode('history')" id="historyBtn">HISTORISKT</button>
     </div>
-
-    
     <div id="viewToggleBar" class="view-toggle-bar" style="display:none;">
         <div class="view-toggle-pill">
-           <button id="btnChart" class="toggle-btn active" onclick="switchToChart()" title="Diagram">📈</button>
+            <button id="btnChart" class="toggle-btn active" onclick="switchToChart()" title="Diagram">📈</button>
             <button id="btnLeaderboard" class="toggle-btn" onclick="switchToLeaderboard()" title="Ledartavla">🏆</button>
         </div>
     </div>
+</div>
  
 
     
