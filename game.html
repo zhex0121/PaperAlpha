@@ -105,6 +105,21 @@ overflow:hidden;
     }
 }
 
+.view-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+.chart-mode-buttons {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+    
 .view-toggle-bar {
     display: flex;
     justify-content: flex-end;
@@ -680,12 +695,19 @@ id="stockList">
 
 <div class="main-content">
 
-<div id="viewToggleBar" class="view-toggle-bar" style="display:none;">
+<div id="viewTopRow" class="view-top-row" style="display:none;">
+    <div id="chartModeButtons" class="chart-mode-buttons">
+        <button class="btn" style="width:auto;background:#1e1e1e;color:white;margin-top:0;" onclick="setChartMode('live')" id="liveBtn">REALTID</button>
+        <button class="btn" style="width:auto;background:#1e1e1e;color:white;margin-top:0;" onclick="setChartMode('history')" id="historyBtn">HISTORISKT</button>
+    </div>
+
+    <div id="viewToggleBar" class="view-toggle-bar">
         <div class="view-toggle-pill">
             <button id="btnChart" class="toggle-btn active" onclick="switchToChart()" title="Diagram">📈</button>
             <button id="btnLeaderboard" class="toggle-btn" onclick="switchToLeaderboard()" title="Ledartavla">🏆</button>
         </div>
     </div>
+</div>
     
 <!-- League Information View -->
 <div id="leagueInfoView" style="display: none; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
@@ -714,17 +736,8 @@ id="stockList">
 
 <!-- Chart View (hidden by default) -->
 <div id="chartView" style="display: none;">
-  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-    <div>
-        <button class="btn" style="width:auto;background:#1e1e1e;color:white;margin-right:5px;" onclick="setChartMode('live')" id="liveBtn">REALTID</button>
-        <button class="btn" style="width:auto;background:#1e1e1e;color:white;" onclick="setChartMode('history')" id="historyBtn">HISTORISKT</button>
-    </div>
-    
-</div>
- 
 
-    
-        <div>
+          <div>
 
         <h2 id="activeSymbol">
 
@@ -1032,6 +1045,7 @@ function showLeagueInfo() {
     currentView = 'league';
     document.getElementById('leagueInfoView').style.display = 'flex';
     document.getElementById('chartView').style.display = 'none';
+    updateToggleVisibility();
     
     // Update league information
     document.getElementById('leagueName').innerText = currentLeague.name;
@@ -1067,6 +1081,7 @@ function showChartView() {
     currentView = 'chart';
     document.getElementById('leagueInfoView').style.display = 'none';
     document.getElementById('chartView').style.display = 'block';
+    updateToggleVisibility();
     // Sync toggle buttons
     const a = document.getElementById('btnChart');
     const b = document.getElementById('btnLeaderboard');
@@ -1092,8 +1107,11 @@ function switchToLeaderboard() {
 
 function updateToggleVisibility() {
     const inLeague = !!(currentUser && currentLeagueId && currentLeague);
-    const bar = document.getElementById('viewToggleBar');
-    if (bar) bar.style.display = inLeague ? 'flex' : 'none';
+    const topRow = document.getElementById('viewTopRow');
+    const chartModes = document.getElementById('chartModeButtons');
+
+    if (topRow) topRow.style.display = inLeague ? 'flex' : 'none';
+    if (chartModes) chartModes.style.display = currentView === 'chart' ? 'flex' : 'none';
 }
     
 function formatLeagueTimeLeft(endTimeValue) {
