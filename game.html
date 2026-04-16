@@ -108,7 +108,6 @@ overflow:hidden;
 .view-toggle-bar {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 12px;
     flex-shrink: 0;
 }
 .view-toggle-pill {
@@ -681,13 +680,6 @@ id="stockList">
 
 <div class="main-content">
 
-    <!-- League toggle — only visible when in a league -->
-    <div id="viewToggleBar" class="view-toggle-bar" style="display:none;">
-        <div class="view-toggle-pill">
-            <button id="btnChart" class="toggle-btn active" onclick="switchToChart()">📈 Diagram</button>
-            <button id="btnLeaderboard" class="toggle-btn" onclick="switchToLeaderboard()">🏆 Ledartavla</button>
-        </div>
-    </div>
     
 <!-- League Information View -->
 <div id="leagueInfoView" style="display: none; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
@@ -735,9 +727,19 @@ id="stockList">
         HISTORISKT
 
         </button>
+    
+    </div>
 
+    
+    <div id="viewToggleBar" class="view-toggle-bar" style="display:none;">
+        <div class="view-toggle-pill">
+           <button id="btnChart" class="toggle-btn active" onclick="switchToChart()" title="Diagram">📈</button>
+            <button id="btnLeaderboard" class="toggle-btn" onclick="switchToLeaderboard()" title="Ledartavla">🏆</button>
         </div>
-          
+    </div>
+ 
+
+    
         <div>
 
         <h2 id="activeSymbol">
@@ -1569,6 +1571,10 @@ async function ensureProfileAndLoad() {
         
         // Update view based on league status
         updateViewBasedOnAuth();
+
+        if (currentLeagueId && currentLeague) {
+    loadLeaderboard();
+}
         
         // Save locally as backup
         sparaTillLokalt();
