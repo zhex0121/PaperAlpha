@@ -1021,56 +1021,61 @@ let currentLeagueCode = null;
 // View management
 let currentView = 'league'; // 'league' or 'chart'
 
-// View management functions
 function showLeagueInfo() {
-    if (!currentLeague || !currentUser) {
-        showChartView();
-        return;
-    }
-    
-    currentView = 'league';
-    document.getElementById('leagueInfoView').style.display = 'flex';
-    document.getElementById('chartView').style.display = 'none';
-    
-    // Update league information
-    document.getElementById('leagueName').innerText = currentLeague.name;
-    document.getElementById('leagueInviteCode').innerText = currentLeague.invite_code;
-    
-    // Format and display end time
-    const endTime = new Date(currentLeague.end_time);
-    const now = new Date();
-    
-    if (endTime <= now) {
-        document.getElementById('leagueEndTime').innerText = 'Tävlingen har avslutats';
-    } else {
-        // Calculate time remaining
-        const timeDiff = endTime - now;
-        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        
-        let timeString = '';
-        if (days > 0) timeString += `${days}d `;
-        if (hours > 0) timeString += `${hours}t `;
-        if (minutes > 0 || timeString === '') timeString += `${minutes}m`;
-        
-        document.getElementById('leagueEndTime').innerText = timeString.trim();
-    }
-    
-    // Load leaderboard
-    loadLeaderboard();
-    updateInGameTopInfo();
+  if (!currentLeague || !currentUser) return showChartView();
+
+  currentView = 'league';
+  document.getElementById('leagueInfoView').style.display = 'flex';
+  document.getElementById('chartView').style.display = 'none';
+
+  const liveBtn = document.getElementById('liveBtn');
+  const historyBtn = document.getElementById('historyBtn');
+  if (liveBtn) liveBtn.style.display = 'none';
+  if (historyBtn) historyBtn.style.display = 'none';
+
+  const toggleBar = document.getElementById('viewToggleBar');
+  if (toggleBar) toggleBar.style.display = 'flex';
+
+  document.getElementById('leagueName').innerText = currentLeague.name;
+  document.getElementById('leagueInviteCode').innerText = currentLeague.invitecode;
+
+  const endTime = new Date(currentLeague.endtime);
+  const now = new Date();
+  if (endTime <= now) {
+    document.getElementById('leagueEndTime').innerText = 'Tvlingen har avslutats';
+  } else {
+    const timeDiff = endTime - now;
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDiff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((timeDiff / (1000 * 60)) % 60);
+    let timeString = '';
+    if (days > 0) timeString += days + 'd ';
+    if (hours > 0) timeString += hours + 't ';
+    if (minutes > 0) timeString += minutes + 'm';
+    document.getElementById('leagueEndTime').innerText = timeString.trim();
+  }
+
+  loadLeaderboard();
+  updateInGameTopInfo();
 }
 
 function showChartView() {
-    currentView = 'chart';
-    document.getElementById('leagueInfoView').style.display = 'none';
-    document.getElementById('chartView').style.display = 'block';
-    // Sync toggle buttons
-    const a = document.getElementById('btnChart');
-    const b = document.getElementById('btnLeaderboard');
-    if (a) a.classList.add('active');
-    if (b) b.classList.remove('active');
+  currentView = 'chart';
+  document.getElementById('leagueInfoView').style.display = 'none';
+  document.getElementById('chartView').style.display = 'block';
+
+  const liveBtn = document.getElementById('liveBtn');
+  const historyBtn = document.getElementById('historyBtn');
+  if (liveBtn) liveBtn.style.display = 'inline-block';
+  if (historyBtn) historyBtn.style.display = 'inline-block';
+
+  const toggleBar = document.getElementById('viewToggleBar');
+  if (toggleBar) toggleBar.style.display = 'flex';
+
+  const a = document.getElementById('btnChart');
+  const b = document.getElementById('btnLeaderboard');
+  if (a) a.classList.add('active');
+  if (b) b.classList.remove('active');
 }
 
 function switchToChart() {
