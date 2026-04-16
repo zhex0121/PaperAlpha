@@ -118,6 +118,24 @@ overflow:hidden;
     display: flex;
     gap: 4px;
 }
+.top-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.mode-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.toggle-main {
+    width: auto;
+    background: #1e1e1e;
+    color: white;
+    margin: 0;
+}
 .toggle-btn {
     background: none;
     border: none;
@@ -706,37 +724,28 @@ id="stockList">
     </div>
 </div>
 
-<!-- Chart View (hidden by default) -->
-<div id="chartView" style="display: none;">
-    <div style="margin-bottom:10px;">
+<div class="top-controls">
 
-        <button class="btn"
-        style="width:auto;background:#1e1e1e;color:white;margin-right:5px;"
-        onclick="setChartMode('live')"
-        id="liveBtn">
-
-        REALTID
-
+    <!-- LEFT: live / history -->
+    <div class="mode-buttons">
+        <button class="btn toggle-main" onclick="setChartMode('live')" id="liveBtn">
+            REALTID
         </button>
 
-        <button class="btn"
-        style="width:auto;background:#1e1e1e;color:white;"
-        onclick="setChartMode('history')"
-        id="historyBtn">
-
-        HISTORISKT
-
+        <button class="btn toggle-main" onclick="setChartMode('history')" id="historyBtn">
+            HISTORISKT
         </button>
-    
     </div>
 
-    
-    <div id="viewToggleBar" class="view-toggle-bar" style="display:none;">
+    <!-- RIGHT: chart / leaderboard -->
+    <div id="viewToggleBar" class="view-toggle-bar">
         <div class="view-toggle-pill">
-           <button id="btnChart" class="toggle-btn active" onclick="switchToChart()" title="Diagram">📈</button>
-            <button id="btnLeaderboard" class="toggle-btn" onclick="switchToLeaderboard()" title="Ledartavla">🏆</button>
+            <button id="btnChart" class="toggle-btn active" onclick="switchToChart()">📈</button>
+            <button id="btnLeaderboard" class="toggle-btn" onclick="switchToLeaderboard()">🏆</button>
         </div>
     </div>
+
+</div>
  
 
     
@@ -1092,24 +1101,21 @@ function showChartView() {
 
 function switchToChart() {
     showChartView();
-    const a = document.getElementById('btnChart');
-    const b = document.getElementById('btnLeaderboard');
-    if (a) a.classList.add('active');
-    if (b) b.classList.remove('active');
+
+    document.getElementById('btnChart').classList.add('active');
+    document.getElementById('btnLeaderboard').classList.remove('active');
 }
 
 function switchToLeaderboard() {
     showLeagueInfo();
-    const a = document.getElementById('btnLeaderboard');
-    const b = document.getElementById('btnChart');
-    if (a) a.classList.add('active');
-    if (b) b.classList.remove('active');
+
+    document.getElementById('btnLeaderboard').classList.add('active');
+    document.getElementById('btnChart').classList.remove('active');
 }
 
 function updateToggleVisibility() {
-    const inLeague = !!(currentUser && currentLeagueId && currentLeague);
     const bar = document.getElementById('viewToggleBar');
-    if (bar) bar.style.display = inLeague ? 'flex' : 'none';
+    if (bar) bar.style.display = 'flex';
 }
     
 function formatLeagueTimeLeft(endTimeValue) {
