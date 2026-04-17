@@ -2279,11 +2279,15 @@ scales:{
 
 x:{
 type:'time',
-time:{
-unit:'minute',
-minUnit:'minute',
-tooltipFormat:'dd/MM HH:mm',
-displayFormats:{minute:'HH:mm'}
+time: {
+    unit: 'minute',        // default (live)
+    minUnit: 'minute',
+    tooltipFormat: 'dd/MM HH:mm',
+    displayFormats: {
+        minute: 'HH:mm',
+        hour: 'HH:mm',
+        day: 'dd MMM'
+    }
 },
 grid:{color:'#1a1a1a'},
 ticks:{
@@ -2402,8 +2406,21 @@ function updateChartView() {
 
     chart.data.datasets[0].data = history;
 
+    const first = history[0].x;
+    const last = history[history.length - 1].x;
+    const range = last - first;
+
+    // ✅ FIX: Dynamic time unit (prevents "too far apart" crash)
+    if (range > 7 * 24 * 60 * 60 * 1000) {
+        chart.options.scales.x.time.unit = 'day';
+    } else if (range > 24 * 60 * 60 * 1000) {
+        chart.options.scales.x.time.unit = 'hour';
+    } else {
+        chart.options.scales.x.time.unit = 'minute';
+    }
+
     if (chartMode === 'live') {
-        const newest = history[history.length - 1].x;
+        const newest = last;
 
         const viewWindow = 30 * 60 * 1000; // 30 min
         const rightPadding = viewWindow * 0.33;
@@ -2435,16 +2452,13 @@ function updateChartView() {
     } else {
         // ===== HISTORY MODE =====
 
-        const first = history[0].x;
-        const last = history[history.length - 1].x;
-
-        const padding = (last - first) * 0.05;
+        const padding = range * 0.05;
 
         // Show full dataset
         chart.options.scales.x.min = first - padding;
         chart.options.scales.x.max = last + padding;
 
-        // Auto Y-scale for ALL data
+        // Auto Y-scale for ALL candles
         const highs = history.map(c => c.h);
         const lows = history.map(c => c.l);
 
@@ -2455,7 +2469,7 @@ function updateChartView() {
         chart.options.scales.y.min = min - margin;
         chart.options.scales.y.max = max + margin;
 
-        // Enable zoom/pan in history
+        // Enable zoom/pan
         chart.options.plugins.zoom.pan.enabled = true;
         chart.options.plugins.zoom.zoom.wheel.enabled = true;
         chart.options.plugins.zoom.zoom.pinch.enabled = true;
