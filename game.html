@@ -272,15 +272,7 @@ overflow:hidden;
     overflow: hidden;
 }
 
-.main-content.full-leaderboard {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    padding: 20px;
-    background: var(--bg);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
+
 
 .market-side{
 
@@ -1062,15 +1054,7 @@ function showLeagueInfo() {
     document.getElementById('leagueInfoView').style.display = 'flex';
     document.getElementById('chartView').style.display = 'none';
     
-    // Make main content full width for leaderboard
-    const mainContent = document.querySelector('.main-content');
-    if (mainContent) {
-        mainContent.classList.add('full-leaderboard');
-    }
-    
-    // Hide market and trade sides when in leaderboard view
-    document.querySelector('.market-side').style.display = 'none';
-    document.querySelector('.trade-side').style.display = 'none';
+  
     
     updateToggleVisibility();
     
@@ -1112,15 +1096,7 @@ function showChartView() {
     document.getElementById('leagueInfoView').style.display = 'none';
     document.getElementById('chartView').style.display = 'block';
     
-    // Restore normal layout
-    const mainContent = document.querySelector('.main-content');
-    if (mainContent) {
-        mainContent.classList.remove('full-leaderboard');
-    }
-    
-    // Show market and trade sides when in chart view
-    document.querySelector('.market-side').style.display = 'grid';
-    document.querySelector('.trade-side').style.display = 'flex';
+   
     
     updateToggleVisibility();
     // Sync toggle buttons
