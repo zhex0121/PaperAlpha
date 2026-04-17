@@ -713,26 +713,13 @@ id="stockList">
 </div>
     
 <!-- League Information View -->
-<div id="leagueInfoView" style="display: none; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; padding: 20px 0;">
-    <div style="max-width: 1000px; width: 100%; flex: 1; display: flex; flex-direction: column;">
-        <h1 id="leagueName" style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--text);"></h1>
-        
-        <div style="margin-bottom: 1rem;">
-            <div style="color: var(--text-dim); font-size: 1.1rem; margin-bottom: 0.5rem;">Tävlingen slutar</div>
-            <div id="leagueEndTime" style="font-size: 1.8rem; font-weight: bold; color: var(--accent);"></div>
-        </div>
-        
-        <!-- Leaderboard -->
-        <div id="leaderboardContainer" style="margin: 1rem 0; flex: 1; width: 100%; display: flex; flex-direction: column;">
+<div id="leagueInfoView" style="display: none; height: 100%; padding: 20px 0;">
+    <div style="max-width: 1000px; width: 100%; height: 100%; margin: 0 auto; display: flex; flex-direction: column;">
+        <div id="leaderboardContainer" style="flex: 1; width: 100%; display: flex; flex-direction: column; min-height: 0;">
             <h3 style="color: var(--text); margin-bottom: 1rem; font-size: 1.3rem;">Ledartavla</h3>
             <div id="leaderboardList" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; flex: 1; overflow-y: auto;">
                 <div style="color: var(--text-dim); text-align: center; padding: 2rem;">Laddar ledartavla...</div>
             </div>
-        </div>
-        
-        <div style="margin-top: 1rem;">
-            <div style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 0.5rem;">Inbjudningskod</div>
-            <div id="leagueInviteCode" style="font-size: 1.5rem; font-weight: bold; color: var(--up); letter-spacing: 2px;"></div>
         </div>
     </div>
 </div>
@@ -1062,27 +1049,7 @@ function showLeagueInfo() {
     document.getElementById('leagueName').innerText = currentLeague.name;
     document.getElementById('leagueInviteCode').innerText = currentLeague.invite_code;
     
-    // Format and display end time
-    const endTime = new Date(currentLeague.end_time);
-    const now = new Date();
-    
-    if (endTime <= now) {
-        document.getElementById('leagueEndTime').innerText = 'Tävlingen har avslutats';
-    } else {
-        // Calculate time remaining
-        const timeDiff = endTime - now;
-        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        
-        let timeString = '';
-        if (days > 0) timeString += `${days}d `;
-        if (hours > 0) timeString += `${hours}t `;
-        if (minutes > 0 || timeString === '') timeString += `${minutes}m`;
-        
-        document.getElementById('leagueEndTime').innerText = timeString.trim();
-    }
-    
+       
     // Check if competition has ended and disable trading
     checkCompetitionStatus();
     
