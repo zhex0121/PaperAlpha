@@ -1036,28 +1036,20 @@ function showLeagueInfo() {
         showChartView();
         return;
     }
-    
+
     currentView = 'league';
     document.getElementById('leagueInfoView').style.display = 'flex';
     document.getElementById('chartView').style.display = 'none';
-    
-  syncViewToggleButtons();
-    
+
     updateToggleVisibility();
-    
-    // Update league information
-    document.getElementById('leagueName').innerText = currentLeague.name;
-    document.getElementById('leagueInviteCode').innerText = currentLeague.invite_code;
-    
-       
-    // Check if competition has ended and disable trading
+    syncViewToggleButtons();
+
+    // Keep competition logic + leaderboard only
     checkCompetitionStatus();
-    
-    // Load leaderboard
     loadLeaderboard();
     updateInGameTopInfo();
 }
-
+    
     function syncViewToggleButtons() {
     const chartBtn = document.getElementById('btnChart');
     const leaderboardBtn = document.getElementById('btnLeaderboard');
