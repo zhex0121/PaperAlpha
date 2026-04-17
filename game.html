@@ -1041,7 +1041,7 @@ function showLeagueInfo() {
     document.getElementById('leagueInfoView').style.display = 'flex';
     document.getElementById('chartView').style.display = 'none';
     
-  
+  syncViewToggleButtons();
     
     updateToggleVisibility();
     
@@ -1058,11 +1058,21 @@ function showLeagueInfo() {
     updateInGameTopInfo();
 }
 
+    function syncViewToggleButtons() {
+    const chartBtn = document.getElementById('btnChart');
+    const leaderboardBtn = document.getElementById('btnLeaderboard');
+
+    if (!chartBtn || !leaderboardBtn) return;
+
+    chartBtn.classList.toggle('active', currentView === 'chart');
+    leaderboardBtn.classList.toggle('active', currentView === 'league');
+}
+    
 function showChartView() {
     currentView = 'chart';
     document.getElementById('leagueInfoView').style.display = 'none';
     document.getElementById('chartView').style.display = 'block';
-    
+    syncViewToggleButtons();
    
     
     updateToggleVisibility();
@@ -1075,18 +1085,10 @@ function showChartView() {
 
 function switchToChart() {
     showChartView();
-    const a = document.getElementById('btnChart');
-    const b = document.getElementById('btnLeaderboard');
-    if (a) a.classList.add('active');
-    if (b) b.classList.remove('active');
 }
 
 function switchToLeaderboard() {
     showLeagueInfo();
-    const a = document.getElementById('btnLeaderboard');
-    const b = document.getElementById('btnChart');
-    if (a) a.classList.add('active');
-    if (b) b.classList.remove('active');
 }
 
 function updateToggleVisibility() {
