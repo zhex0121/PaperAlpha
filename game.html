@@ -721,33 +721,39 @@ id="stockList">
                 <div style="color: var(--text-dim); text-align: center; padding: 2rem;">Laddar ledartavla...</div>
             </div>
         </div>
+        
+        <!-- Partner support text -->
+        <div style="text-align: center; padding: 15px 20px; flex-shrink: 0;">
+            <a href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" 
+               style="color: var(--text-dim); font-size: 0.85rem; text-decoration: none; cursor: pointer; transition: color 0.2s;"
+               onmouseover="this.style.color='var(--text)'" 
+               onmouseout="this.style.color='var(--text-dim)'">
+                Stötta vår webbplats
+            </a>
+        </div>
     </div>
 </div>
 
 <!-- Chart View (hidden by default) -->
-<div id="chartView" style="display: none;">
-
-          <div>
-
-        <h2 id="activeSymbol">
-
-        Ansluter till servern...
-
-        </h2>
-
-        <h1 id="activePrice">
-
-        Laddar priser...
-
-        </h1>
-
-        </div>
-
-        <div class="chart-container">
-
+<div id="chartView" style="display: none; flex-direction: column; height: 100%;">
+    <div style="flex-shrink: 0;">
+        <h2 id="activeSymbol">Ansluter till servern...</h2>
+        <h1 id="activePrice">Laddar priser...</h1>
+    </div>
+    
+    <div class="chart-container" style="flex: 1; min-height: 0;">
         <canvas id="mainChart"></canvas>
-
-        </div>
+    </div>
+    
+    <!-- Partner support text -->
+    <div style="text-align: center; padding: 15px 20px; flex-shrink: 0;">
+        <a href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" 
+           style="color: var(--text-dim); font-size: 0.85rem; text-decoration: none; cursor: pointer; transition: color 0.2s;"
+           onmouseover="this.style.color='var(--text)'" 
+           onmouseout="this.style.color='var(--text-dim)'">
+            Stötta vår webbplats
+        </a>
+    </div>
 </div>
 
 </div>
@@ -2733,63 +2739,69 @@ const container = document.getElementById('portfolioDisplay');
 // Change the line below to just empty quotes
 container.innerHTML = "";
 
+// Create array of portfolio items with values for sorting
+const portfolioItems = [];
 for(let s in portfölj){
-
-const antal=portfölj[s].antal;
-
-const snitt = fxReady ? (portfölj[s].totaltInköp / antal) / currentExchangeRate : null;
-
-const pris = aktier[s].pris;
-
-let värde = null;
-let resultat = null;
-let procent = null;
-
-if(pris !== null && Number.isFinite(pris) && fxReady){
-
-const värdeUSD = antal * pris;
-
-värde = värdeUSD * currentExchangeRate;
-
-const totaltInköpSEK = portfölj[s].totaltInköp;
-
-resultat = värde - totaltInköpSEK;
-
-procent =
-(resultat / totaltInköpSEK) * 100;
-
+  const antal = portfölj[s].antal;
+  const snitt = fxReady ? (portfölj[s].totaltInköp / antal) / currentExchangeRate : null;
+  const pris = aktier[s].pris;
+  
+  let värde = null;
+  let resultat = null;
+  let procent = null;
+  
+  if(pris !== null && Number.isFinite(pris) && fxReady){
+    const värdeUSD = antal * pris;
+    värde = värdeUSD * currentExchangeRate;
+    const totaltInköpSEK = portfölj[s].totaltInköp;
+    resultat = värde - totaltInköpSEK;
+    procent = (resultat / totaltInköpSEK) * 100;
+  }
+  
+  portfolioItems.push({
+    symbol: s,
+    antal,
+    snitt,
+    värde,
+    resultat,
+    procent
+  });
 }
 
+// Sort by total value (highest first)
+portfolioItems.sort((a, b) => (b.värde || 0) - (a.värde || 0));
 
-container.innerHTML += `
+// Display sorted items
+for(const item of portfolioItems){
+  container.innerHTML += `
   <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #1a1a1a;">
     <div style="display:flex; flex-direction:column; gap:2px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
         <span style="cursor:pointer; color:#2962ff; text-decoration:none; word-break:break-word; line-height:1.2; font-weight:600;"
-              onclick="väljAktie('${s}')"
+              onclick="väljAktie('${item.symbol}')"
               onmouseover="this.style.textDecoration='underline'"
               onmouseout="this.style.textDecoration='none'">
-         ${s.split(' (')[0]}
+         ${item.symbol.split(' (')[0]}
         </span>
 
         <span style="white-space:nowrap; flex-shrink:0; margin-left:12px; font-weight:bold;">
-          ${värde !== null    ? Number(värde).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' SEK'   : '--'}
+          ${item.värde !== null ? Number(item.värde).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' SEK' : '--'}
         </span>
       </div>
 
 <div style="font-size:0.75rem; color:var(--text-dim); margin-top:2px;">
-Antal: ${Number(antal).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} st
+Antal: ${Number(item.antal).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} st
 </div>
       <div style="font-size:0.75rem; color:var(--text-dim); margin-top:2px;">
-        Snittpris: ${snitt !== null ? Number(snitt).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD' : '...'}
+        Snittpris: ${item.snitt !== null ? Number(item.snitt).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD' : '...'}
       </div>
 
-      <div class="${resultat === null ? '' : (resultat >= 0 ? 'up' : 'down')}"
+      <div class="${item.resultat === null ? '' : (item.resultat >= 0 ? 'up' : 'down')}"
            style="font-size:0.75rem; margin-top:2px;">
-        Resultat: ${resultat !== null 
-  ? Number(resultat).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' SEK'
+        Resultat: ${item.resultat !== null 
+  ? Number(item.resultat).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' SEK'
   : 'Laddar priser...'}
-        ${procent !== null ? `(${Number(procent).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` : ''}
+        ${item.procent !== null ? `(${Number(item.procent).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` : ''}
       </div>
     </div>
   </div>
