@@ -1487,7 +1487,7 @@ function toggleEmailView() {
 
 
     
-function showLoggedInUI() {
+async function showLoggedInUI() {
     authReady = true;
     showAuthModal(false);
     
@@ -1505,6 +1505,9 @@ function showLoggedInUI() {
     
     document.getElementById('portfolioDisplay').style.display = 'block'; 
 
+    // Check URL parameters for automatic competition join/rejoin
+    await handleCompetitionFromURL();
+    
     updateInGameTopInfo();
     
     syncTradeControlsVisibility();
@@ -1519,6 +1522,88 @@ document.getElementById('authError').innerText = msg || '';
 
 
     
+// Handle automatic competition join/rejoin from URL parameters
+async function handleCompetitionFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const leagueId = urlParams.get('league');
+    const code = urlParams.get('code');
+    
+    if (!leagueId || !code) {
+        console.log("No competition parameters in URL, using individual mode");
+        await loadIndividualProfile();
+        return;
+    }
+    
+    console.log(`[AutoJoin] Found competition in URL: league=${leagueId}, code=${code}`);
+    
+    try {
+        // Verify league exists and code is correct
+        const { data: league, error: leagueError } = await supabaseClient
+            .from('leagues')
+            .select('*')
+            .eq('id', leagueId)
+            .eq('invite_code', code)
+            .single();
+            
+        if (leagueError || !league) {
+            console.error("[AutoJoin] League not found or invalid code:", leagueError);
+            await loadIndividualProfile();
+            return;
+        }
+        
+        console.log(`[AutoJoin] League verified: ${league.name}`);
+        
+        // Check if user is already a member
+        const { data: existingMember, error: memberCheckError } = await supabaseClient
+            .from('league_members')
+            .select('*')
+            .eq('league_id', leagueId)
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+            
+        if (memberCheckError) {
+            console.error("[AutoJoin] Error checking membership:", memberCheckError);
+        }
+        
+        if (existingMember) {
+            console.log("[AutoJoin] User is already a member, rejoining...");
+            // User is already a member, just set the league variables and load
+            currentLeagueId = leagueId;
+            currentLeagueCode = code;
+            currentLeague = league;
+            await ensureProfileAndLoad();
+        } else {
+            console.log("[AutoJoin] User not a member, auto-joining...");
+            // Auto-join the competition
+            const { error: joinError } = await supabaseClient
+                .from('league_members')
+                .insert({
+                    league_id: leagueId,
+                    user_id: currentUser.id,
+                    balance: league.starting_balance,
+                    portfolio: {}
+                });
+                
+            if (joinError) {
+                console.error("[AutoJoin] Failed to auto-join:", joinError);
+                await loadIndividualProfile();
+                return;
+            }
+            
+            console.log("[AutoJoin] Successfully auto-joined competition");
+            // Set league variables and load
+            currentLeagueId = leagueId;
+            currentLeagueCode = code;
+            currentLeague = league;
+            await ensureProfileAndLoad();
+        }
+        
+    } catch (error) {
+        console.error("[AutoJoin] Error in auto-join process:", error);
+        await loadIndividualProfile();
+    }
+}
+
 async function ensureProfileAndLoad() {
     if (!currentUser) return;
     if (isLoadingProfile) {
