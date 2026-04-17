@@ -2280,8 +2280,8 @@ scales:{
 x:{
 type:'time',
 time: {
-    unit: 'minute',        // default (live)
-    minUnit: 'minute',
+    unit: 'minute',
+
     tooltipFormat: 'dd/MM HH:mm',
     displayFormats: {
         minute: 'HH:mm',
@@ -2410,27 +2410,26 @@ function updateChartView() {
     const last = history[history.length - 1].x;
     const range = last - first;
 
-    // ✅ FIX: Dynamic time unit (prevents "too far apart" crash)
-    if (range > 7 * 24 * 60 * 60 * 1000) {
-        chart.options.scales.x.time.unit = 'day';
-    } else if (range > 24 * 60 * 60 * 1000) {
-        chart.options.scales.x.time.unit = 'hour';
+    // Always set time unit safely
+    if (chartMode === 'history') {
+        chart.options.scales.x.time.unit =
+            range > 7 * 24 * 60 * 60 * 1000 ? 'day' :
+            range > 24 * 60 * 60 * 1000 ? 'hour' : 'minute';
     } else {
         chart.options.scales.x.time.unit = 'minute';
     }
 
     if (chartMode === 'live') {
         const newest = last;
-
-        const viewWindow = 30 * 60 * 1000; // 30 min
+        const viewWindow = 30 * 60 * 1000;
         const rightPadding = viewWindow * 0.33;
 
         if (liveAutoScrollEnabled) {
             chart.options.scales.x.min = newest - (viewWindow - rightPadding);
             chart.options.scales.x.max = newest + rightPadding;
 
-            // Auto Y-scale for visible candles
             const visible = history.filter(c => c.x >= chart.options.scales.x.min);
+
             if (visible.length) {
                 const highs = visible.map(c => c.h);
                 const lows = visible.map(c => c.l);
@@ -2444,21 +2443,17 @@ function updateChartView() {
             }
         }
 
-        // Lock zoom in live mode
         chart.options.plugins.zoom.pan.enabled = false;
         chart.options.plugins.zoom.zoom.wheel.enabled = false;
         chart.options.plugins.zoom.zoom.pinch.enabled = false;
 
     } else {
-        // ===== HISTORY MODE =====
-
+        // HISTORY MODE ONLY resets full range
         const padding = range * 0.05;
 
-        // Show full dataset
         chart.options.scales.x.min = first - padding;
         chart.options.scales.x.max = last + padding;
 
-        // Auto Y-scale for ALL candles
         const highs = history.map(c => c.h);
         const lows = history.map(c => c.l);
 
@@ -2469,7 +2464,6 @@ function updateChartView() {
         chart.options.scales.y.min = min - margin;
         chart.options.scales.y.max = max + margin;
 
-        // Enable zoom/pan
         chart.options.plugins.zoom.pan.enabled = true;
         chart.options.plugins.zoom.zoom.wheel.enabled = true;
         chart.options.plugins.zoom.zoom.pinch.enabled = true;
@@ -2478,6 +2472,7 @@ function updateChartView() {
     chart.update('none');
 }
 
+    
   
 async function genomförAffär(typ){
     
