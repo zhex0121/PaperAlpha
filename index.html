@@ -71,6 +71,24 @@
             position: relative;
             display: flex;
             align-items: center;
+            gap: 15px;
+        }
+
+        .new-competition-btn {
+            background: linear-gradient(45deg, var(--accent), var(--up));
+            color: var(--text);
+            border: none;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .new-competition-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(41, 98, 255, 0.3);
         }
         
         .login-button {
@@ -163,15 +181,148 @@
         }
 
         .container {
-            text-align: center;
-            max-width: 800px;
+            max-width: 1200px;
             padding: 0 20px;
-            margin-top: 60px;
+            margin-top: 80px;
             flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            overflow-y: auto;
+        }
+
+
+        .competitions-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 0 20px;
+        }
+
+        .competitions-title {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .competition-tabs {
+            display: flex;
+            gap: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .competition-tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .competition-tab.active {
+            background: var(--accent);
+            color: var(--text);
+        }
+
+        .competitions-list {
+            width: 100%;
+            max-width: 800px;
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 20px;
+        }
+
+        .competition-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .competition-item:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .competition-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .competition-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .competition-stats {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .competition-stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .placement-value {
+            color: var(--accent);
+        }
+
+        .portfolio-value {
+            color: var(--up);
+        }
+
+        .join-competition-btn {
+            background: var(--accent);
+            color: var(--text);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .join-competition-btn:hover {
+            background: #1e5ba8;
+        }
+
+        .no-competitions {
+            text-align: center;
+            color: var(--text-dim);
+            padding: 60px 20px;
+            font-size: 1.1rem;
         }
 
         h1 {
@@ -381,6 +532,9 @@
     <div class="top-banner">
         <a href="index.html" class="logo-link">PaperAlpha</a>
         <div class="profile-section">
+            <div id="new-competition-section" style="display: none;">
+                <button class="new-competition-btn" onclick="showGameModal(true)">Ny Tävling</button>
+            </div>
             <div id="logged-out-view">
                 <button class="login-button">Logga in</button>
             </div>
@@ -397,9 +551,21 @@
     </div>
 
     <div class="container">
-        <h1>PaperAlpha</h1>
-        <p class="subtitle">Lär dig handla aktier utan risk</p>
-        <a href="#" class="start-button" onclick="showGameModal(true)">Starta Tävling</a>
+        <div class="competitions-header">
+            <h1 class="competitions-title">Mina Tävlingar</h1>
+            <div class="competition-tabs">
+                <button class="competition-tab active" onclick="switchCompetitionTab('active')">Aktiva</button>
+                <button class="competition-tab" onclick="switchCompetitionTab('finished')">Avslutade</button>
+            </div>
+        </div>
+
+        <div id="activeCompetitions" class="competitions-list">
+            <div class="no-competitions">Inga aktiva tävlingar</div>
+        </div>
+
+        <div id="finishedCompetitions" class="competitions-list" style="display: none;">
+            <div class="no-competitions">Inga avslutade tävlingar</div>
+        </div>
     </div>
 
     <!-- Auth Modal -->
@@ -498,6 +664,7 @@
         function showLoggedInUI(user) {
             loggedOutView.style.display = 'none';
             loggedInView.style.display = 'flex';
+            document.getElementById('new-competition-section').style.display = 'block';
             profileEmail.textContent = user.email;
             profileInitial.textContent = user.email.charAt(0).toUpperCase();
             currentUser = user;
@@ -506,6 +673,7 @@
         function showLoggedOutUI() {
             loggedOutView.style.display = 'block';
             loggedInView.style.display = 'none';
+            document.getElementById('new-competition-section').style.display = 'none';
             profileDropdown.classList.remove('show');
             currentUser = null;
         }
@@ -596,14 +764,16 @@
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session?.user) {
                 showLoggedInUI(session.user);
+                await loadUserCompetitions();
             } else {
                 showLoggedOutUI();
             }
 
             // Listen for changes
-            supabaseClient.auth.onAuthStateChange((event, session) => {
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
                 if (session?.user) {
                     showLoggedInUI(session.user);
+                    await loadUserCompetitions();
                 } else {
                     showLoggedOutUI();
                 }
@@ -769,6 +939,202 @@
                 
             } catch (error) {
                 console.error('Join game error:', error);
+                setGameError('Kunde inte gå med i tävling. Försök igen.');
+            }
+        }
+
+        // --- Competition Management Functions ---
+        function switchCompetitionTab(tab) {
+            const tabs = document.querySelectorAll('.competition-tab');
+            const activeList = document.getElementById('activeCompetitions');
+            const finishedList = document.getElementById('finishedCompetitions');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'active') {
+                tabs[0].classList.add('active');
+                activeList.style.display = 'block';
+                finishedList.style.display = 'none';
+            } else {
+                tabs[1].classList.add('active');
+                activeList.style.display = 'none';
+                finishedList.style.display = 'block';
+            }
+        }
+
+        async function loadUserCompetitions() {
+            if (!currentUser) return;
+            
+            try {
+                // Get all leagues where user is a member
+                const { data: memberships, error: memberError } = await supabaseClient
+                    .from('league_members')
+                    .select('league_id')
+                    .eq('user_id', currentUser.id);
+                
+                if (memberError) throw memberError;
+                
+                if (!memberships || memberships.length === 0) {
+                    // No competitions found
+                    document.getElementById('activeCompetitions').innerHTML = '<div class="no-competitions">Inga aktiva tävlingar</div>';
+                    document.getElementById('finishedCompetitions').innerHTML = '<div class="no-competitions">Inga avslutade tävlingar</div>';
+                    return;
+                }
+                
+                const leagueIds = memberships.map(m => m.league_id);
+                
+                // Get league details
+                const { data: leagues, error: leagueError } = await supabaseClient
+                    .from('leagues')
+                    .select('*')
+                    .in('id', leagueIds)
+                    .order('created_at', { ascending: false });
+                
+                if (leagueError) throw leagueError;
+                
+                // Separate active and finished competitions
+                const now = new Date();
+                const activeCompetitions = [];
+                const finishedCompetitions = [];
+                
+                leagues.forEach(league => {
+                    const endTime = new Date(league.end_time);
+                    if (endTime > now) {
+                        activeCompetitions.push(league);
+                    } else {
+                        finishedCompetitions.push(league);
+                    }
+                });
+                
+                // Render competitions
+                renderCompetitions('activeCompetitions', activeCompetitions, true);
+                renderCompetitions('finishedCompetitions', finishedCompetitions, false);
+                
+            } catch (error) {
+                console.error('Load competitions error:', error);
+                document.getElementById('activeCompetitions').innerHTML = '<div class="no-competitions">Kunde inte ladda tävlingar</div>';
+                document.getElementById('finishedCompetitions').innerHTML = '<div class="no-competitions">Kunde inte ladda tävlingar</div>';
+            }
+        }
+
+        async function renderCompetitions(containerId, competitions, isActive) {
+            const container = document.getElementById(containerId);
+            
+            if (competitions.length === 0) {
+                container.innerHTML = `<div class="no-competitions">Inga ${isActive ? 'aktiva' : 'avslutade'} tävlingar</div>`;
+                return;
+            }
+            
+            // Get user data for each competition to show placement and portfolio value
+            const competitionsWithData = await Promise.all(competitions.map(async (league) => {
+                try {
+                    // Get user's member data for this league
+                    const { data: memberData } = await supabaseClient
+                        .from('league_members')
+                        .select('*')
+                        .eq('league_id', league.id)
+                        .eq('user_id', currentUser.id)
+                        .single();
+                    
+                    // Get all members to calculate placement
+                    const { data: allMembers } = await supabaseClient
+                        .from('league_members')
+                        .select('balance, portfolio')
+                        .eq('league_id', league.id);
+                    
+                    // Calculate total portfolio value for all members
+                    const memberValues = allMembers.map(member => {
+                        const portfolioValue = member.portfolio ? Object.values(member.portfolio).reduce((sum, holding) => {
+                            return sum + (holding.shares * (holding.current_price || holding.buy_price || 0));
+                        }, 0) : 0;
+                        return member.balance + portfolioValue;
+                    });
+                    
+                    // Sort by value descending to get placement
+                    const sortedValues = [...memberValues].sort((a, b) => b - a);
+                    const userValue = memberData.balance + (memberData.portfolio ? Object.values(memberData.portfolio).reduce((sum, holding) => {
+                        return sum + (holding.shares * (holding.current_price || holding.buy_price || 0));
+                    }, 0) : 0);
+                    
+                    const placement = sortedValues.indexOf(userValue) + 1;
+                    
+                    return {
+                        ...league,
+                        placement,
+                        portfolioValue: userValue
+                    };
+                } catch (error) {
+                    console.error('Error getting competition data:', error);
+                    return {
+                        ...league,
+                        placement: '-',
+                        portfolioValue: 0
+                    };
+                }
+            }));
+            
+            const competitionsHTML = competitionsWithData.map(league => {
+                return `
+                    <div class="competition-item">
+                        <div class="competition-info">
+                            <div class="competition-name">${league.name}</div>
+                            <div class="competition-stats">
+                                <div class="competition-stat">
+                                    <div class="stat-label">PLACERING</div>
+                                    <div class="stat-value placement-value">#${league.placement}</div>
+                                </div>
+                                <div class="competition-stat">
+                                    <div class="stat-label">PORTFÖLJVÄRDE</div>
+                                    <div class="stat-value portfolio-value">${league.portfolioValue.toLocaleString('sv-SE')} SEK</div>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="join-competition-btn" onclick="joinCompetition('${league.id}', '${league.invite_code}')">
+                            ${isActive ? 'Gå till tävling' : 'Visa resultat'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = competitionsHTML;
+        }
+
+        async function joinCompetition(leagueId, inviteCode) {
+            try {
+                // Check if still a member
+                const { data: member } = await supabaseClient
+                    .from('league_members')
+                    .select('*')
+                    .eq('league_id', leagueId)
+                    .eq('user_id', currentUser.id)
+                    .maybeSingle();
+                
+                if (member) {
+                    // Still a member, redirect to game
+                    window.location.href = `game.html?league=${leagueId}&code=${inviteCode}`;
+                } else {
+                    // No longer a member, rejoin
+                    const { data: league } = await supabaseClient
+                        .from('leagues')
+                        .select('*')
+                        .eq('id', leagueId)
+                        .single();
+                    
+                    const { error: memberError } = await supabaseClient
+                        .from('league_members')
+                        .insert({
+                            league_id: leagueId,
+                            user_id: currentUser.id,
+                            balance: league.starting_balance,
+                            portfolio: {}
+                        });
+                    
+                    if (memberError) throw memberError;
+                    
+                    window.location.href = `game.html?league=${leagueId}&code=${inviteCode}`;
+                }
+            } catch (error) {
+                console.error('Join competition error:', error);
                 setGameError('Kunde inte gå med i tävling. Försök igen.');
             }
         }
