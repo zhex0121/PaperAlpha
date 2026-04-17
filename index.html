@@ -654,6 +654,66 @@
     let currentUser = null;
     let competitionsLoaded = false;
 
+       let cachedFxRate = null;
+const priceCache = new Map();
+
+async function getExchangeRate() {
+    if (cachedFxRate) return cachedFxRate;
+    try {
+        const response = await fetch('https://server-api-092b.onrender.com/api/config');
+        const data = await response.json();
+        cachedFxRate = Number(data?.usdToSek) || 1;
+        return cachedFxRate;
+    } catch (e) {
+        console.error('[Competitions] FX fetch failed:', e);
+        cachedFxRate = 1; // fallback
+        return cachedFxRate;
+    }
+}
+
+function extractTicker(symbolLabel) {
+    if (!symbolLabel) return '';
+    if (symbolLabel.includes('(')) {
+        return symbolLabel.split('(')[1].replace(')', '').trim();
+    }
+    return symbolLabel.trim();
+}
+
+async function fetchPriceUsd(symbolLabel) {
+    const ticker = extractTicker(symbolLabel);
+    if (!ticker) return 0;
+
+    if (priceCache.has(ticker)) return priceCache.get(ticker);
+
+    try {
+        const response = await fetch(`https://server-api-092b.onrender.com/api/price/${encodeURIComponent(ticker)}`);
+        if (!response.ok) return 0;
+        const data = await response.json();
+        const price = Number(data?.c) || 0;
+        priceCache.set(ticker, price);
+        return price;
+    } catch (e) {
+        console.error(`[Competitions] Price fetch failed for ${ticker}:`, e);
+        return 0;
+    }
+}
+
+async function getMemberTotalValueSek(member, fxRate) {
+    const balance = Number(member?.balance || 0);
+    const portfolio = member?.portfolio || {};
+    let holdingsValueSek = 0;
+
+    for (const [symbol, holding] of Object.entries(portfolio)) {
+        const amount = Number(holding?.antal || 0);
+        if (amount <= 0) continue;
+
+        const priceUsd = await fetchPriceUsd(symbol);
+        holdingsValueSek += amount * priceUsd * fxRate;
+    }
+
+    return balance + holdingsValueSek;
+}
+       
     // --- UI Functions ---
     function showAuthModal(show) {
         authModal.style.display = show ? 'flex' : 'none';
@@ -954,30 +1014,36 @@
         }
 
         const competitionsWithData = await Promise.all(competitions.map(async (league) => {
-            try {
-                const { data: memberData } = await supabaseClient.from('league_members').select('*').eq('league_id', league.id).eq('user_id', currentUser.id).single();
-                const { data: allMembers } = await supabaseClient.from('league_members').select('balance, portfolio').eq('league_id', league.id);
+    try {
+        const fxRate = await getExchangeRate();
 
-                const getValue = (member) => {
-                    const portfolioValue = member.portfolio
-                        ? Object.values(member.portfolio).reduce((sum, h) => sum + (h.antal || 0) * (h.current_price || 0), 0)
-                        : 0;
-                    return member.balance + portfolioValue;
-                };
+        const { data: memberData } = await supabaseClient
+            .from('league_members')
+            .select('*')
+            .eq('league_id', league.id)
+            .eq('user_id', currentUser.id)
+            .single();
 
-                const userValue = getValue(memberData);
-                const sortedValues = allMembers.map(getValue).sort((a, b) => b - a);
-                const placement = sortedValues.indexOf(userValue) + 1;
+        const { data: allMembers } = await supabaseClient
+            .from('league_members')
+            .select('user_id, balance, portfolio')
+            .eq('league_id', league.id);
 
-                console.log(`[Competitions] League "${league.name}" — userValue: ${userValue.toFixed(0)}, placement: ${placement}/${sortedValues.length}`);
+        const allValues = await Promise.all((allMembers || []).map(m => getMemberTotalValueSek(m, fxRate)));
+        const userValue = await getMemberTotalValueSek(memberData, fxRate);
 
-                return { ...league, placement, portfolioValue: userValue };
-            } catch (err) {
-                console.error(`[Competitions] Error getting data for league ${league.id}:`, err);
-                return { ...league, placement: '-', portfolioValue: 0 };
-            }
-        }));
+        const sortedValues = [...allValues].sort((a, b) => b - a);
+        const placement = sortedValues.indexOf(userValue) + 1;
+        const totalPlayers = sortedValues.length;
 
+        console.log(`[Competitions] League "${league.name}" — userValue: ${userValue.toFixed(0)}, placement: ${placement}/${totalPlayers}`);
+
+        return { ...league, placement, totalPlayers, portfolioValue: userValue };
+    } catch (err) {
+        console.error(`[Competitions] Error getting data for league ${league.id}:`, err);
+        return { ...league, placement: '-', totalPlayers: '-', portfolioValue: 0 };
+    }
+}));
         container.innerHTML = competitionsWithData.map(league => `
             <div class="competition-item">
                 <div class="competition-info">
@@ -985,7 +1051,7 @@
                     <div class="competition-stats">
                         <div class="competition-stat">
                             <div class="stat-label">PLACERING</div>
-                            <div class="stat-value placement-value">#${league.placement}</div>
+                            <div class="stat-value placement-value">${league.placement}/${league.totalPlayers}</div>
                         </div>
                         <div class="competition-stat">
                             <div class="stat-label">PORTFÖLJVÄRDE</div>
