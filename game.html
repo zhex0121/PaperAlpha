@@ -1327,18 +1327,24 @@ async function fetchHistory(ticker, resolution='D') {
         ? ticker.split("(")[1].replace(")","").trim()
         : ticker;
 
+    const now = Date.now();
+    const pastTime = now - (resolution === 'D' ? 30 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000); // Adjust based on resolution
+
     try {
         const resp = await fetch(
-            `https://server-api-092b.onrender.com/api/chart/${encodeURIComponent(cleanTicker)}?resolution=${resolution}`
+            `https://server-api-092b.onrender.com/api/chart/${encodeURIComponent(cleanTicker)}?resolution=${resolution}&start_time=${pastTime}`
         );
 
         const data = await resp.json();
 
-        console.log("RAW DATA:", data);
+        // Ensure we are only processing data within acceptable limits
+        const filteredData = data.filter(c => c.x >= pastTime && c.x <= now);
 
-        if (!Array.isArray(data)) return [];
+        console.log("RAW DATA:", filteredData);
 
-        const cleaned = data.map(c => ({
+        if (!Array.isArray(filteredData)) return [];
+
+        const cleaned = filteredData.map(c => ({
             x: Number(c.x),
             o: Number(c.o),
             h: Number(c.h),
@@ -1352,13 +1358,11 @@ async function fetchHistory(ticker, resolution='D') {
         console.log("FINAL DATA:", sorted.length);
 
         return sorted;
-
     } catch (e) {
         console.error("Historical data error:", e);
         return [];
     }
 }
-
 
 
 
