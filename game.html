@@ -272,6 +272,16 @@ overflow:hidden;
     overflow: hidden;
 }
 
+.main-content.full-leaderboard {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    padding: 20px;
+    background: var(--bg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
 .market-side{
 
 display:grid;
@@ -711,24 +721,24 @@ id="stockList">
 </div>
     
 <!-- League Information View -->
-<div id="leagueInfoView" style="display: none; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-    <div style="max-width: 800px; width: 100%;">
-        <h1 id="leagueName" style="font-size: 2.5rem; margin-bottom: 2rem; color: var(--text);"></h1>
+<div id="leagueInfoView" style="display: none; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; padding: 20px 0;">
+    <div style="max-width: 1000px; width: 100%; flex: 1; display: flex; flex-direction: column;">
+        <h1 id="leagueName" style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--text);"></h1>
         
-        <div style="margin-bottom: 2rem;">
+        <div style="margin-bottom: 1rem;">
             <div style="color: var(--text-dim); font-size: 1.1rem; margin-bottom: 0.5rem;">Tävlingen slutar</div>
             <div id="leagueEndTime" style="font-size: 1.8rem; font-weight: bold; color: var(--accent);"></div>
         </div>
         
         <!-- Leaderboard -->
-        <div id="leaderboardContainer" style="margin: 2rem 0; width: 100%;">
+        <div id="leaderboardContainer" style="margin: 1rem 0; flex: 1; width: 100%; display: flex; flex-direction: column;">
             <h3 style="color: var(--text); margin-bottom: 1rem; font-size: 1.3rem;">Ledartavla</h3>
-            <div id="leaderboardList" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-height: 300px; overflow-y: auto;">
+            <div id="leaderboardList" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; flex: 1; overflow-y: auto;">
                 <div style="color: var(--text-dim); text-align: center; padding: 2rem;">Laddar ledartavla...</div>
             </div>
         </div>
         
-        <div style="margin-top: 2rem;">
+        <div style="margin-top: 1rem;">
             <div style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 0.5rem;">Inbjudningskod</div>
             <div id="leagueInviteCode" style="font-size: 1.5rem; font-weight: bold; color: var(--up); letter-spacing: 2px;"></div>
         </div>
@@ -827,6 +837,11 @@ SÄLJ
 
 </button>
 
+</div>
+
+<div id="competitionEndedMessage" style="display: none; text-align: center; padding: 20px; color: var(--text-dim);">
+    <div style="font-size: 1.1rem; margin-bottom: 10px;">Tävlingen har avslutats</div>
+    <div style="font-size: 0.9rem;">Handel är inte längre möjlig</div>
 </div>
 
 <div style="border-bottom:1px solid var(--border); padding-bottom:5px; margin-top: 20px;">
@@ -1046,6 +1061,17 @@ function showLeagueInfo() {
     currentView = 'league';
     document.getElementById('leagueInfoView').style.display = 'flex';
     document.getElementById('chartView').style.display = 'none';
+    
+    // Make main content full width for leaderboard
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.classList.add('full-leaderboard');
+    }
+    
+    // Hide market and trade sides when in leaderboard view
+    document.querySelector('.market-side').style.display = 'none';
+    document.querySelector('.trade-side').style.display = 'none';
+    
     updateToggleVisibility();
     
     // Update league information
@@ -1073,6 +1099,9 @@ function showLeagueInfo() {
         document.getElementById('leagueEndTime').innerText = timeString.trim();
     }
     
+    // Check if competition has ended and disable trading
+    checkCompetitionStatus();
+    
     // Load leaderboard
     loadLeaderboard();
     updateInGameTopInfo();
@@ -1082,6 +1111,17 @@ function showChartView() {
     currentView = 'chart';
     document.getElementById('leagueInfoView').style.display = 'none';
     document.getElementById('chartView').style.display = 'block';
+    
+    // Restore normal layout
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.classList.remove('full-leaderboard');
+    }
+    
+    // Show market and trade sides when in chart view
+    document.querySelector('.market-side').style.display = 'grid';
+    document.querySelector('.trade-side').style.display = 'flex';
+    
     updateToggleVisibility();
     // Sync toggle buttons
     const a = document.getElementById('btnChart');
@@ -1407,7 +1447,7 @@ updateToggleVisibility();
 
 function syncTradeControlsVisibility(){
 
-if(currentUser && aktivAktie){
+if(currentUser && aktivAktie && !isCompetitionEnded()){
 
 document.getElementById('tradeControls').style.display = 'block';
 
@@ -1417,6 +1457,30 @@ document.getElementById('tradeControls').style.display = 'none';
 
 }
 
+}
+
+function isCompetitionEnded() {
+    if (!currentLeague || !currentLeague.end_time) return false;
+    return new Date() >= new Date(currentLeague.end_time);
+}
+
+function checkCompetitionStatus() {
+    const tradeControls = document.getElementById('tradeControls');
+    const endedMessage = document.getElementById('competitionEndedMessage');
+    
+    if (isCompetitionEnded()) {
+        // Hide trade controls and show ended message
+        if (tradeControls) tradeControls.style.display = 'none';
+        if (endedMessage) endedMessage.style.display = 'block';
+        
+        // Also disable any ongoing trades
+        window.tradeLock = true;
+    } else {
+        // Show trade controls and hide ended message
+        if (endedMessage) endedMessage.style.display = 'none';
+        // Trade controls visibility will be handled by syncTradeControlsVisibility
+        window.tradeLock = false;
+    }
 }
     
 // Funktion för att visa/dölja profil-dropdown
@@ -2054,7 +2118,7 @@ maximumFractionDigits:2
 async function väljAktie(ticker){
     aktivAktie = ticker;
 
-    if(currentUser){
+    if(currentUser && !isCompetitionEnded()){
         document.getElementById('tradeControls').style.display = 'block';
     } else {
         document.getElementById('tradeControls').style.display = 'none';
@@ -2429,10 +2493,14 @@ if (!fxReady) {
     visaTradeFel("Växelkursen laddas fortfarande. Vänta ett ögonblick och försök igen.");
     return;
 }
+
+// Check if competition has ended
+if (isCompetitionEnded()) {
+    visaTradeFel("Tävlingen har avslutats. Handel är inte längre möjlig.");
+    return;
+}
     
 if(window.tradeLock) return;
-
-window.tradeLock=true;
 
 try{
     
