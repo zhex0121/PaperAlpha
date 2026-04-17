@@ -2050,32 +2050,39 @@ maximumFractionDigits:2
 }
 
 
-
-
   
-function väljAktie(ticker){
+async function väljAktie(ticker){
     aktivAktie = ticker;
+
     if(currentUser){
-    document.getElementById('tradeControls').style.display = 'block';
-    }else{
-    document.getElementById('tradeControls').style.display = 'none';
+        document.getElementById('tradeControls').style.display = 'block';
+    } else {
+        document.getElementById('tradeControls').style.display = 'none';
     }
+
     document.getElementById('activeSymbol').innerText = ticker;
 
     // Show chart view when stock is selected
     showChartView();
 
     uppdateraAktiv();
-    
-    // Se till att vi kör updateChartView så fort charten skapas i initChart
-    initChart(); 
 
+    const aktie = aktier[ticker];
+
+    // Fetch historical candles from server
+    aktie.history = await fetchHistory(ticker, 'D');
+
+    // If history exists, set last close as current price
+    if (aktie.history.length > 0) {
+        const lastCandle = aktie.history[aktie.history.length - 1];
+        aktie.pris = lastCandle.c;
+        aktie.chartSessionStart = aktie.history[0].x;
+    }
+
+    // Render chart & UI
+    initChart();
     renderStockList(document.getElementById('searchInput').value);
 }
-
-
-
-
 
 
   
