@@ -565,11 +565,23 @@
         </div>
 
         <div id="activeCompetitions" class="competitions-list">
-            <div class="no-competitions">Inga aktiva tävlingar</div>
+            <div class="no-competitions">
+                <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
+                <div id="loginPromptActive" style="display: none; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                    <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
+                    <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
+                </div>
+            </div>
         </div>
 
         <div id="finishedCompetitions" class="competitions-list" style="display: none;">
-            <div class="no-competitions">Inga avslutade tävlingar</div>
+            <div class="no-competitions">
+                <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
+                <div id="loginPromptFinished" style="display: none; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                    <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
+                    <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -727,6 +739,11 @@ async function getMemberTotalValueSek(member, fxRate) {
         profileEmail.textContent = user.email;
         profileInitial.textContent = user.email.charAt(0).toUpperCase();
         currentUser = user;
+        
+        // Hide login prompts
+        document.getElementById('loginPromptActive').style.display = 'none';
+        document.getElementById('loginPromptFinished').style.display = 'none';
+        
         console.log('[UI] currentUser set to:', currentUser?.email, '| new-competition-section visible');
     }
 
@@ -738,6 +755,11 @@ async function getMemberTotalValueSek(member, fxRate) {
         profileDropdown.classList.remove('show');
         currentUser = null;
         competitionsLoaded = false;
+        
+        // Show login prompts
+        document.getElementById('loginPromptActive').style.display = 'block';
+        document.getElementById('loginPromptFinished').style.display = 'block';
+        
         console.log('[UI] currentUser cleared');
     }
 
@@ -820,8 +842,25 @@ async function getMemberTotalValueSek(member, fxRate) {
             } else if (event === 'SIGNED_OUT') {
                 console.log('[Auth] SIGNED_OUT — resetting UI');
                 showLoggedOutUI();
-                document.getElementById('activeCompetitions').innerHTML = '<div class="no-competitions">Inga aktiva tävlingar</div>';
-                document.getElementById('finishedCompetitions').innerHTML = '<div class="no-competitions">Inga avslutade tävlingar</div>';
+                // Reset competition lists to show login prompts
+                document.getElementById('activeCompetitions').innerHTML = `
+                    <div class="no-competitions">
+                        <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
+                        <div id="loginPromptActive" style="display: block; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                            <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
+                            <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('finishedCompetitions').innerHTML = `
+                    <div class="no-competitions">
+                        <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
+                        <div id="loginPromptFinished" style="display: block; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                            <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
+                            <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
+                        </div>
+                    </div>
+                `;
             }
         });
     }
