@@ -614,14 +614,11 @@
                 <label>Namn på tävling</label>
                 <input type="text" id="gameName" placeholder="Ange namn på tävling">
                 
-                <label>Längd</label>
-                <select id="gameDuration">
-                    <option value="60">1 timme</option>
-                    <option value="180">3 timmar</option>
-                    <option value="1440">1 dag</option>
-                    <option value="4320">3 dagar</option>
-                    <option value="10080">1 vecka</option>
-                </select>
+                <label>Slutdatum</label>
+                <input type="date" id="gameEndDate" min="">
+                
+                <label>Sluttid</label>
+                <input type="time" id="gameEndTime">
                 
                 <label>Startkapital (SEK)</label>
                 <input type="number" id="gameBalance" value="10000" min="1000" max="1000000" step="1000">
@@ -756,9 +753,11 @@ async function getMemberTotalValueSek(member, fxRate) {
         currentUser = null;
         competitionsLoaded = false;
         
-        // Show login prompts
-        document.getElementById('loginPromptActive').style.display = 'block';
-        document.getElementById('loginPromptFinished').style.display = 'block';
+        // Show login prompts if they exist
+        const activePrompt = document.getElementById('loginPromptActive');
+        const finishedPrompt = document.getElementById('loginPromptFinished');
+        if (activePrompt) activePrompt.style.display = 'block';
+        if (finishedPrompt) finishedPrompt.style.display = 'block';
         
         console.log('[UI] currentUser cleared');
     }
@@ -843,24 +842,30 @@ async function getMemberTotalValueSek(member, fxRate) {
                 console.log('[Auth] SIGNED_OUT — resetting UI');
                 showLoggedOutUI();
                 // Reset competition lists to show login prompts
-                document.getElementById('activeCompetitions').innerHTML = `
-                    <div class="no-competitions">
-                        <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
-                        <div id="loginPromptActive" style="display: block; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
-                            <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
-                            <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
+                const activeEl = document.getElementById('activeCompetitions');
+                const finishedEl = document.getElementById('finishedCompetitions');
+                if (activeEl) {
+                    activeEl.innerHTML = `
+                        <div class="no-competitions">
+                            <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
+                            <div style="color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                                <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
+                                <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
+                            </div>
                         </div>
-                    </div>
-                `;
-                document.getElementById('finishedCompetitions').innerHTML = `
-                    <div class="no-competitions">
-                        <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
-                        <div id="loginPromptFinished" style="display: block; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
-                            <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
-                            <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
+                    `;
+                }
+                if (finishedEl) {
+                    finishedEl.innerHTML = `
+                        <div class="no-competitions">
+                            <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
+                            <div style="color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                                <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
+                                <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
             }
         });
     }
@@ -898,7 +903,10 @@ async function getMemberTotalValueSek(member, fxRate) {
             return;
         }
         document.getElementById('gameModal').style.display = show ? 'flex' : 'none';
-        if (show) setGameError('');
+        if (show) {
+            setGameError('');
+            setCurrentSwedishDateTime(); // Set current Swedish date/time when opening modal
+        }
     }
 
     function switchGameTab(tab) {
@@ -918,25 +926,68 @@ async function getMemberTotalValueSek(member, fxRate) {
 
     function setGameError(msg) { document.getElementById('gameError').innerText = msg || ''; }
 
+    // Function to set current Swedish date and time in the form
+    function setCurrentSwedishDateTime() {
+        const now = new Date();
+        // Swedish timezone (Europe/Stockholm)
+        const swedishTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Stockholm"}));
+        
+        // Format date as YYYY-MM-DD
+        const year = swedishTime.getFullYear();
+        const month = String(swedishTime.getMonth() + 1).padStart(2, '0');
+        const day = String(swedishTime.getDate()).padStart(2, '0');
+        const dateString = `${year}-${month}-${day}`;
+        
+        // Format time as HH:MM
+        const hours = String(swedishTime.getHours()).padStart(2, '0');
+        const minutes = String(swedishTime.getMinutes()).padStart(2, '0');
+        const timeString = `${hours}:${minutes}`;
+        
+        // Set the form values
+        const endDateInput = document.getElementById('gameEndDate');
+        const endTimeInput = document.getElementById('gameEndTime');
+        
+        if (endDateInput) {
+            endDateInput.value = dateString;
+            endDateInput.min = dateString; // Can't select past dates
+        }
+        if (endTimeInput) {
+            endTimeInput.value = timeString;
+        }
+    }
+
     async function createGame() {
         setGameError('');
         const name = document.getElementById('gameName').value.trim();
-        const duration = document.getElementById('gameDuration').value;
+        const endDate = document.getElementById('gameEndDate').value;
+        const endTime = document.getElementById('gameEndTime').value;
         const balance = document.getElementById('gameBalance').value;
 
         if (!name) { setGameError('Ange ett namn på tävlingen.'); return; }
-        if (!duration || !balance) { setGameError('Välj längd och startkapital.'); return; }
+        if (!endDate || !endTime) { setGameError('Välj slutdatum och sluttid.'); return; }
+        if (!balance) { setGameError('Ange startkapital.'); return; }
+        
+        // Combine date and time and convert to Swedish timezone
+        const endDateTime = new Date(`${endDate}T${endTime}:00`);
+        const swedishEndTime = new Date(endDateTime.toLocaleString("en-US", {timeZone: "Europe/Stockholm"}));
+        
+        // Check if end time is in the future
+        const now = new Date();
+        const swedishNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Stockholm"}));
+        if (swedishEndTime <= swedishNow) {
+            setGameError('Sluttiden måste vara i framtiden.'); return;
+        }
 
-        console.log('[Game] Creating game:', { name, duration, balance, userId: currentUser?.id });
+        console.log('[Game] Creating game:', { name, endDate, endTime, balance, userId: currentUser?.id });
 
         try {
             const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             const startTime = new Date().toISOString();
-            const endTime = new Date(Date.now() + parseInt(duration) * 60 * 1000).toISOString();
+            const endTimeISO = swedishEndTime.toISOString();
 
             const { data, error } = await supabaseClient
                 .from('leagues')
-                .insert({ name, creator_id: currentUser.id, starting_balance: parseFloat(balance), start_time: startTime, end_time: endTime, invite_code: inviteCode })
+                .insert({ name, creator_id: currentUser.id, starting_balance: parseFloat(balance), start_time: startTime, end_time: endTimeISO, invite_code: inviteCode })
                 .select().single();
 
             if (error) throw error;
