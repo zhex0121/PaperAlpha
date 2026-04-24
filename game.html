@@ -886,6 +886,9 @@ function formatMoney(number) {
 }
 
 let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
+
+let marketIsOpen = false; // Track if we're receiving live prices
+let lastPriceUpdate = null; // Track when we last received prices
   
 let aktivAktie=null;
 
@@ -895,7 +898,7 @@ let isLoadingProfile = false;
 
 let appReady = false;
     
-let saldo=10000;
+let saldo=0;
 
 let previousPortValue = null; 
     
@@ -1356,7 +1359,6 @@ ticker.includes("(")
   }
 }
     
-const STARTING_BALANCE=10000;
 
 function showAuthModal(show){
 
@@ -1641,8 +1643,8 @@ async function ensureProfileAndLoad() {
             console.log("New member created with league starting balance:", saldo);
         } else {
             // Existing member, load their data
-            console.log("Loading existing member data from league");
-            saldo = Number(memberData.balance) || Number(league.starting_balance);
+            console.log("Loading existing member data from league:", memberData);
+            saldo = Number(memberData.balance) || 0;
             
             // Ensure portfolio is in correct format
             const rawPortfolio = memberData.portfolio || {};
@@ -1662,7 +1664,7 @@ async function ensureProfileAndLoad() {
                 }
             });
             
-            console.log("Loaded league portfolio:", portfölj);
+            console.log("Loaded league balance:", saldo, "portfolio:", portfölj);
         }
 
         // Update UI
@@ -1710,23 +1712,10 @@ async function loadIndividualProfile() {
         }
 
         if (!profile) {
-            console.log("Creating new profile for user:", userId);
-            const { error: insertError } = await supabaseClient
-                .from('profiles')
-                .insert({
-                    user_id: userId,
-                    email: currentUser.email,
-                    balance: 10000,
-                    portfolio: {}
-                });
-            
-            if (insertError) {
-                console.error("Profile creation error:", insertError);
-                throw insertError;
-            }
-            
-            saldo = 10000;
-            portfölj = {};
+            console.log("No individual profile found for user:", userId, "- this is normal for league mode");
+            // Don't create a new profile with 0 balance - league data should be used instead
+            console.log("Individual profile not found - user should be in league mode");
+            return; // Exit gracefully, don't create 0 balance profile
         } else {
             const lokalData = laddaFrånLokalt();
             if (lokalData) {
@@ -1737,7 +1726,7 @@ async function loadIndividualProfile() {
             }
             
             console.log("Loading existing profile from cloud:", profile);
-            saldo = Number(profile.balance) || 10000;
+            saldo = Number(profile.balance) || 0;
             
             const rawPortfolio = profile.portfolio || {};
             portfölj = {};
@@ -1762,7 +1751,7 @@ async function loadIndividualProfile() {
         
     } catch (err) {
         console.error("Failed to load individual profile:", err);
-        saldo = 10000;
+        saldo = 0;
         portfölj = {};
         uppdateraPortfölj();
     }
@@ -1890,8 +1879,9 @@ async function handleLogout(){
         currentLeague = null;
         currentLeagueId = null;
         currentLeagueCode = null;
-        saldo = 10000;
-        portfölj = {};
+        // Clear data completely so it gets reloaded on login
+        saldo = undefined;
+        portfölj = undefined;
         
         // uppdatera UI till utloggat tillstånd
         showLoggedOutUI();
@@ -1905,8 +1895,9 @@ async function handleLogout(){
         currentLeague = null;
         currentLeagueId = null;
         currentLeagueCode = null;
-        saldo = 10000;
-        portfölj = {};
+        // Clear data completely so it gets reloaded on login
+        saldo = undefined;
+        portfölj = undefined;
         showLoggedOutUI();
     }
 }
@@ -1986,8 +1977,8 @@ startTopInfoTimer();
 
 console.log('League parameters detected:', { leagueId: currentLeagueId, code: currentLeagueCode });
 
-saldo = 10000;
-portfölj = {};
+// Don't set initial values to 0 - let them be loaded from database
+let initialLoad = true;
 
 showLoggedOutUI();
 
@@ -2029,8 +2020,9 @@ showLoggedOutUI();
                 currentLeague = null;
                 currentLeagueId = null;
                 currentLeagueCode = null;
-                saldo = 10000;
-                portfölj = {};
+                // Clear data completely so it gets reloaded on login
+                saldo = undefined;
+                portfölj = undefined;
 
                 showLoggedOutUI();
                 uppdateraPortfölj();
@@ -2552,6 +2544,12 @@ if (isCompetitionEnded()) {
     visaTradeFel("Tävlingen har avslutats. Handel är inte längre möjlig.");
     return;
 }
+
+// Check if market is open (receiving live prices)
+if (!marketIsOpen) {
+    visaTradeFel("Marknaden är stängd.");
+    return;
+}
     
 if(window.tradeLock) return;
 
@@ -2700,6 +2698,13 @@ window.tradeLock=false;
 function uppdateraPortfölj(){
 
 // Calculate total portfolio market value
+if (saldo === undefined || portfölj === undefined) {
+    // Data not loaded yet, show loading state
+    document.getElementById('portfolioValueDisplay').innerText = "Laddar...";
+    document.getElementById('balanceDisplay').innerText = "";
+    return;
+}
+
 let totalPortfolioValue = saldo;
 let prisarLaddar = false;
 
@@ -2833,6 +2838,7 @@ window.debugData = () => {
 };
 setInterval(async () => {
     let aktivRiktning = null;
+    let pricesUpdated = false;
     
     // Vi skapar en lista av löften (promises) för att hämta alla priser samtidigt
     const promises = Object.keys(aktier).map(async (s) => {
@@ -2843,6 +2849,9 @@ setInterval(async () => {
     console.warn("Ingen prisdata för", s);
     return;
     }
+        
+        pricesUpdated = true; // Mark that we received at least one price
+        console.log(`Price updated for ${s}: ${nyttPris}`);
 
 
 // Första riktiga priset → skapa första candle
@@ -2889,6 +2898,21 @@ aktie.pris = nyttPris;
     });
 
     await Promise.all(promises); // Vänta på att alla priser hämtats
+    
+    // Update market status based on whether we received prices
+    const previousMarketState = marketIsOpen;
+    marketIsOpen = pricesUpdated;
+    
+    if (pricesUpdated) {
+        lastPriceUpdate = Date.now();
+        if (!previousMarketState) {
+            console.log("Marknaden öppnade - vi tar emot livepriser");
+        }
+    } else {
+        if (previousMarketState) {
+            console.log("Marknaden stängde - inga livepriser mottagna");
+        }
+    }
 
     uppdateraAktiv(aktivRiktning);
     if (currentUser) uppdateraPortfölj();
