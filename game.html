@@ -1196,61 +1196,42 @@ function laddaFrånLokalt() {
 let currentExchangeRate = null; // null = not yet fetched
 let fxReady = false;
 
-// Market status tracking
-let marketStatusCache = {
-    status: null,         // 'open' or 'closed'
-    lastCheck: 0,        // Timestamp of last check
-    ttl: 5 * 60 * 1000   // 5 minutes cache TTL
-};
+// Simple market status cache - NO API CALLS, updated from price API responses
+let symbolMarketStatusCache = {}; // { symbol: { status, sector, timestamp } }
 
-
-async function checkMarketStatus() {
-    const now = Date.now();
-    
-    // Return cached status if still valid
-    if (marketStatusCache.status && (now - marketStatusCache.lastCheck) < marketStatusCache.ttl) {
-        return marketStatusCache.status;
+// Function to get market status from cache or determine sector
+function getSymbolMarketStatus(symbol) {
+    const cached = symbolMarketStatusCache[symbol];
+    if (cached && (Date.now() - cached.timestamp) < 10 * 60 * 1000) { // 10 minutes cache
+        return cached.status;
     }
     
-    try {
-        const response = await fetch('https://server-api-092b.onrender.com/api/market-status');
-        if (response.ok) {
-            const data = await response.json();
-            marketStatusCache.status = data.overall; // Use overall US market status for backward compatibility
-            marketStatusCache.lastCheck = now;
-            console.log(`[Market] Overall status updated: ${marketStatusCache.status.toUpperCase()}`);
-            return marketStatusCache.status;
-        } else {
-            console.warn('[Market] Failed to fetch market status, assuming open');
-            marketStatusCache.status = 'open';
-            marketStatusCache.lastCheck = now;
-            return 'open';
-        }
-    } catch (err) {
-        console.error('[Market] Error checking market status:', err);
-        // Default to open if we can't check
-        marketStatusCache.status = 'open';
-        marketStatusCache.lastCheck = now;
-        return 'open';
+    // Default behavior based on symbol - NO API CALLS
+    if (symbol.startsWith('BINANCE:')) {
+        return 'open'; // Crypto is always open
+    } else {
+        return 'open'; // Default to open for US stocks
     }
 }
 
-// New function to check symbol-specific market status
-async function checkSymbolMarketStatus(symbol) {
-    try {
-        const response = await fetch(`https://server-api-092b.onrender.com/api/market-status/${encodeURIComponent(symbol)}`);
-        if (response.ok) {
-            const data = await response.json();
-            console.log(`[Market] ${symbol} (${data.sector}) status: ${data.status.toUpperCase()}`);
-            return data.status;
-        } else {
-            console.warn(`[Market] Failed to fetch status for ${symbol}, response status: ${response.status}, assuming open`);
-            return 'open';
-        }
-    } catch (err) {
-        console.error(`[Market] Error checking market status for ${symbol}:`, err);
-        // Default to open if we can't check
-        return 'open';
+// Function to update market status cache from price API response
+function updateMarketStatusFromPriceResponse(symbol, responseData) {
+    if (responseData && responseData.marketStatus && responseData.sector) {
+        symbolMarketStatusCache[symbol] = {
+            status: responseData.marketStatus,
+            sector: responseData.sector,
+            timestamp: Date.now()
+        };
+        console.log(`[Market] Updated status for ${symbol}: ${responseData.marketStatus} (${responseData.sector})`);
+    }
+}
+
+// Function to get sector info
+function getSymbolSector(symbol) {
+    if (symbol.startsWith('BINANCE:')) {
+        return 'CRYPTO';
+    } else {
+        return 'US_MARKET';
     }
 }
 
@@ -1610,6 +1591,10 @@ ticker.includes("(")
     const price = Number(data.c);
 
     if (!Number.isFinite(price)) return null;
+    
+    // Update market status cache from price API response
+    updateMarketStatusFromPriceResponse(cleanTicker, data);
+    
     return price;
   } catch (err) {
     console.error("API error for", ticker, err);
@@ -1655,46 +1640,33 @@ async function syncTradeControlsVisibility(){
     const marketClosedMessage = document.getElementById('marketClosedMessage');
     
     if(currentUser && aktivAktie && !isCompetitionEnded()){
-        // Check symbol-specific market status before showing trade controls
-        try {
-            const marketStatus = await checkSymbolMarketStatus(aktivAktie);
-            if (marketStatus === 'closed') {
-                if (tradeControls) tradeControls.style.display = 'none';
-                if (marketClosedMessage) {
-                    marketClosedMessage.style.display = 'block';
-                    // Update message with sector-specific information
-                    try {
-                        const response = await fetch(`https://server-api-092b.onrender.com/api/market-status/${encodeURIComponent(aktivAktie)}`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.sector === 'US_MARKET') {
-                                marketClosedMessage.innerHTML = `
-                                    <div style="font-size: 1.1rem; margin-bottom: 10px;">Amerikanska marknaden är stängd</div>
-                                    <div style="font-size: 0.9rem;">Handel är endast möjlig under amerikanska öppettider (9:30-16:00 ET)</div>
-                                `;
-                            } else if (data.sector === 'CRYPTO') {
-                                marketClosedMessage.innerHTML = `
-                                    <div style="font-size: 1.1rem; margin-bottom: 10px;">Cryptomarknaden är stängd</div>
-                                    <div style="font-size: 0.9rem;">Handel är för närvarande inte möjlig (oväntat fel)</div>
-                                `;
-                            } else {
-                                marketClosedMessage.innerHTML = `
-                                    <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
-                                    <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
-                                `;
-                            }
-                        }
-                    } catch (err) {
-                        // Use default message if API call fails
-                    }
+        // Get market status from cache - NO API CALLS
+        const marketStatus = getSymbolMarketStatus(aktivAktie);
+        const sector = getSymbolSector(aktivAktie);
+        
+        if (marketStatus === 'closed') {
+            if (tradeControls) tradeControls.style.display = 'none';
+            if (marketClosedMessage) {
+                marketClosedMessage.style.display = 'block';
+                // Update message with sector-specific information
+                if (sector === 'US_MARKET') {
+                    marketClosedMessage.innerHTML = `
+                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Amerikanska marknaden är stängd</div>
+                        <div style="font-size: 0.9rem;">Handel är endast möjlig under amerikanska öppettider (9:30-16:00 ET)</div>
+                    `;
+                } else if (sector === 'CRYPTO') {
+                    marketClosedMessage.innerHTML = `
+                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Cryptomarknaden är stängd</div>
+                        <div style="font-size: 0.9rem;">Handel är för närvarande inte möjlig (oväntat fel)</div>
+                    `;
+                } else {
+                    marketClosedMessage.innerHTML = `
+                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
+                        <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
+                    `;
                 }
-            } else {
-                if (tradeControls) tradeControls.style.display = 'block';
-                if (marketClosedMessage) marketClosedMessage.style.display = 'none';
             }
-        } catch (err) {
-            console.error('[Market] Error checking market status in syncTradeControlsVisibility:', err);
-            // Default to showing controls if we can't check
+        } else {
             if (tradeControls) tradeControls.style.display = 'block';
             if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         }
@@ -1726,49 +1698,37 @@ async function checkCompetitionStatus() {
         // Hide ended message
         if (endedMessage) endedMessage.style.display = 'none';
         
-        // Check market status based on selected symbol
+        // Check market status based on selected symbol - NO API CALLS
         if (aktivAktie) {
-            try {
-                const marketStatus = await checkSymbolMarketStatus(aktivAktie);
-                if (marketStatus === 'closed') {
-                    if (tradeControls) tradeControls.style.display = 'none';
-                    if (marketClosedMessage) {
-                        marketClosedMessage.style.display = 'block';
-                        // Update message with sector-specific information
-                        try {
-                            const response = await fetch(`https://server-api-092b.onrender.com/api/market-status/${encodeURIComponent(aktivAktie)}`);
-                            if (response.ok) {
-                                const data = await response.json();
-                                if (data.sector === 'US_MARKET') {
-                                    marketClosedMessage.innerHTML = `
-                                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Amerikanska marknaden är stängd</div>
-                                        <div style="font-size: 0.9rem;">Handel är endast möjlig under amerikanska öppettider (9:30-16:00 ET)</div>
-                                    `;
-                                } else if (data.sector === 'CRYPTO') {
-                                    marketClosedMessage.innerHTML = `
-                                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Cryptomarknaden är stängd</div>
-                                        <div style="font-size: 0.9rem;">Handel är för närvarande inte möjlig (oväntat fel)</div>
-                                    `;
-                                } else {
-                                    marketClosedMessage.innerHTML = `
-                                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
-                                        <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
-                                    `;
-                                }
-                            }
-                        } catch (err) {
-                            // Use default message if API call fails
-                        }
+            const marketStatus = getSymbolMarketStatus(aktivAktie);
+            const sector = getSymbolSector(aktivAktie);
+            
+            if (marketStatus === 'closed') {
+                if (tradeControls) tradeControls.style.display = 'none';
+                if (marketClosedMessage) {
+                    marketClosedMessage.style.display = 'block';
+                    // Update message with sector-specific information
+                    if (sector === 'US_MARKET') {
+                        marketClosedMessage.innerHTML = `
+                            <div style="font-size: 1.1rem; margin-bottom: 10px;">Amerikanska marknaden är stängd</div>
+                            <div style="font-size: 0.9rem;">Handel är endast möjlig under amerikanska öppettider (9:30-16:00 ET)</div>
+                        `;
+                    } else if (sector === 'CRYPTO') {
+                        marketClosedMessage.innerHTML = `
+                            <div style="font-size: 1.1rem; margin-bottom: 10px;">Cryptomarknaden är stängd</div>
+                            <div style="font-size: 0.9rem;">Handel är för närvarande inte möjlig (oväntat fel)</div>
+                        `;
+                    } else {
+                        marketClosedMessage.innerHTML = `
+                            <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
+                            <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
+                        `;
                     }
-                    window.tradeLock = true;
-                } else {
-                    if (marketClosedMessage) marketClosedMessage.style.display = 'none';
-                    // Trade controls visibility will be handled by syncTradeControlsVisibility
-                    window.tradeLock = false;
                 }
-            } catch (err) {
-                console.error('[Market] Error checking market status in checkCompetitionStatus:', err);
+                window.tradeLock = true;
+            } else {
                 if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+                // Trade controls visibility will be handled by syncTradeControlsVisibility
                 window.tradeLock = false;
             }
         } else {
@@ -2898,26 +2858,17 @@ if (isCompetitionEnded()) {
 
 // Check if market is open for this specific symbol
 console.log(`[Trade] Checking market status for ${aktivAktie}...`);
-const marketStatus = await checkSymbolMarketStatus(aktivAktie);
-console.log(`[Trade] Market status for ${aktivAktie}: ${marketStatus}`);
+const marketStatus = getSymbolMarketStatus(aktivAktie);
+const sector = getSymbolSector(aktivAktie);
+console.log(`[Trade] Market status for ${aktivAktie}: ${marketStatus} (${sector})`);
 if (marketStatus === 'closed') {
-    // Get sector information for better error message
-    try {
-        const response = await fetch(`https://server-api-092b.onrender.com/api/market-status/${encodeURIComponent(aktivAktie)}`);
-        if (response.ok) {
-            const data = await response.json();
-            if (data.sector === 'US_MARKET') {
-                visaTradeFel("Amerikanska marknaden är stängd. Handel är endast möjlig under amerikanska öppettider.");
-            } else if (data.sector === 'CRYPTO') {
-                visaTradeFel("Cryptomarknaden är stängd (oväntat). Försök igen om en stund.");
-            } else {
-                visaTradeFel("Marknaden för detta värdepapper är stängd. Handel är endast möjlig under öppna marknadstider.");
-            }
-        } else {
-            visaTradeFel("Marknaden är stängd. Handel är endast möjlig under öppna marknadstider.");
-        }
-    } catch (err) {
-        visaTradeFel("Marknaden är stängd. Handel är endast möjlig under öppna marknadstider.");
+    // Show sector-specific error message - NO API CALLS
+    if (sector === 'US_MARKET') {
+        visaTradeFel("Amerikanska marknaden är stängd. Handel är endast möjlig under amerikanska öppettider.");
+    } else if (sector === 'CRYPTO') {
+        visaTradeFel("Cryptomarknaden är stängd (oväntat). Försök igen om en stund.");
+    } else {
+        visaTradeFel("Marknaden för detta värdepapper är stängd. Handel är endast möjlig under öppna marknadstider.");
     }
     return;
 }
