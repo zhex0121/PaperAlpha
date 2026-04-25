@@ -205,6 +205,65 @@
     padding-bottom: 10px;
 }
 
+        .tournament-dropdown {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 15px;
+            min-width: 280px;
+            max-width: 320px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            z-index: 1002;
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .tournament-dropdown.show {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tournament-option {
+            background: none;
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            text-align: left;
+            letter-spacing: 0.3px;
+        }
+
+        .tournament-option:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(41, 98, 255, 0.3);
+        }
+
+        .tournament-option:last-child {
+            margin-bottom: 0;
+        }
+
+        .tournament-option-icon {
+            display: inline-block;
+            margin-right: 10px;
+            font-size: 1.1rem;
+        }
+
         .logout-btn {
             width: 100%;
             padding: 12px;
@@ -743,8 +802,19 @@
     <div class="top-banner">
         <a href="index.html" class="logo-link">PaperAlpha</a>
         <div class="profile-section">
-            <div id="new-competition-section" style="display: none;">
-                <button class="new-competition-btn" onclick="showGameModal(true)">Ny Tävling</button>
+            <div id="new-competition-section" style="display: none; position: relative;">
+                <button class="new-competition-btn" onclick="showTournamentDropdown()">Ny Tävling</button>
+                <div class="tournament-dropdown" id="tournamentDropdown">
+                    <button class="tournament-option" onclick="joinSystemTournament()">
+                        Gå med i turnering
+                    </button>
+                    <button class="tournament-option" onclick="showCreateCompetition()">
+                        Skapa ny tävling
+                    </button>
+                    <button class="tournament-option" onclick="showJoinCompetition()">
+                        Gå med i tävling med kod 
+                    </button>
+                </div>
             </div>
             <div id="logged-out-view">
                 <button class="login-button">Logga in</button>
@@ -809,16 +879,12 @@
     <!-- Game Modal -->
     <div id="gameModal" class="game-modal" style="display:none;">
         <div class="game-card">
-            <h3 class="game-title">Tävling</h3>
+            <h3 class="game-title" id="gameModalTitle">Tävling</h3>
             
-            <div class="game-tabs">
-                <button class="game-tab active" onclick="switchGameTab('create')">SKAPA</button>
-                <button class="game-tab" onclick="switchGameTab('join')">GÅ MED</button>
-            </div>
-
-            <div id="createTab" class="game-tab-content active">
+            <!-- Create Section -->
+            <div id="createSection" style="display: none;">
                 <label>Namn på tävling</label>
-                <input type="text" id="gameName" placeholder="Ange namn på tävling">
+                <input type="text" id="gameName" placeholder="">
                 
                 <label>Slutdatum</label>
                 <input type="date" id="gameEndDate" min="">
@@ -827,20 +893,21 @@
                 <input type="time" id="gameEndTime">
                 
                 <label>Startkapital (SEK)</label>
-                <input type="number" id="gameBalance" value="10000" min="1000" max="1000000" step="1000">
+                <input type="number" id="gameBalance" value="" min="1000" max="1000000" step="1000">
                 
                 <div id="gameError"></div>
                 
                 <button class="btn btn-buy" onclick="createGame()" style="margin-top: 20px;">SKAPA TÄVLING</button>
             </div>
 
-            <div id="joinTab" class="game-tab-content">
+            <!-- Join Section -->
+            <div id="joinSection" style="display: none;">
                 <label>Tävlingskod</label>
                 <input type="text" id="gameCode" placeholder="Ange tävlingskod">
                 
                 <div id="gameError"></div>
                 
-                <button class="btn btn-sell" onclick="joinGame()" style="margin-top: 20px;">GÅ MED I TÄVLING</button>
+                <button class="btn btn-sell" onclick="joinGame()" style="margin-top: 20px;">Gå med i tävling</button>
             </div>
             
             <button onclick="showGameModal(false)" style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 20px; width:100%; text-align:center;">Avbryt</button>
@@ -978,7 +1045,14 @@ async function getMemberTotalValueSek(member, fxRate) {
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
             console.error('[Auth] Sign in error:', error.message);
-            setAuthError('Fel e-post eller lösenord. Försök igen!');
+            // Swedish error messages for common cases
+            if (error.message.includes('Invalid login credentials')) {
+                setAuthError('Fel e-post eller lösenord. Försök igen!');
+            } else if (error.message.includes('Email not confirmed')) {
+                setAuthError('E-postadressen är inte bekräftad.');
+            } else {
+                setAuthError('Inloggning misslyckades. Försök igen!');
+            }
         } else {
             console.log('[Auth] Sign in successful, closing modal and loading competitions');
             showAuthModal(false);
@@ -998,9 +1072,24 @@ async function getMemberTotalValueSek(member, fxRate) {
         if (password.length < 8) { setAuthError('Lösenordet måste vara minst 8 tecken långt.'); return; }
         console.log('[Auth] Attempting sign up for:', email);
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) { setAuthError('Kunde inte skapa konto: ' + error.message); return; }
-        if (data?.session) { showAuthModal(false); }
-        else { setAuthError('Kontot skapat, men inloggning misslyckades. Prova att logga in.'); }
+        if (error) {
+            // Swedish error messages for common cases
+            if (error.message.includes('User already registered')) {
+                setAuthError('Det finns redan ett konto med den här e-postadressen.');
+            } else if (error.message.includes('invalid email')) {
+                setAuthError('Ogiltig e-postadress. Kontrollera och försök igen.');
+            } else if (error.message.includes('Password should be')) {
+                setAuthError('Lösenordet måste vara minst 8 tecken långt.');
+            } else {
+                setAuthError('Kunde inte skapa konto. Försök igen.');
+            }
+            return;
+        }
+        if (data?.session) { 
+            showAuthModal(false);
+        } else { 
+            setAuthError('Kontot skapat. Du kan nu logga in.');
+        }
     }
 
     async function handleLogout() {
@@ -1014,7 +1103,14 @@ async function getMemberTotalValueSek(member, fxRate) {
     loginButton.addEventListener('click', () => { setAuthError(''); showAuthModal(true); });
     logoutButton.addEventListener('click', handleLogout);
     profileBtn.addEventListener('click', (e) => { e.stopPropagation(); profileDropdown.classList.toggle('show'); });
-    document.addEventListener('click', (e) => { if (!loggedInView.contains(e.target)) profileDropdown.classList.remove('show'); });
+    document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('tournamentDropdown');
+    const button = document.querySelector('.new-competition-btn');
+
+    if (!dropdown.contains(e.target) && !button.contains(e.target)) {
+        hideTournamentDropdown();
+    }
+});
 
     // --- Supabase Auth Listener ---
     async function setupAuthListener() {
@@ -1104,35 +1200,152 @@ async function getMemberTotalValueSek(member, fxRate) {
 
     document.addEventListener('DOMContentLoaded', setupAuthListener);
 
+    // --- Tournament Dropdown Functions ---
+    function showTournamentDropdown() {
+        console.log('[Dropdown] showTournamentDropdown called');
+        const dropdown = document.getElementById('tournamentDropdown');
+        if (!dropdown) {
+            console.error('[Dropdown] tournamentDropdown not found');
+            return;
+        }
+        console.log('[Dropdown] Toggling dropdown, current classes:', dropdown.className);
+        dropdown.classList.toggle('show');
+        
+        // Close profile dropdown if open
+        const profileDropdown = document.getElementById('profileDropdown');
+        if (profileDropdown) {
+            profileDropdown.classList.remove('show');
+        }
+    }
+
+    function showCreateCompetition() {
+        hideTournamentDropdown();
+        showGameModal(true, 'create');
+    }
+
+    function showJoinCompetition() {
+        hideTournamentDropdown();
+        showGameModal(true, 'join');
+    }
+
+    async function joinSystemTournament() {
+        hideTournamentDropdown();
+        
+        if (!currentUser) {
+            console.warn('[Tournament] No currentUser - showing auth modal');
+            setAuthError('Du måste vara inloggad för att gå med i turnering.');
+            showAuthModal(true);
+            return;
+        }
+
+        console.log('[Tournament] Looking for system tournament...');
+        
+        try {
+            // Find tournament with creator_id = null and latest start_time
+            const { data: tournaments, error } = await supabaseClient
+                .from('leagues')
+                .select('*')
+                .is('creator_id', null)
+                .order('start_time', { ascending: false })
+                .limit(1);
+
+            if (error) throw error;
+
+            if (!tournaments || tournaments.length === 0) {
+                setGameError('Inga turneringar tillgängliga just nu.');
+                showGameModal(true, 'join');
+                return;
+            }
+
+            const tournament = tournaments[0];
+            console.log('[Tournament] Found tournament:', tournament.name, '| ID:', tournament.id);
+
+            // Check if user is already a member
+            const { data: existingMember } = await supabaseClient
+                .from('league_members')
+                .select('*')
+                .eq('league_id', tournament.id)
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+
+            if (existingMember) {
+                console.log('[Tournament] Already a member, redirecting to game');
+                window.location.href = `game.html?league=${tournament.id}&code=${tournament.invite_code}`;
+                return;
+            }
+
+            // Check if tournament is still active
+            const now = new Date();
+            const endTime = new Date(tournament.end_time);
+            if (endTime <= now) {
+                setGameError('Denna turnering har avslutats.');
+                showGameModal(true, 'join');
+                return;
+            }
+
+            // Join the tournament
+            const { error: joinError } = await supabaseClient
+                .from('league_members')
+                .insert({
+                    league_id: tournament.id,
+                    user_id: currentUser.id,
+                    balance: tournament.starting_balance,
+                    portfolio: {}
+                });
+
+            if (joinError) throw joinError;
+
+            console.log('[Tournament] Successfully joined tournament, redirecting...');
+            window.location.href = `game.html?league=${tournament.id}&code=${tournament.invite_code}`;
+
+        } catch (error) {
+            console.error('[Tournament] Error joining system tournament:', error);
+            setGameError('Kunde inte gå med i turnering. Försök igen.');
+            showGameModal(true, 'join');
+        }
+    }
+
+    function hideTournamentDropdown() {
+        document.getElementById('tournamentDropdown').classList.remove('show');
+    }
+
     // --- Game Modal ---
-    function showGameModal(show) {
-        console.log('[GameModal] showGameModal called, show:', show, '| currentUser:', currentUser?.email ?? 'none');
+    function showGameModal(show, mode = null) {
+        console.log('[GameModal] showGameModal called, show:', show, 'mode:', mode, '| currentUser:', currentUser?.email ?? 'none');
         if (show && !currentUser) {
             console.warn('[GameModal] No currentUser — showing auth modal instead');
             setAuthError('Du måste vara inloggad för att starta eller gå med i en tävling.');
             showAuthModal(true);
             return;
         }
-        document.getElementById('gameModal').style.display = show ? 'flex' : 'none';
+        
+        const modal = document.getElementById('gameModal');
+        const createSection = document.getElementById('createSection');
+        const joinSection = document.getElementById('joinSection');
+        const modalTitle = document.getElementById('gameModalTitle');
+        
+        modal.style.display = show ? 'flex' : 'none';
+        
         if (show) {
             setGameError('');
-            setCurrentSwedishDateTime(); // Set current Swedish date/time when opening modal
+            
+            if (mode === 'create') {
+                modalTitle.textContent = 'Skapa ny tävling';
+                createSection.style.display = 'block';
+                joinSection.style.display = 'none';
+                setCurrentSwedishDateTime();
+            } else if (mode === 'join') {
+                modalTitle.textContent = 'Gå med i tävling';
+                createSection.style.display = 'none';
+                joinSection.style.display = 'block';
+            } else {
+                // Default behavior for backwards compatibility
+                modalTitle.textContent = 'Tävling';
+                createSection.style.display = 'block';
+                joinSection.style.display = 'none';
+                setCurrentSwedishDateTime();
+            }
         }
-    }
-
-    function switchGameTab(tab) {
-        const tabs = document.querySelectorAll('.game-tab');
-        const contents = document.querySelectorAll('.game-tab-content');
-        tabs.forEach(t => t.classList.remove('active'));
-        contents.forEach(c => c.classList.remove('active'));
-        if (tab === 'create') {
-            tabs[0].classList.add('active');
-            document.getElementById('createTab').classList.add('active');
-        } else {
-            tabs[1].classList.add('active');
-            document.getElementById('joinTab').classList.add('active');
-        }
-        setGameError('');
     }
 
     function setGameError(msg) { document.getElementById('gameError').innerText = msg || ''; }
