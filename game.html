@@ -229,7 +229,7 @@ body::before {
     position: absolute;
     top: 50px;
     right: 0;
-    background: var(--glass);
+    background: rgba(18, 18, 18, 0.95);
     backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
@@ -1099,11 +1099,11 @@ let isLoadingProfile = false;
 
 let appReady = false;
     
-let saldo=0;
+let saldo=undefined;
 
 let previousPortValue = null; 
     
-let portfölj={};
+let portfölj=undefined;
 
 let chart=null;
 
@@ -1244,7 +1244,7 @@ async function checkSymbolMarketStatus(symbol) {
             console.log(`[Market] ${symbol} (${data.sector}) status: ${data.status.toUpperCase()}`);
             return data.status;
         } else {
-            console.warn(`[Market] Failed to fetch status for ${symbol}, assuming open`);
+            console.warn(`[Market] Failed to fetch status for ${symbol}, response status: ${response.status}, assuming open`);
             return 'open';
         }
     } catch (err) {
@@ -1635,14 +1635,12 @@ showAuthModal(false);
 // Dölj profil-sektionen i bannern
 document.getElementById('profileSection').style.display = 'none';
 document.getElementById('loginPrompt').style.display = 'block';
-
 document.getElementById('accountBar').style.display='none';
-
 document.getElementById('tradeControls').style.display='none';
-
 document.getElementById('portfolioDisplay').style.display='none';
-
 document.getElementById('balanceDisplay').innerText='Logga in för att handla';
+document.getElementById('portfolioDisplay').innerHTML = '';
+document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
 
 // Show chart view when logged out
 showChartView();
@@ -1822,6 +1820,8 @@ async function showLoggedInUI() {
     document.getElementById('accountBar').style.display='none';
     
     document.getElementById('portfolioDisplay').style.display = 'block'; 
+    document.getElementById('portfolioValueDisplay').innerText = 'Laddar...';
+    document.getElementById('balanceDisplay').innerText = '';
 
     // Check URL parameters for automatic competition join/rejoin
     await handleCompetitionFromURL();
@@ -2231,7 +2231,7 @@ async function handleLogout(){
         // Clear data completely so it gets reloaded on login
         saldo = undefined;
         portfölj = undefined;
-        
+        isLoadingProfile = false;
         // uppdatera UI till utloggat tillstånd
         showLoggedOutUI();
         
@@ -2247,6 +2247,7 @@ async function handleLogout(){
         // Clear data completely so it gets reloaded on login
         saldo = undefined;
         portfölj = undefined;
+        isLoadingProfile = false; 
         showLoggedOutUI();
     }
 }
@@ -2340,6 +2341,8 @@ showLoggedOutUI();
 
         showLoggedInUI();
 
+        // Force profile reload by resetting loading guard
+        isLoadingProfile = false;
         await ensureProfileAndLoad();
 
         appReady = true; // ✅ IMPORTANT (fix for hard reload case)
@@ -2358,6 +2361,8 @@ showLoggedOutUI();
 
                 showLoggedInUI();
 
+                // Force profile reload by resetting loading guard
+                isLoadingProfile = false;
                 await ensureProfileAndLoad();
 
                 appReady = true;
@@ -2892,7 +2897,9 @@ if (isCompetitionEnded()) {
 }
 
 // Check if market is open for this specific symbol
+console.log(`[Trade] Checking market status for ${aktivAktie}...`);
 const marketStatus = await checkSymbolMarketStatus(aktivAktie);
+console.log(`[Trade] Market status for ${aktivAktie}: ${marketStatus}`);
 if (marketStatus === 'closed') {
     // Get sector information for better error message
     try {
@@ -3063,9 +3070,17 @@ function uppdateraPortfölj(){
 
 // Calculate total portfolio market value
 if (saldo === undefined || portfölj === undefined) {
-    // Data not loaded yet, show loading state
-    document.getElementById('portfolioValueDisplay').innerText = "Laddar...";
-    document.getElementById('balanceDisplay').innerText = "";
+    // Data not loaded yet or user logged out, show appropriate state
+    if (!currentUser) {
+        // User is logged out, show logged out state
+        document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
+        document.getElementById('balanceDisplay').innerText = '';
+        document.getElementById('portfolioDisplay').innerHTML = '';
+    } else {
+        // User is logged in but data not loaded yet, show loading state
+        document.getElementById('portfolioValueDisplay').innerText = "Laddar...";
+        document.getElementById('balanceDisplay').innerText = "";
+    }
     return;
 }
 
@@ -3279,7 +3294,7 @@ aktie.pris = nyttPris;
     }
 
     uppdateraAktiv(aktivRiktning);
-    if (currentUser) uppdateraPortfölj();
+    uppdateraPortfölj();
     if (chart && aktivAktie) updateChartView();
     renderStockList(document.getElementById('searchInput').value);
 
