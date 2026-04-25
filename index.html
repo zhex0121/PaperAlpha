@@ -769,13 +769,18 @@ async function getMemberTotalValueSek(member, fxRate) {
         const password = document.getElementById('authPassword').value.trim();
         if (!email || !password) { setAuthError('Vänligen fyll i både e-post och lösenord.'); return; }
         console.log('[Auth] Attempting sign in for:', email);
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
             console.error('[Auth] Sign in error:', error.message);
             setAuthError('Fel e-post eller lösenord. Försök igen!');
         } else {
-            console.log('[Auth] Sign in successful');
+            console.log('[Auth] Sign in successful, closing modal and loading competitions');
             showAuthModal(false);
+            // Immediately load competitions for the newly logged in user
+            if (data?.user) {
+                currentUser = data.user;
+                await loadUserCompetitions();
+            }
         }
     }
 
@@ -830,8 +835,8 @@ async function getMemberTotalValueSek(member, fxRate) {
 
             if (event === 'SIGNED_IN' && session?.user) {
                 // Only re-run UI+data load if currentUser changed (avoids double-run on page load)
-                if (currentUser?.id === session.user.id) {
-                    console.log('[Auth] SIGNED_IN for same user — skipping duplicate load');
+                if (currentUser?.id === session.user.id && competitionsLoaded) {
+                    console.log('[Auth] SIGNED_IN for same user with competitions already loaded — skipping duplicate load');
                     return;
                 }
                 console.log('[Auth] New SIGNED_IN — loading UI and competitions');
@@ -848,7 +853,7 @@ async function getMemberTotalValueSek(member, fxRate) {
                     activeEl.innerHTML = `
                         <div class="no-competitions">
                             <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
-                            <div style="color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                            <div id="loginPromptActive" style="display: block; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
                                 <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
                                 <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
                             </div>
@@ -859,7 +864,7 @@ async function getMemberTotalValueSek(member, fxRate) {
                     finishedEl.innerHTML = `
                         <div class="no-competitions">
                             <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
-                            <div style="color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                            <div id="loginPromptFinished" style="display: block; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
                                 <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
                                 <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
                             </div>
