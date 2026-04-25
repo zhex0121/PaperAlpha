@@ -829,6 +829,11 @@ SÄLJ
     <div style="font-size: 0.9rem;">Handel är inte längre möjlig</div>
 </div>
 
+<div id="marketClosedMessage" style="display: none; text-align: center; padding: 20px; color: var(--text-dim);">
+    <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
+    <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
+</div>
+
 <div style="border-bottom:1px solid var(--border); padding-bottom:5px; margin-top: 20px;">
     <h4 style="margin: 0; font-size: 0.85rem; letter-spacing: 1px;">PORTFÖLJ</h4>
 </div>
@@ -995,6 +1000,63 @@ function laddaFrånLokalt() {
 let currentExchangeRate = null; // null = not yet fetched
 let fxReady = false;
 
+// Market status tracking
+let marketStatusCache = {
+    status: null,         // 'open' or 'closed'
+    lastCheck: 0,        // Timestamp of last check
+    ttl: 5 * 60 * 1000   // 5 minutes cache TTL
+};
+
+
+async function checkMarketStatus() {
+    const now = Date.now();
+    
+    // Return cached status if still valid
+    if (marketStatusCache.status && (now - marketStatusCache.lastCheck) < marketStatusCache.ttl) {
+        return marketStatusCache.status;
+    }
+    
+    try {
+        const response = await fetch('https://server-api-092b.onrender.com/api/market-status');
+        if (response.ok) {
+            const data = await response.json();
+            marketStatusCache.status = data.overall; // Use overall US market status for backward compatibility
+            marketStatusCache.lastCheck = now;
+            console.log(`[Market] Overall status updated: ${marketStatusCache.status.toUpperCase()}`);
+            return marketStatusCache.status;
+        } else {
+            console.warn('[Market] Failed to fetch market status, assuming open');
+            marketStatusCache.status = 'open';
+            marketStatusCache.lastCheck = now;
+            return 'open';
+        }
+    } catch (err) {
+        console.error('[Market] Error checking market status:', err);
+        // Default to open if we can't check
+        marketStatusCache.status = 'open';
+        marketStatusCache.lastCheck = now;
+        return 'open';
+    }
+}
+
+// New function to check symbol-specific market status
+async function checkSymbolMarketStatus(symbol) {
+    try {
+        const response = await fetch(`https://server-api-092b.onrender.com/api/market-status/${encodeURIComponent(symbol)}`);
+        if (response.ok) {
+            const data = await response.json();
+            console.log(`[Market] ${symbol} (${data.sector}) status: ${data.status.toUpperCase()}`);
+            return data.status;
+        } else {
+            console.warn(`[Market] Failed to fetch status for ${symbol}, assuming open`);
+            return 'open';
+        }
+    } catch (err) {
+        console.error(`[Market] Error checking market status for ${symbol}:`, err);
+        // Default to open if we can't check
+        return 'open';
+    }
+}
 
 async function fetchExchangeRate() {
     try {
@@ -1040,7 +1102,7 @@ let currentLeagueCode = null;
 let currentView = 'league'; // 'league' or 'chart'
 
 // View management functions
-function showLeagueInfo() {
+async function showLeagueInfo() {
     if (!currentLeague || !currentUser) {
         showChartView();
         return;
@@ -1054,7 +1116,7 @@ function showLeagueInfo() {
     syncViewToggleButtons();
 
     // Keep competition logic + leaderboard only
-    checkCompetitionStatus();
+    await checkCompetitionStatus();
     loadLeaderboard();
     updateInGameTopInfo();
 }
@@ -1088,8 +1150,8 @@ function switchToChart() {
     showChartView();
 }
 
-function switchToLeaderboard() {
-    showLeagueInfo();
+async function switchToLeaderboard() {
+    await showLeagueInfo();
 }
 
 function updateToggleVisibility() {
@@ -1394,18 +1456,58 @@ updateInGameTopInfo();
 updateToggleVisibility();
 }
 
-function syncTradeControlsVisibility(){
-
-if(currentUser && aktivAktie && !isCompetitionEnded()){
-
-document.getElementById('tradeControls').style.display = 'block';
-
-}else{
-
-document.getElementById('tradeControls').style.display = 'none';
-
-}
-
+async function syncTradeControlsVisibility(){
+    const tradeControls = document.getElementById('tradeControls');
+    const marketClosedMessage = document.getElementById('marketClosedMessage');
+    
+    if(currentUser && aktivAktie && !isCompetitionEnded()){
+        // Check symbol-specific market status before showing trade controls
+        try {
+            const marketStatus = await checkSymbolMarketStatus(aktivAktie);
+            if (marketStatus === 'closed') {
+                if (tradeControls) tradeControls.style.display = 'none';
+                if (marketClosedMessage) {
+                    marketClosedMessage.style.display = 'block';
+                    // Update message with sector-specific information
+                    try {
+                        const response = await fetch(`https://server-api-092b.onrender.com/api/market-status/${encodeURIComponent(aktivAktie)}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.sector === 'US_MARKET') {
+                                marketClosedMessage.innerHTML = `
+                                    <div style="font-size: 1.1rem; margin-bottom: 10px;">Amerikanska marknaden är stängd</div>
+                                    <div style="font-size: 0.9rem;">Handel är endast möjlig under amerikanska öppettider (9:30-16:00 ET)</div>
+                                `;
+                            } else if (data.sector === 'CRYPTO') {
+                                marketClosedMessage.innerHTML = `
+                                    <div style="font-size: 1.1rem; margin-bottom: 10px;">Cryptomarknaden är stängd</div>
+                                    <div style="font-size: 0.9rem;">Handel är för närvarande inte möjlig (oväntat fel)</div>
+                                `;
+                            } else {
+                                marketClosedMessage.innerHTML = `
+                                    <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
+                                    <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
+                                `;
+                            }
+                        }
+                    } catch (err) {
+                        // Use default message if API call fails
+                    }
+                }
+            } else {
+                if (tradeControls) tradeControls.style.display = 'block';
+                if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+            }
+        } catch (err) {
+            console.error('[Market] Error checking market status in syncTradeControlsVisibility:', err);
+            // Default to showing controls if we can't check
+            if (tradeControls) tradeControls.style.display = 'block';
+            if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+        }
+    }else{
+        if (tradeControls) tradeControls.style.display = 'none';
+        if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+    }
 }
 
 function isCompetitionEnded() {
@@ -1413,22 +1515,73 @@ function isCompetitionEnded() {
     return new Date() >= new Date(currentLeague.end_time);
 }
 
-function checkCompetitionStatus() {
+async function checkCompetitionStatus() {
     const tradeControls = document.getElementById('tradeControls');
     const endedMessage = document.getElementById('competitionEndedMessage');
+    const marketClosedMessage = document.getElementById('marketClosedMessage');
     
     if (isCompetitionEnded()) {
         // Hide trade controls and show ended message
         if (tradeControls) tradeControls.style.display = 'none';
         if (endedMessage) endedMessage.style.display = 'block';
+        if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         
         // Also disable any ongoing trades
         window.tradeLock = true;
     } else {
-        // Show trade controls and hide ended message
+        // Hide ended message
         if (endedMessage) endedMessage.style.display = 'none';
-        // Trade controls visibility will be handled by syncTradeControlsVisibility
-        window.tradeLock = false;
+        
+        // Check market status based on selected symbol
+        if (aktivAktie) {
+            try {
+                const marketStatus = await checkSymbolMarketStatus(aktivAktie);
+                if (marketStatus === 'closed') {
+                    if (tradeControls) tradeControls.style.display = 'none';
+                    if (marketClosedMessage) {
+                        marketClosedMessage.style.display = 'block';
+                        // Update message with sector-specific information
+                        try {
+                            const response = await fetch(`https://server-api-092b.onrender.com/api/market-status/${encodeURIComponent(aktivAktie)}`);
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.sector === 'US_MARKET') {
+                                    marketClosedMessage.innerHTML = `
+                                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Amerikanska marknaden är stängd</div>
+                                        <div style="font-size: 0.9rem;">Handel är endast möjlig under amerikanska öppettider (9:30-16:00 ET)</div>
+                                    `;
+                                } else if (data.sector === 'CRYPTO') {
+                                    marketClosedMessage.innerHTML = `
+                                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Cryptomarknaden är stängd</div>
+                                        <div style="font-size: 0.9rem;">Handel är för närvarande inte möjlig (oväntat fel)</div>
+                                    `;
+                                } else {
+                                    marketClosedMessage.innerHTML = `
+                                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
+                                        <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
+                                    `;
+                                }
+                            }
+                        } catch (err) {
+                            // Use default message if API call fails
+                        }
+                    }
+                    window.tradeLock = true;
+                } else {
+                    if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+                    // Trade controls visibility will be handled by syncTradeControlsVisibility
+                    window.tradeLock = false;
+                }
+            } catch (err) {
+                console.error('[Market] Error checking market status in checkCompetitionStatus:', err);
+                if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+                window.tradeLock = false;
+            }
+        } else {
+            // No symbol selected, hide market closed message
+            if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+            window.tradeLock = false;
+        }
     }
 }
     
@@ -1479,7 +1632,7 @@ async function showLoggedInUI() {
     
     updateInGameTopInfo();
     
-    syncTradeControlsVisibility();
+    await syncTradeControlsVisibility();
 
     updateToggleVisibility();
 }
@@ -2142,11 +2295,8 @@ maximumFractionDigits:2
 async function väljAktie(ticker){
     aktivAktie = ticker;
 
-    if(currentUser && !isCompetitionEnded()){
-        document.getElementById('tradeControls').style.display = 'block';
-    } else {
-        document.getElementById('tradeControls').style.display = 'none';
-    }
+    // Use the async function to check market status
+    await syncTradeControlsVisibility();
 
     document.getElementById('activeSymbol').innerText = ticker;
 
@@ -2545,9 +2695,27 @@ if (isCompetitionEnded()) {
     return;
 }
 
-// Check if market is open (receiving live prices)
-if (!marketIsOpen) {
-    visaTradeFel("Marknaden är stängd.");
+// Check if market is open for this specific symbol
+const marketStatus = await checkSymbolMarketStatus(aktivAktie);
+if (marketStatus === 'closed') {
+    // Get sector information for better error message
+    try {
+        const response = await fetch(`https://server-api-092b.onrender.com/api/market-status/${encodeURIComponent(aktivAktie)}`);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.sector === 'US_MARKET') {
+                visaTradeFel("Amerikanska marknaden är stängd. Handel är endast möjlig under amerikanska öppettider.");
+            } else if (data.sector === 'CRYPTO') {
+                visaTradeFel("Cryptomarknaden är stängd (oväntat). Försök igen om en stund.");
+            } else {
+                visaTradeFel("Marknaden för detta värdepapper är stängd. Handel är endast möjlig under öppna marknadstider.");
+            }
+        } else {
+            visaTradeFel("Marknaden är stängd. Handel är endast möjlig under öppna marknadstider.");
+        }
+    } catch (err) {
+        visaTradeFel("Marknaden är stängd. Handel är endast möjlig under öppna marknadstider.");
+    }
     return;
 }
     
