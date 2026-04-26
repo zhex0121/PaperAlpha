@@ -303,12 +303,19 @@
         }
 
         .competitions-panel,
-        .quick-actions-panel {
+        .quick-actions-panel,
+        .education-panel {
             background: var(--glass);
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 18px;
             overflow: hidden;
+        }
+
+        .right-rail {
+            display: grid;
+            gap: 14px;
+            align-content: start;
         }
 
         .competitions-panel {
@@ -322,6 +329,12 @@
             padding: 24px;
         }
 
+        .education-panel {
+            padding: 20px;
+            border-color: rgba(0, 255, 170, 0.28);
+            background: linear-gradient(160deg, rgba(0, 255, 170, 0.08), rgba(18, 18, 18, 0.8));
+        }
+
         .panel-heading {
             font-size: 1rem;
             color: var(--text-dim);
@@ -332,7 +345,7 @@
 
         .quick-actions-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: 1fr;
             gap: 12px;
         }
 
@@ -380,12 +393,53 @@
             line-height: 1.4;
         }
 
-        .action-tile.soon {
-            border-style: dashed;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            background: rgba(18, 18, 18, 0.65);
+        .education-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .education-badge {
+            font-size: 0.74rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--up);
+        }
+
+        .education-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .education-subtitle {
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 0.92rem;
+            line-height: 1.45;
+            margin-bottom: 14px;
+        }
+
+        .education-link {
+            width: 100%;
+            border: 1px solid rgba(0, 255, 170, 0.35);
+            background: rgba(0, 0, 0, 0.35);
+            color: var(--text);
+            border-radius: 11px;
+            padding: 12px 14px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-align: left;
+            font-family: inherit;
+        }
+
+        .education-link:hover {
+            transform: translateY(-2px);
+            border-color: var(--up);
+            box-shadow: 0 8px 18px rgba(0, 255, 170, 0.2);
         }
 
 
@@ -572,7 +626,7 @@
                 min-height: auto;
             }
 
-            .quick-actions-panel {
+            .right-rail {
                 order: -1;
             }
         }
@@ -587,6 +641,10 @@
             }
 
             .quick-actions-panel {
+                padding: 16px;
+            }
+
+            .education-panel {
                 padding: 16px;
             }
         }
@@ -983,32 +1041,44 @@
                 </div>
             </section>
 
-            <aside class="quick-actions-panel">
-                <div class="panel-heading">Snabbval</div>
-                <div class="quick-actions-grid">
+            <aside class="right-rail">
+                <section class="quick-actions-panel">
+                    <div class="panel-heading">Spela nu</div>
+                    <div class="quick-actions-grid">
                     <button class="action-tile" onclick="showCreateCompetition()">
-                        <div class="action-kicker">01</div>
+                        <div class="action-kicker">Game 01</div>
                         <div class="action-title">Skapa ny tävling</div>
                         <div class="action-subtitle">Starta en privat liga och bjud in andra.</div>
                     </button>
 
                     <button class="action-tile" onclick="showJoinCompetition()">
-                        <div class="action-kicker">02</div>
+                        <div class="action-kicker">Game 02</div>
                         <div class="action-title">Gå med i tävling med kod</div>
                         <div class="action-subtitle">Ange kod och hoppa in direkt i ligan.</div>
                     </button>
 
                     <button class="action-tile" onclick="joinSystemTournament()">
-                        <div class="action-kicker">03</div>
+                        <div class="action-kicker">Game 03</div>
                         <div class="action-title">Gå med i turnering</div>
                         <div class="action-subtitle">Delta i den senaste öppna turneringen.</div>
                     </button>
+                    </div>
+                </section>
 
-                    <button class="action-tile soon" onclick="window.location.href='education.html'">
-                        <div class="action-title">Coming soon</div>
-                        <div class="action-subtitle">Lär dig trading steg för steg.</div>
+                <section class="education-panel">
+                    <div class="education-header">
+                        <div class="panel-heading" style="margin-bottom: 0;">Lär dig</div>
+                        <span class="education-badge">Education</span>
+                    </div>
+                    <div class="education-title">PaperAlpha Academy</div>
+                    <div class="education-subtitle">
+                        Detta är inte speldelen. Här får du stegvisa mini-lektioner om aktier,
+                        krypto, index och riskhantering med quiz efter varje del.
+                    </div>
+                    <button class="education-link" onclick="window.location.href='education.html'">
+                        Öppna utbildning →
                     </button>
-                </div>
+                </section>
             </aside>
         </div>
     </div>
