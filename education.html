@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaperAlpha Education</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg: #050505;
+            --surface: #121212;
+            --border: #282828;
+            --accent: #2962ff;
+            --up: #00ffaa;
+            --down: #ff3d71;
+            --text: #ffffff;
+            --text-dim: #b3b3b3;
+            --glass: rgba(255,255,255,0.05);
+            --glass-border: rgba(255,255,255,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(41, 98, 255, 0.1) 0%, transparent 45%),
+                radial-gradient(circle at 75% 20%, rgba(0, 255, 170, 0.06) 0%, transparent 40%),
+                radial-gradient(circle at 40% 80%, rgba(41, 98, 255, 0.05) 0%, transparent 40%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .top-banner {
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            background: var(--glass);
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+        }
+
+        .logo-link {
+            text-decoration: none;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .back-link {
+            text-decoration: none;
+            color: var(--text);
+            border: 1px solid var(--glass-border);
+            background: rgba(18, 18, 18, 0.6);
+            border-radius: 999px;
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            transition: all 0.25s ease;
+        }
+
+        .back-link:hover {
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: min(1080px, 100%);
+            margin: 0 auto;
+            padding: 28px 20px 44px;
+        }
+
+        .hero {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 28px;
+            margin-bottom: 22px;
+        }
+
+        .hero h1 {
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            color: var(--text-dim);
+            max-width: 72ch;
+            line-height: 1.5;
+        }
+
+        .course-grid {
+            display: grid;
+            gap: 14px;
+        }
+
+        .lesson-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 20px;
+        }
+
+        .lesson-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+
+        .lesson-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .lesson-tag {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            padding: 6px 10px;
+            white-space: nowrap;
+        }
+
+        .steps {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .step {
+            background: rgba(10, 10, 10, 0.52);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px;
+            color: var(--text-dim);
+            line-height: 1.45;
+            font-size: 0.95rem;
+        }
+
+        .quiz-box {
+            border-top: 1px solid var(--glass-border);
+            padding-top: 14px;
+        }
+
+        .quiz-label {
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .quiz-options {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .quiz-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            color: var(--text-dim);
+            font-size: 0.93rem;
+        }
+
+        .quiz-option input {
+            margin-top: 2px;
+        }
+
+        .quiz-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quiz-btn {
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            color: var(--text);
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            padding: 10px 14px;
+            transition: all 0.25s ease;
+        }
+
+        .quiz-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(41, 98, 255, 0.3);
+        }
+
+        .quiz-result {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        .quiz-result.ok {
+            color: var(--up);
+        }
+
+        .quiz-result.bad {
+            color: var(--down);
+        }
+
+        .score-panel {
+            margin-top: 20px;
+            background: rgba(18, 18, 18, 0.75);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .score-text {
+            font-weight: 600;
+        }
+
+        @media (max-width: 700px) {
+            .lesson-head {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="top-banner">
+        <a href="index.html" class="logo-link">PaperAlpha</a>
+        <a href="index.html" class="back-link">Till startsidan</a>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h1>Lär dig investering steg för steg</h1>
+            <p>
+                Korta lessons i bite-size format. Kör dem i ordning, ta quizet i slutet av varje del och
+                kolla din progression. Fokus: aktier, krypto, index och riskhantering.
+            </p>
+        </section>
+
+        <section class="course-grid">
+            <article class="lesson-card" data-lesson-id="stocks">
+                <div class="lesson-head">
+                    <h2 class="lesson-title">1. Grunder i aktier</h2>
+                    <span class="lesson-tag">5 min</span>
+                </div>
+                <div class="steps">
+                    <div class="step">Steg 1: En aktie betyder att du äger en liten del av ett bolag.</div>
+                    <div class="step">Steg 2: Priset påverkas av utbud/efterfrågan och hur marknaden tror att bolaget kommer prestera.</div>
+                    <div class="step">Steg 3: Nyckeltal som P/E och tillväxt hjälper dig jämföra bolag innan köp.</div>
+                </div>
+                <div class="quiz-box" data-correct="b">
+                    <label class="quiz-label">Quiz: Vad representerar en aktie?</label>
+                    <div class="quiz-options">
+                        <label class="quiz-option"><input type="radio" name="quiz-stocks" value="a"> Ett lån till banken</label>
+                        <label class="quiz-option"><input type="radio" name="quiz-stocks" value="b"> En ägarandel i ett bolag</label>
+                        <label class="quiz-option"><input type="radio" name="quiz-stocks" value="c"> En garanti för vinst</label>
+                    </div>
+                    <div class="quiz-actions">
+                        <button class="quiz-btn" onclick="checkQuiz('stocks')">Kontrollera svar</button>
+                        <span class="quiz-result" id="result-stocks"></span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="lesson-card" data-lesson-id="crypto">
+                <div class="lesson-head">
+                    <h2 class="lesson-title">2. Intro till krypto</h2>
+                    <span class="lesson-tag">6 min</span>
+                </div>
+                <div class="steps">
+                    <div class="step">Steg 1: Krypto är digitala tillgångar som ofta bygger på blockkedjeteknik.</div>
+                    <div class="step">Steg 2: Volatiliteten kan vara högre än för många aktier, så risknivån ökar.</div>
+                    <div class="step">Steg 3: Börja med små positioner och använd tydliga regler för risk.</div>
+                </div>
+                <div class="quiz-box" data-correct="c">
+                    <label class="quiz-label">Quiz: Vilket påstående är mest korrekt om krypto?</label>
+                    <div class="quiz-options">
+                        <label class="quiz-option"><input type="radio" name="quiz-crypto" value="a"> Krypto kan inte falla i värde</label>
+                        <label class="quiz-option"><input type="radio" name="quiz-crypto" value="b"> Krypto är alltid säkrare än indexfonder</label>
+                        <label class="quiz-option"><input type="radio" name="quiz-crypto" value="c"> Krypto kan vara mer volatilt och kräver riskkontroll</label>
+                    </div>
+                    <div class="quiz-actions">
+                        <button class="quiz-btn" onclick="checkQuiz('crypto')">Kontrollera svar</button>
+                        <span class="quiz-result" id="result-crypto"></span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="lesson-card" data-lesson-id="index">
+                <div class="lesson-head">
+                    <h2 class="lesson-title">3. Hur index fungerar</h2>
+                    <span class="lesson-tag">4 min</span>
+                </div>
+                <div class="steps">
+                    <div class="step">Steg 1: Ett index följer utvecklingen för en grupp bolag, t.ex. OMXS30 eller S&P 500.</div>
+                    <div class="step">Steg 2: Indexfonder/ETF:er gör det enkelt att sprida risk över många bolag.</div>
+                    <div class="step">Steg 3: Bred diversifiering minskar risken jämfört med enstaka aktier.</div>
+                </div>
+                <div class="quiz-box" data-correct="a">
+                    <label class="quiz-label">Quiz: Varför väljer många indexfonder?</label>
+                    <div class="quiz-options">
+                        <label class="quiz-option"><input type="radio" name="quiz-index" value="a"> För att få bred exponering och sprida risk</label>
+                        <label class="quiz-option"><input type="radio" name="quiz-index" value="b"> För att garantera högsta möjliga avkastning</label>
+                        <label class="quiz-option"><input type="radio" name="quiz-index" value="c"> För att handla utan avgifter</label>
+                    </div>
+                    <div class="quiz-actions">
+                        <button class="quiz-btn" onclick="checkQuiz('index')">Kontrollera svar</button>
+                        <span class="quiz-result" id="result-index"></span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="lesson-card" data-lesson-id="risk">
+                <div class="lesson-head">
+                    <h2 class="lesson-title">4. Riskhantering</h2>
+                    <span class="lesson-tag">5 min</span>
+                </div>
+                <div class="steps">
+                    <div class="step">Steg 1: Bestäm maxrisk per position innan du köper.</div>
+                    <div class="step">Steg 2: Diversifiera mellan olika tillgångar och sektorer.</div>
+                    <div class="step">Steg 3: Följ en plan i stället för känslor när marknaden rör sig snabbt.</div>
+                </div>
+                <div class="quiz-box" data-correct="b">
+                    <label class="quiz-label">Quiz: Vad är bäst riskpraxis?</label>
+                    <div class="quiz-options">
+                        <label class="quiz-option"><input type="radio" name="quiz-risk" value="a"> Lägg allt i en tillgång som gått upp nyligen</label>
+                        <label class="quiz-option"><input type="radio" name="quiz-risk" value="b"> Sätt riskregler och sprid kapitalet</label>
+                        <label class="quiz-option"><input type="radio" name="quiz-risk" value="c"> Undvik alltid att utvärdera dina resultat</label>
+                    </div>
+                    <div class="quiz-actions">
+                        <button class="quiz-btn" onclick="checkQuiz('risk')">Kontrollera svar</button>
+                        <span class="quiz-result" id="result-risk"></span>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="score-panel">
+            <div class="score-text" id="scoreText">Resultat: 0 / 4 rätt</div>
+            <div style="color: var(--text-dim); font-size: 0.9rem;">Tips: Du kan göra quiz om igen när som helst.</div>
+        </section>
+    </main>
+
+    <script>
+        const quizState = {
+            stocks: null,
+            crypto: null,
+            index: null,
+            risk: null
+        };
+
+        function checkQuiz(lessonId) {
+            const box = document.querySelector(`.lesson-card[data-lesson-id="${lessonId}"] .quiz-box`);
+            const correct = box.dataset.correct;
+            const selected = document.querySelector(`input[name="quiz-${lessonId}"]:checked`);
+            const resultEl = document.getElementById(`result-${lessonId}`);
+
+            if (!selected) {
+                resultEl.textContent = 'Välj ett svar först.';
+                resultEl.className = 'quiz-result bad';
+                return;
+            }
+
+            const isCorrect = selected.value === correct;
+            quizState[lessonId] = isCorrect;
+
+            if (isCorrect) {
+                resultEl.textContent = 'Rätt! Bra jobbat.';
+                resultEl.className = 'quiz-result ok';
+            } else {
+                resultEl.textContent = 'Inte riktigt. Läs stegen igen och testa igen.';
+                resultEl.className = 'quiz-result bad';
+            }
+
+            updateScore();
+        }
+
+        function updateScore() {
+            const total = Object.keys(quizState).length;
+            const correct = Object.values(quizState).filter(Boolean).length;
+            document.getElementById('scoreText').textContent = `Resultat: ${correct} / ${total} rätt`;
+        }
+    </script>
+</body>
+</html>
