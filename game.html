@@ -1573,6 +1573,64 @@ async function fetchHistory(ticker, resolution='D') {
     }
 }
 
+async function fetchLiveCandles(ticker, limit = 50) {
+    const cleanTicker = ticker.includes("(")
+        ? ticker.split("(")[1].replace(")","").trim()
+        : ticker;
+
+    try {
+        const resp = await fetch(
+            `https://server-api-092b.onrender.com/api/live-candles/${encodeURIComponent(cleanTicker)}?limit=${limit}`
+        );
+        if (!resp.ok) return [];
+
+        const data = await resp.json();
+        if (!Array.isArray(data)) return [];
+
+        return data
+            .map(c => ({
+                x: Number(c.x),
+                o: Number(c.o),
+                h: Number(c.h),
+                l: Number(c.l),
+                c: Number(c.c),
+                v: Number(c.v || 0)
+            }))
+            .filter(c =>
+                Number.isFinite(c.x) &&
+                Number.isFinite(c.o) &&
+                Number.isFinite(c.h) &&
+                Number.isFinite(c.l) &&
+                Number.isFinite(c.c)
+            )
+            .sort((a, b) => a.x - b.x);
+    } catch (e) {
+        console.warn("Live candle hydrate failed:", e);
+        return [];
+    }
+}
+
+function mergeCandles(baseCandles, liveCandles, max = MAX_CANDLES) {
+    const merged = [];
+    const byTimestamp = new Map();
+
+    for (const candle of baseCandles || []) {
+        byTimestamp.set(candle.x, candle);
+    }
+    for (const candle of liveCandles || []) {
+        byTimestamp.set(candle.x, candle);
+    }
+
+    for (const candle of byTimestamp.values()) {
+        merged.push(candle);
+    }
+
+    merged.sort((a, b) => a.x - b.x);
+    if (merged.length > max) {
+        return merged.slice(-max);
+    }
+    return merged;
+}
 
 
 
@@ -2469,8 +2527,12 @@ async function väljAktie(ticker){
 
     const aktie = aktier[ticker];
 
-    // Fetch historical candles from server
-    aktie.history = await fetchHistory(ticker, 'D');
+    // Hydrate from both historical and persisted live candles
+    const [historicalCandles, liveCandles] = await Promise.all([
+        fetchHistory(ticker, 'D'),
+        fetchLiveCandles(ticker, 50)
+    ]);
+    aktie.history = mergeCandles(historicalCandles, liveCandles);
 
     // Keep latest known live quote when switching ticker (fast execution),
     // but never fallback to DB historical close as tradable price.
