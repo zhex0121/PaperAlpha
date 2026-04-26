@@ -284,16 +284,108 @@
         }
 
         .container {
-            max-width: 1200px;
-            padding: 0 20px;
+            width: 100%;
+            max-width: 1320px;
+            padding: 24px 20px 28px;
             margin-top: 60px;
             flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             overflow-y: auto;
             position: relative;
             z-index: 1;
+        }
+
+        .home-layout {
+            width: 100%;
+            display: grid;
+            grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr);
+            gap: 22px;
+            align-items: start;
+        }
+
+        .competitions-panel,
+        .quick-actions-panel {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            overflow: hidden;
+        }
+
+        .competitions-panel {
+            padding: 26px 0 12px;
+            min-height: calc(100vh - 140px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .quick-actions-panel {
+            padding: 24px;
+        }
+
+        .panel-heading {
+            font-size: 1rem;
+            color: var(--text-dim);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+
+        .quick-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .action-tile {
+            background: rgba(10, 10, 10, 0.55);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            min-height: 150px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.25s ease;
+        }
+
+        button.action-tile {
+            color: var(--text);
+            text-align: left;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        button.action-tile:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 22px rgba(41, 98, 255, 0.24);
+        }
+
+        .action-kicker {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .action-title {
+            font-size: 1.02rem;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+
+        .action-subtitle {
+            color: var(--text-dim);
+            font-size: 0.87rem;
+            line-height: 1.4;
+        }
+
+        .action-tile.soon {
+            border-style: dashed;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: rgba(18, 18, 18, 0.65);
         }
 
 
@@ -348,7 +440,7 @@
 
         .competitions-list {
     width: 100%;
-    max-width: 900px;
+    max-width: 100%;
     flex: 1;
     overflow-y: auto;
     padding: 8px 20px 0;
@@ -372,7 +464,7 @@
     position: relative;
     overflow: hidden;
     width: 100%;
-    max-width: 800px;
+    max-width: 100%;
 }
 
 .competition-item::before {
@@ -469,6 +561,34 @@
             color: var(--text-dim);
             padding: 60px 20px;
             font-size: 1.1rem;
+        }
+
+        @media (max-width: 1080px) {
+            .home-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .competitions-panel {
+                min-height: auto;
+            }
+
+            .quick-actions-panel {
+                order: -1;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .quick-actions-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 16px 14px 22px;
+            }
+
+            .quick-actions-panel {
+                padding: 16px;
+            }
         }
 
         h1 {
@@ -832,32 +952,64 @@
     </div>
 
     <div class="container">
-        <div class="competitions-header">
-            <h1 class="competitions-title">Mina Tävlingar</h1>
-            <div class="competition-tabs">
-                <button class="competition-tab active" onclick="switchCompetitionTab('active')">Aktiva</button>
-                <button class="competition-tab" onclick="switchCompetitionTab('finished')">Avslutade</button>
-            </div>
-        </div>
-
-        <div id="activeCompetitions" class="competitions-list">
-            <div class="no-competitions">
-                <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
-                <div id="loginPromptActive" style="display: none; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
-                    <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
-                    <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
+        <div class="home-layout">
+            <section class="competitions-panel">
+                <div class="competitions-header">
+                    <h1 class="competitions-title">Mina Tävlingar</h1>
+                    <div class="competition-tabs">
+                        <button class="competition-tab active" onclick="switchCompetitionTab('active')">Aktiva</button>
+                        <button class="competition-tab" onclick="switchCompetitionTab('finished')">Avslutade</button>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <div id="finishedCompetitions" class="competitions-list" style="display: none;">
-            <div class="no-competitions">
-                <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
-                <div id="loginPromptFinished" style="display: none; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
-                    <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
-                    <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
+                <div id="activeCompetitions" class="competitions-list">
+                    <div class="no-competitions">
+                        <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
+                        <div id="loginPromptActive" style="display: none; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                            <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
+                            <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+
+                <div id="finishedCompetitions" class="competitions-list" style="display: none;">
+                    <div class="no-competitions">
+                        <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
+                        <div id="loginPromptFinished" style="display: none; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
+                            <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
+                            <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="quick-actions-panel">
+                <div class="panel-heading">Snabbval</div>
+                <div class="quick-actions-grid">
+                    <button class="action-tile" onclick="showCreateCompetition()">
+                        <div class="action-kicker">01</div>
+                        <div class="action-title">Skapa ny tävling</div>
+                        <div class="action-subtitle">Starta en privat liga och bjud in andra.</div>
+                    </button>
+
+                    <button class="action-tile" onclick="showJoinCompetition()">
+                        <div class="action-kicker">02</div>
+                        <div class="action-title">Gå med i tävling med kod</div>
+                        <div class="action-subtitle">Ange kod och hoppa in direkt i ligan.</div>
+                    </button>
+
+                    <button class="action-tile" onclick="joinSystemTournament()">
+                        <div class="action-kicker">03</div>
+                        <div class="action-title">Gå med i turnering</div>
+                        <div class="action-subtitle">Delta i den senaste öppna turneringen.</div>
+                    </button>
+
+                    <div class="action-tile soon">
+                        <div class="action-title">Coming soon</div>
+                        <div class="action-subtitle">Ny feature kommer här.</div>
+                    </div>
+                </div>
+            </aside>
         </div>
     </div>
 
