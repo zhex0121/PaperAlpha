@@ -2471,10 +2471,10 @@ async function väljAktie(ticker){
     // Fetch historical candles from server
     aktie.history = await fetchHistory(ticker, 'D');
 
-    // If history exists, set last close as current price
+    // Keep live price empty until we receive an actual real-time quote.
+    // Historical candles are for chart context only and must not be tradable price.
+    aktie.pris = null;
     if (aktie.history.length > 0) {
-        const lastCandle = aktie.history[aktie.history.length - 1];
-        aktie.pris = lastCandle.c;
         aktie.chartSessionStart = aktie.history[0].x;
     }
 
