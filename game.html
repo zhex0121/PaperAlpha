@@ -2515,13 +2515,13 @@ maximumFractionDigits:2
 async function väljAktie(ticker){
     aktivAktie = ticker;
 
+    // Keep chart view visible immediately on selection/startup
+    showChartView();
+
     // Use the async function to check market status
     await syncTradeControlsVisibility();
 
     document.getElementById('activeSymbol').innerText = ticker;
-
-    // Show chart view when stock is selected
-    showChartView();
 
     uppdateraAktiv();
 
@@ -3331,6 +3331,9 @@ if(currentUser) uppdateraPortfölj();
 
 // 4. Se till att Live-knappen lyser blått och systemet vet att vi är i live-mode
 setChartMode('live');
+
+// Ensure chart area + support link are visible immediately on first paint
+showChartView();
 
 väljAktie(symboler[0]);
     
