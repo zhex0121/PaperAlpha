@@ -2375,6 +2375,7 @@ symboler.forEach(s => {
     aktier[s] = {
         ticker: s,
         pris: null,
+        senasteLivePrisTid: null,
         history: [],
         chartSessionStart: null,
         change: Number((Math.random()*4-2).toFixed(2)),
@@ -2471,9 +2472,11 @@ async function väljAktie(ticker){
     // Fetch historical candles from server
     aktie.history = await fetchHistory(ticker, 'D');
 
-    // Keep live price empty until we receive an actual real-time quote.
-    // Historical candles are for chart context only and must not be tradable price.
-    aktie.pris = null;
+    // Keep latest known live quote when switching ticker (fast execution),
+    // but never fallback to DB historical close as tradable price.
+    if (!Number.isFinite(aktie.pris) || aktie.senasteLivePrisTid === null) {
+        aktie.pris = null;
+    }
     if (aktie.history.length > 0) {
         aktie.chartSessionStart = aktie.history[0].x;
     }
@@ -2897,10 +2900,12 @@ try{
         return;
     }
 
-    const pris=aktier[aktivAktie].pris;
+    const valdAktie = aktier[aktivAktie];
+    const pris = valdAktie.pris;
+    const harLivePris = Number.isFinite(pris) && valdAktie.senasteLivePrisTid !== null;
 
    
-if(!pris || pris <= 0 || !Number.isFinite(pris)){
+if(!harLivePris || pris <= 0){
     visaTradeFel("Priserna laddar fortfarande. Vänta ett ögonblick och försök igen.");
     return;
 }
@@ -3188,6 +3193,7 @@ setInterval(async () => {
 if(aktie.history.length === 0){
 
     aktie.pris = nyttPris;
+    aktie.senasteLivePrisTid = Date.now();
 
     aktie.history.push({
         x: Date.now(),
@@ -3201,6 +3207,7 @@ if(aktie.history.length === 0){
 }
 
 aktie.pris = nyttPris;
+aktie.senasteLivePrisTid = Date.now();
 
         
         if (s === aktivAktie) {
