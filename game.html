@@ -314,6 +314,11 @@ body::before {
     height: calc(100vh - 60px);
     margin-top: 60px;
     overflow: hidden;
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 0;
 }
 
 
@@ -495,6 +500,9 @@ min-height:0;
     min-height: 0;
     position: relative;
     z-index: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
 }
 
     
@@ -612,29 +620,28 @@ box-shadow:0 8px 25px rgba(255, 61, 113, 0.4);
 .portfolio-list {
     font-size: 0.85rem;
     margin-top: 10px;      /* Adjusted: Space between title and list */
-    overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.15) transparent;
     padding-right: 5px;
     scroll-behavior: smooth;
-    
-    /* This calculation keeps the list within the screen height */
-    max-height: calc(100vh - 380px); 
 }
 
 /* Shorter, subtle scrollbars (Chrome, Edge, Safari) */
 .stock-list::-webkit-scrollbar,
-.portfolio-list::-webkit-scrollbar {
+.portfolio-list::-webkit-scrollbar,
+.trade-side::-webkit-scrollbar {
     width: 6px;
 }
 
 .stock-list::-webkit-scrollbar-track,
-.portfolio-list::-webkit-scrollbar-track {
+.portfolio-list::-webkit-scrollbar-track,
+.trade-side::-webkit-scrollbar-track {
     background: transparent;
 }
 
 .stock-list::-webkit-scrollbar-thumb,
-.portfolio-list::-webkit-scrollbar-thumb {
+.portfolio-list::-webkit-scrollbar-thumb,
+.trade-side::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.12);
     border-radius: 10px;
     min-height: 20px;       /* ensures the thumb is never too tiny */
@@ -643,7 +650,8 @@ box-shadow:0 8px 25px rgba(255, 61, 113, 0.4);
 
 /* Slight hover visibility */
 .stock-list::-webkit-scrollbar-thumb:hover,
-.portfolio-list::-webkit-scrollbar-thumb:hover {
+.portfolio-list::-webkit-scrollbar-thumb:hover,
+.trade-side::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.25);
 }
     
