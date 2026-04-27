@@ -1430,9 +1430,9 @@ async function loadLeaderboard() {
             if (member.portfolio && typeof member.portfolio === 'object') {
                 for (const [symbol, holding] of Object.entries(member.portfolio)) {
                     if (holding && holding.antal > 0) {
-                        const currentPrice = await fetchPrice(symbol);
-                        if (currentPrice) {
-                            portfolioValue += currentPrice * holding.antal;
+                        const quote = await fetchPrice(symbol);
+                        if (quote && Number.isFinite(quote.price)) {
+                            portfolioValue += quote.price * holding.antal;
                         }
                     }
                 }
@@ -1713,13 +1713,14 @@ ticker.includes("(")
 
     const data = await response.json();
     const price = Number(data.c);
+    const timestamp = Number(data.t);
 
-    if (!Number.isFinite(price)) return null;
+    if (!Number.isFinite(price) || !Number.isFinite(timestamp)) return null;
     
     // Update market status cache from price API response
     updateMarketStatusFromPriceResponse(cleanTicker, data);
     
-    return price;
+    return { price, timestamp };
   } catch (err) {
     console.error("API error for", ticker, err);
     return null;
@@ -3293,11 +3294,17 @@ setInterval(async () => {
     const promises = Object.keys(aktier).map(async (s) => {
         const aktie = aktier[s];
         const gammaltPris = aktie.pris;
-        const nyttPris = await fetchPrice(s); // HÄMTAR RIKTIGT PRIS
-        if (nyttPris === null) {
+        const quote = await fetchPrice(s); // HÄMTAR RIKTIGT PRIS
+        if (!quote) {
     console.warn("Ingen prisdata för", s);
     return;
     }
+        const nyttPris = quote.price;
+        const quoteTs = quote.timestamp;
+        const prevQuoteTs = Number(aktie.senasteLivePrisTid || 0);
+        if (quoteTs <= prevQuoteTs) {
+            return; // stale cached quote: do not mutate candles
+        }
         
         pricesUpdated = true; // Mark that we received at least one price
         
@@ -3306,10 +3313,10 @@ setInterval(async () => {
 if(aktie.history.length === 0){
 
     aktie.pris = nyttPris;
-    aktie.senasteLivePrisTid = Date.now();
+    aktie.senasteLivePrisTid = quoteTs;
 
     aktie.history.push({
-        x: Date.now(),
+        x: quoteTs,
         o: nyttPris,
         h: nyttPris,
         l: nyttPris,
@@ -3320,7 +3327,7 @@ if(aktie.history.length === 0){
 }
 
 aktie.pris = nyttPris;
-aktie.senasteLivePrisTid = Date.now();
+aktie.senasteLivePrisTid = quoteTs;
 
         
         if (s === aktivAktie) {
@@ -3329,7 +3336,7 @@ aktie.senasteLivePrisTid = Date.now();
         }
 
         // Uppdatera candlestick (samma logik som innan men med riktigt pris)
-        let nu = Date.now();
+        let nu = quoteTs;
         let senasteCandle = aktie.history[aktie.history.length - 1];
         if (nu - senasteCandle.x < CANDLE_MS) {
             senasteCandle.c = nyttPris;
@@ -3349,10 +3356,6 @@ aktie.senasteLivePrisTid = Date.now();
 
     await Promise.all(promises); // Vänta på att alla priser hämtats
 
-    // Keep minute timeline continuous even when quotes are temporarily unavailable.
-    const now = Date.now();
-    Object.keys(aktier).forEach((s) => backfillLiveGapForSymbol(aktier[s], now));
-    
     // Update market status based on whether we received prices
     const previousMarketState = marketIsOpen;
     marketIsOpen = pricesUpdated;
