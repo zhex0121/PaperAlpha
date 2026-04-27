@@ -2987,10 +2987,10 @@ if (isCompetitionEnded()) {
 }
 
 // Check if market is open for this specific symbol
-console.log(`[Trade] Checking market status for ${aktivAktie}...`);
+
 const marketStatus = getSymbolMarketStatus(aktivAktie);
 const sector = getSymbolSector(aktivAktie);
-console.log(`[Trade] Market status for ${aktivAktie}: ${marketStatus} (${sector})`);
+
 if (marketStatus === 'closed') {
     // Show sector-specific error message - NO API CALLS
     if (sector === 'US_MARKET') {
@@ -3313,8 +3313,7 @@ setInterval(async () => {
     }
         
         pricesUpdated = true; // Mark that we received at least one price
-        console.log(`Price updated for ${s}: ${nyttPris}`);
-
+        
 
 // Första riktiga priset → skapa första candle
 if(aktie.history.length === 0){
