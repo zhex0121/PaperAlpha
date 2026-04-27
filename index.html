@@ -299,7 +299,7 @@
             display: grid;
             grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr);
             gap: 22px;
-            align-items: start;
+            align-items: stretch;
         }
 
         .competitions-panel,
@@ -313,9 +313,10 @@
         }
 
         .right-rail {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 14px;
-            align-content: start;
+            align-content: stretch;
         }
 
         .competitions-panel {
@@ -327,12 +328,14 @@
 
         .quick-actions-panel {
             padding: 24px;
+            flex-shrink: 0;
         }
 
         .education-panel {
             padding: 20px;
             border-color: rgba(0, 255, 170, 0.28);
             background: linear-gradient(160deg, rgba(0, 255, 170, 0.08), rgba(18, 18, 18, 0.8));
+            flex:1;
         }
 
         .panel-heading {
@@ -1051,7 +1054,7 @@
                 <section class="education-panel">
                     <div class="education-header">
                         <div class="panel-heading" style="margin-bottom: 0;">Lär dig</div>
-                        <span class="education-badge">Education</span>
+            
                     </div>
                     <div class="education-title">PaperAlpha Academy</div>
                     <div class="education-subtitle">
