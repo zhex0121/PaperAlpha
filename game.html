@@ -1220,7 +1220,7 @@ function updateMarketStatusFromPriceResponse(symbol, responseData) {
             sector: responseData.sector,
             timestamp: Date.now()
         };
-        console.log(`[Market] Updated status for ${symbol}: ${responseData.marketStatus} (${responseData.sector})`);
+
     }
 }
 
@@ -3246,8 +3246,7 @@ setInterval(async () => {
     }
         
         pricesUpdated = true; // Mark that we received at least one price
-        console.log(`Price updated for ${s}: ${nyttPris}`);
-
+        
 
 // Första riktiga priset → skapa första candle
 if(aktie.history.length === 0){
