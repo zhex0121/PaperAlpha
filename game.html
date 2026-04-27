@@ -3301,6 +3301,7 @@ setInterval(async () => {
     }
         const nyttPris = quote.price;
         const quoteTs = quote.timestamp;
+        const candleTs = Math.floor(quoteTs / CANDLE_MS) * CANDLE_MS;
         const prevQuoteTs = Number(aktie.senasteLivePrisTid || 0);
         if (quoteTs <= prevQuoteTs) {
             return; // stale cached quote: do not mutate candles
@@ -3316,7 +3317,7 @@ if(aktie.history.length === 0){
     aktie.senasteLivePrisTid = quoteTs;
 
     aktie.history.push({
-        x: quoteTs,
+        x: candleTs,
         o: nyttPris,
         h: nyttPris,
         l: nyttPris,
@@ -3336,7 +3337,7 @@ aktie.senasteLivePrisTid = quoteTs;
         }
 
         // Uppdatera candlestick (samma logik som innan men med riktigt pris)
-        let nu = quoteTs;
+        let nu = candleTs;
         let senasteCandle = aktie.history[aktie.history.length - 1];
         if (nu - senasteCandle.x < CANDLE_MS) {
             senasteCandle.c = nyttPris;
