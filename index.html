@@ -390,48 +390,9 @@
             line-height: 1.4;
         }
 
-        .education-header {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
+      
 
-        .education-badge {
-            font-size: 0.74rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--up);
-        }
-
-        .education-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-
-        .education-subtitle {
-            color: rgba(255, 255, 255, 0.82);
-            font-size: 0.92rem;
-            line-height: 1.45;
-            margin-bottom: 14px;
-        }
-
-        .education-link {
-            width: 100%;
-            border: 1px solid rgba(0, 255, 170, 0.35);
-            background: rgba(0, 0, 0, 0.35);
-            color: var(--text);
-            border-radius: 11px;
-            padding: 12px 14px;
-            font-weight: 700;
-            letter-spacing: 0.03em;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            text-align: left;
-            font-family: inherit;
-        }
+       
 
         .education-link:hover {
             transform: translateY(-2px);
@@ -588,6 +549,8 @@
         }
 
         .join-competition-btn {
+    display: inline-block;
+    text-decoration: none;
     background: linear-gradient(135deg, var(--accent), var(--up));
     color: var(--text);
     border: none;
@@ -1031,39 +994,34 @@
                 <section class="quick-actions-panel">
                     <div class="panel-heading">Spela nu</div>
                     <div class="quick-actions-grid">
-                    <button class="action-tile" onclick="showCreateCompetition()">
+<a class="action-tile" href="index.html?modal=create" onclick="event.preventDefault(); showCreateCompetition();" style="text-decoration:none; color:var(--text);">
+    <div class="action-title">Skapa ny tävling</div>
+    <div class="action-subtitle">Starta en privat liga och bjud in andra.</div>
+</a>
 
-                        <div class="action-title">Skapa ny tävling</div>
-                        <div class="action-subtitle">Starta en privat liga och bjud in andra.</div>
-                    </button>
+<a class="action-tile" href="index.html?modal=join" onclick="event.preventDefault(); showJoinCompetition();" style="text-decoration:none; color:var(--text);">
+    <div class="action-title">Gå med i tävling med kod</div>
+    <div class="action-subtitle">Ange kod och hoppa in direkt i ligan.</div>
+</a>
 
-                    <button class="action-tile" onclick="showJoinCompetition()">
-                      
-                        <div class="action-title">Gå med i tävling med kod</div>
-                        <div class="action-subtitle">Ange kod och hoppa in direkt i ligan.</div>
-                    </button>
-
-                    <button class="action-tile" onclick="joinSystemTournament()">
-                       
-                        <div class="action-title">Gå med i turnering</div>
-                        <div class="action-subtitle">Delta i den senaste öppna turneringen.</div>
-                    </button>
-                    </div>
+<a id="joinTournamentTile" class="action-tile" href="index.html" onclick="event.preventDefault(); joinSystemTournament();" style="text-decoration:none; color:var(--text);">
+    <div class="action-title">Gå med i turnering</div>
+    <div class="action-subtitle">Delta i den senaste öppna turneringen.</div>
+</a>
+</div>
                 </section>
 
                 <section class="education-panel">
-                    <div class="education-header">
-                        <div class="panel-heading" style="margin-bottom: 0;">Lär dig</div>
-            
-                    </div>
-                    <div class="education-title">PaperAlpha Academy</div>
-                    <div class="education-subtitle">
-                        Här får du stegvisa mini-lektioner om aktier, krypto, index och riskhantering med quiz efter varje del.
-                    </div>
-                    <button class="education-link" onclick="window.location.href='education.html'">
-                        Öppna utbildning →
-                    </button>
-                </section>
+    <div class="panel-heading" style="margin-bottom: 12px;">Lär dig</div>
+    <a class="action-tile" href="education.html" style="display:flex; flex-direction:column; justify-content:space-between; margin-bottom:10px; text-decoration:none; color:var(--text);">
+        <div class="action-title">Lektioner</div>
+        <div class="action-subtitle">Lär dig grunderna i aktiehandel.</div>
+    </a>
+    <button class="action-tile" style="opacity:0.5; cursor:not-allowed;" disabled>
+        <div class="action-title">Strategier</div>
+        <div class="action-subtitle">Handelsstrategier — Zhe jobbar på det.</div>
+    </button>
+</section>
             </aside>
         </div>
     </div>
@@ -1142,6 +1100,7 @@
 
     let currentUser = null;
     let competitionsLoaded = false;
+    let systemTournamentHref = 'index.html';
 
        let cachedFxRate = null;
 const priceCache = new Map();
@@ -1318,7 +1277,25 @@ async function getMemberTotalValueSek(member, fxRate) {
         hideTournamentDropdown();
     }
 });
-
+    async function prefetchSystemTournamentHref() {
+    try {
+        const { data: tournaments } = await supabaseClient
+            .from('leagues')
+            .select('id, invite_code')
+            .is('creator_id', null)
+            .order('start_time', { ascending: false })
+            .limit(1);
+        if (tournaments && tournaments.length > 0) {
+            const t = tournaments[0];
+            systemTournamentHref = `game.html?league=${t.id}&code=${t.invite_code}`;
+            // Update the anchor's href live so right-click gets the real URL
+            const el = document.getElementById('joinTournamentTile');
+            if (el) el.href = systemTournamentHref;
+        }
+    } catch (e) {
+        console.error('[Tournament] prefetch failed:', e);
+    }
+}
     // --- Supabase Auth Listener ---
     async function setupAuthListener() {
         console.log('[Auth] Getting initial session...');
@@ -1405,7 +1382,18 @@ async function getMemberTotalValueSek(member, fxRate) {
         await loadUserCompetitions();
     });
 
-    document.addEventListener('DOMContentLoaded', setupAuthListener);
+    document.addEventListener('DOMContentLoaded', () => {
+    setupAuthListener();
+    prefetchSystemTournamentHref();
+    const params = new URLSearchParams(window.location.search);
+    const modal = params.get('modal');
+    if (modal === 'create') {
+        // Wait briefly for auth to initialize, then open
+        setTimeout(() => showGameModal(true, 'create'), 800);
+    } else if (modal === 'join') {
+        setTimeout(() => showGameModal(true, 'join'), 800);
+    }
+});
 
     // --- Tournament Dropdown Functions ---
     function showTournamentDropdown() {
@@ -1780,9 +1768,9 @@ async function getMemberTotalValueSek(member, fxRate) {
                         </div>
                     </div>
                 </div>
-                <button class="join-competition-btn" onclick="joinCompetition('${league.id}', '${league.invite_code}')">
-                    ${isActive ? 'Gå till tävling' : 'Visa resultat'}
-                </button>
+                <a class="join-competition-btn" href="game.html?league=${league.id}&code=${league.invite_code}" onclick="event.preventDefault(); joinCompetition('${league.id}', '${league.invite_code}');">
+    ${isActive ? 'Gå till tävling' : 'Se resultat'}
+</a>
             </div>
         `).join('');
     }
