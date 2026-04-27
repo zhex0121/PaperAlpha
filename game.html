@@ -2777,9 +2777,15 @@ ticks:{
 color:'#666',
 maxRotation:0,
 autoSkip:true,
-maxTicksLimit:5,
-autoSkipPadding:28,
+maxTicksLimit:4,
+autoSkipPadding:44,
 callback:function(value,index,ticks){
+if(!ticks || ticks.length === 0) return '';
+
+const targetLabels = 4;
+const step = Math.max(1, Math.ceil(ticks.length / targetLabels));
+const isEdge = index === 0 || index === ticks.length - 1;
+if (!isEdge && index % step !== 0) return '';
 
 const d=new Date(value);
 
