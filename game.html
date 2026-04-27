@@ -1220,7 +1220,7 @@ function updateMarketStatusFromPriceResponse(symbol, responseData) {
             sector: responseData.sector,
             timestamp: Date.now()
         };
-        
+        console.log(`[Market] Updated status for ${symbol}: ${responseData.marketStatus} (${responseData.sector})`);
     }
 }
 
@@ -1623,14 +1623,18 @@ function mergeCandles(baseCandles, liveCandles, max = MAX_CANDLES) {
     }
 
     merged.sort((a, b) => a.x - b.x);
-    return fillMissingMinuteCandles(merged, { maxOutput: max, endAtNow: true });
+    return fillMissingMinuteCandles(merged, {
+        maxOutput: max,
+        endAtNow: false,
+        maxGapMs: 2 * CANDLE_MS
+    });
 }
 
 function fillMissingMinuteCandles(candles, options = {}) {
     if (!Array.isArray(candles) || candles.length === 0) return [];
 
     const stepMs = options.stepMs || CANDLE_MS;
-    const maxGapMs = options.maxGapMs || (2 * 60 * 60 * 1000); // only fill short live gaps
+    const maxGapMs = options.maxGapMs || (2 * stepMs); // smooth only tiny gaps
     const maxOutput = options.maxOutput || MAX_CANDLES;
     const endAtNow = !!options.endAtNow;
 
@@ -1674,16 +1678,19 @@ function fillMissingMinuteCandles(candles, options = {}) {
 
 function backfillLiveGapForSymbol(stock, now = Date.now()) {
     if (!stock || !Array.isArray(stock.history) || stock.history.length === 0) return;
+    if (!Number.isFinite(stock.senasteLivePrisTid)) return;
+    // Only smooth very recent transport jitter, not real data outages.
+    if (now - stock.senasteLivePrisTid > 75 * 1000) return;
 
     const last = stock.history[stock.history.length - 1];
     if (!Number.isFinite(last?.x) || !Number.isFinite(last?.c)) return;
 
     const nowBucket = Math.floor(now / CANDLE_MS) * CANDLE_MS;
-    let ts = last.x + CANDLE_MS;
-    while (ts <= nowBucket && ts - last.x <= 2 * 60 * 60 * 1000) {
+    const gap = nowBucket - last.x;
+    if (gap >= CANDLE_MS && gap <= 2 * CANDLE_MS) {
+        const ts = last.x + CANDLE_MS;
         const close = stock.history[stock.history.length - 1].c;
         stock.history.push({ x: ts, o: close, h: close, l: close, c: close, v: 0 });
-        ts += CANDLE_MS;
     }
 
     if (stock.history.length > MAX_CANDLES) {
@@ -2777,15 +2784,9 @@ ticks:{
 color:'#666',
 maxRotation:0,
 autoSkip:true,
-maxTicksLimit:4,
-autoSkipPadding:44,
-callback:function(value,index,ticks){
-if(!ticks || ticks.length === 0) return '';
-
-const targetLabels = 4;
-const step = Math.max(1, Math.ceil(ticks.length / targetLabels));
-const isEdge = index === 0 || index === ticks.length - 1;
-if (!isEdge && index % step !== 0) return '';
+maxTicksLimit:6,
+autoSkipPadding:26,
+callback:function(value){
 
 const d=new Date(value);
 
@@ -2794,20 +2795,6 @@ hour:'2-digit',
 minute:'2-digit',
 hour12:false
 });
-
-if(index>0&&ticks&&ticks[index-1]){
-
-const prev=new Date(ticks[index-1].value);
-
-const prevLabel=prev.toLocaleTimeString('sv-SE',{
-hour:'2-digit',
-minute:'2-digit',
-hour12:false
-});
-
-if(label===prevLabel)return '';
-
-}
 
 return label;
 
