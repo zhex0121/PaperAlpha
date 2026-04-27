@@ -1220,7 +1220,7 @@ function updateMarketStatusFromPriceResponse(symbol, responseData) {
             sector: responseData.sector,
             timestamp: Date.now()
         };
-
+        console.log(`[Market] Updated status for ${symbol}: ${responseData.marketStatus} (${responseData.sector})`);
     }
 }
 
@@ -1543,13 +1543,12 @@ async function fetchHistory(ticker, resolution='D') {
         );
 
         const data = await resp.json();
+        if (!Array.isArray(data)) return [];
 
         // Ensure we are only processing data within acceptable limits
         const filteredData = data.filter(c => c.x >= pastTime && c.x <= now);
 
         console.log("RAW DATA:", filteredData);
-
-        if (!Array.isArray(filteredData)) return [];
 
         const cleaned = filteredData.map(c => ({
             x: Number(c.x),
@@ -1624,10 +1623,72 @@ function mergeCandles(baseCandles, liveCandles, max = MAX_CANDLES) {
     }
 
     merged.sort((a, b) => a.x - b.x);
-    if (merged.length > max) {
-        return merged.slice(-max);
+    return fillMissingMinuteCandles(merged, { maxOutput: max, endAtNow: true });
+}
+
+function fillMissingMinuteCandles(candles, options = {}) {
+    if (!Array.isArray(candles) || candles.length === 0) return [];
+
+    const stepMs = options.stepMs || CANDLE_MS;
+    const maxGapMs = options.maxGapMs || (2 * 60 * 60 * 1000); // only fill short live gaps
+    const maxOutput = options.maxOutput || MAX_CANDLES;
+    const endAtNow = !!options.endAtNow;
+
+    const sorted = [...candles]
+        .filter(c => Number.isFinite(c?.x) && Number.isFinite(c?.c))
+        .sort((a, b) => a.x - b.x);
+    if (sorted.length === 0) return [];
+
+    const filled = [sorted[0]];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const prev = filled[filled.length - 1];
+        const curr = sorted[i];
+        const gap = curr.x - prev.x;
+
+        if (gap > stepMs && gap <= maxGapMs) {
+            let t = prev.x + stepMs;
+            while (t < curr.x) {
+                const close = prev.c;
+                filled.push({ x: t, o: close, h: close, l: close, c: close, v: 0 });
+                t += stepMs;
+            }
+        }
+
+        filled.push(curr);
     }
-    return merged;
+
+    if (endAtNow) {
+        const nowBucket = Math.floor(Date.now() / stepMs) * stepMs;
+        let last = filled[filled.length - 1];
+        while (nowBucket - last.x >= stepMs && nowBucket - last.x <= maxGapMs) {
+            const close = last.c;
+            last = { x: last.x + stepMs, o: close, h: close, l: close, c: close, v: 0 };
+            filled.push(last);
+        }
+    }
+
+    if (filled.length > maxOutput) return filled.slice(-maxOutput);
+    return filled;
+}
+
+function backfillLiveGapForSymbol(stock, now = Date.now()) {
+    if (!stock || !Array.isArray(stock.history) || stock.history.length === 0) return;
+
+    const last = stock.history[stock.history.length - 1];
+    if (!Number.isFinite(last?.x) || !Number.isFinite(last?.c)) return;
+
+    const nowBucket = Math.floor(now / CANDLE_MS) * CANDLE_MS;
+    let ts = last.x + CANDLE_MS;
+    while (ts <= nowBucket && ts - last.x <= 2 * 60 * 60 * 1000) {
+        const close = stock.history[stock.history.length - 1].c;
+        stock.history.push({ x: ts, o: close, h: close, l: close, c: close, v: 0 });
+        ts += CANDLE_MS;
+    }
+
+    if (stock.history.length > MAX_CANDLES) {
+        stock.history = stock.history.slice(-MAX_CANDLES);
+    }
 }
 
 
@@ -3246,7 +3307,8 @@ setInterval(async () => {
     }
         
         pricesUpdated = true; // Mark that we received at least one price
-        
+        console.log(`Price updated for ${s}: ${nyttPris}`);
+
 
 // Första riktiga priset → skapa första candle
 if(aktie.history.length === 0){
@@ -3294,6 +3356,10 @@ aktie.senasteLivePrisTid = Date.now();
     });
 
     await Promise.all(promises); // Vänta på att alla priser hämtats
+
+    // Keep minute timeline continuous even when quotes are temporarily unavailable.
+    const now = Date.now();
+    Object.keys(aktier).forEach((s) => backfillLiveGapForSymbol(aktier[s], now));
     
     // Update market status based on whether we received prices
     const previousMarketState = marketIsOpen;
