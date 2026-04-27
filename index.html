@@ -285,7 +285,7 @@
 
         .container {
             width: 100%;
-            max-width: 1320px;
+            max-width: 100%;
             padding: 24px 20px 28px;
             margin-top: 60px;
             flex: 1;
@@ -975,19 +975,8 @@
         <a href="index.html" class="logo-link">PaperAlpha</a>
         <div class="profile-section">
             <div id="new-competition-section" style="display: none; position: relative;">
-                <button class="new-competition-btn" onclick="showTournamentDropdown()">Ny Tävling</button>
-                <div class="tournament-dropdown" id="tournamentDropdown">
-                    <button class="tournament-option" onclick="joinSystemTournament()">
-                        Gå med i turnering
-                    </button>
-                    <button class="tournament-option" onclick="showCreateCompetition()">
-                        Skapa ny tävling
-                    </button>
-                    <button class="tournament-option" onclick="showJoinCompetition()">
-                        Gå med i tävling med kod 
-                    </button>
-                </div>
-            </div>
+             <div class="tournament-dropdown" id="tournamentDropdown"></div>
+</div>
             <div id="logged-out-view">
                 <button class="login-button">Logga in</button>
             </div>
@@ -1220,7 +1209,7 @@ async function getMemberTotalValueSek(member, fxRate) {
         console.log('[UI] showLoggedInUI called for:', user.email);
         loggedOutView.style.display = 'none';
         loggedInView.style.display = 'flex';
-        document.getElementById('new-competition-section').style.display = 'block';
+        document.getElementById('new-competition-section').style.display = 'none';
         profileEmail.textContent = user.email;
         profileInitial.textContent = user.email.charAt(0).toUpperCase();
         currentUser = user;
