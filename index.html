@@ -525,7 +525,6 @@
     flex-wrap: wrap;
     transition: all 0.3s ease;
     position: relative;
-    overflow: hidden;
     width: 100%;
     max-width: 100%;
 }
@@ -553,13 +552,13 @@
         }
 
         .competition-info {
-    flex: 1 1 520px;      /* NY: mer responsiv */
-    min-width: 0;         /* NY */
+    flex: 1 1 200px;
+    min-width: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 20px;
-    flex-wrap: wrap;      /* NY */
+    flex-wrap: wrap;
 }
 
         .competition-name {
@@ -1564,8 +1563,13 @@ async function getMemberTotalValueSek(member, fxRate) {
     prefetchSystemTournamentHref();
     const params = new URLSearchParams(window.location.search);
     const modal = params.get('modal');
+    const goto = params.get('goto');
+    if (goto === 'home') {
+        // Skip landing page regardless of auth state
+        document.getElementById('landingPage').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+    }
     if (modal === 'create') {
-        // Wait briefly for auth to initialize, then open
         setTimeout(() => showGameModal(true, 'create'), 800);
     } else if (modal === 'join') {
         setTimeout(() => showGameModal(true, 'join'), 800);
