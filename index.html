@@ -264,6 +264,33 @@
             font-size: 1.1rem;
         }
 
+      .profile-dropdown-btn {
+    background: none;
+    border: 1px solid var(--glass-border);
+    color: var(--text);
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    text-align: left;
+    letter-spacing: 0.3px;
+    width: 100%;
+}
+
+.profile-dropdown-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(41, 98, 255, 0.2);
+}
+
+.profile-dropdown-btn:last-child {
+    margin-bottom: 0;
+}
+
         .logout-btn {
             width: 100%;
             padding: 12px;
@@ -277,10 +304,29 @@
             letter-spacing: 0.5px;
         }
 
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+        }
+
         .logout-btn:hover {
             background: linear-gradient(135deg, #dc2626, var(--down));
             transform: translateY(-1px);
             box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .login-btn:hover {
+            background: linear-gradient(135deg, var(--up), var(--accent));
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(41, 98, 255, 0.3);
         }
 
         .container {
@@ -1016,14 +1062,26 @@
              <div class="tournament-dropdown" id="tournamentDropdown"></div>
 </div>
             <div id="logged-out-view">
-                <button class="login-button">Logga in</button>
+                <button class="profile-btn" id="profileBtnLoggedOut">
+                    <svg id="profileInitialLoggedOut" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+                <div class="profile-dropdown" id="profileDropdownLoggedOut">
+                    <button class="profile-dropdown-btn" onclick="handleStartNow(event)">Mina tävlingar</button>
+                    <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
+                </div>
             </div>
             <div id="logged-in-view" style="display: none;">
                 <button class="profile-btn" id="profileBtn">
-                    <span id="profileInitial"></span>
+                    <svg id="profileInitial" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
                 </button>
                 <div class="profile-dropdown" id="profileDropdown">
-                    <div class="profile-email" id="profileEmail"></div>
+                    <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
                     <button class="logout-btn">Logga ut</button>
                 </div>
             </div>
@@ -1177,8 +1235,11 @@
     const loggedInView = document.getElementById('logged-in-view');
     const loginButton = loggedOutView.querySelector('.login-button');
     const profileBtn = document.getElementById('profileBtn');
+    const profileBtnLoggedOut = document.getElementById('profileBtnLoggedOut');
     const profileInitial = document.getElementById('profileInitial');
+    const profileInitialLoggedOut = document.getElementById('profileInitialLoggedOut');
     const profileDropdown = document.getElementById('profileDropdown');
+    const profileDropdownLoggedOut = document.getElementById('profileDropdownLoggedOut');
     const profileEmail = document.getElementById('profileEmail');
     const logoutButton = loggedInView.querySelector('.logout-btn');
     const authModal = document.getElementById('authModal');
@@ -1258,8 +1319,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         loggedOutView.style.display = 'none';
         loggedInView.style.display = 'flex';
         document.getElementById('new-competition-section').style.display = 'none';
-        profileEmail.textContent = user.email;
-        profileInitial.textContent = user.email.charAt(0).toUpperCase();
         currentUser = user;
         
         // Hide landing page and show main content
@@ -1279,6 +1338,7 @@ async function getMemberTotalValueSek(member, fxRate) {
         loggedInView.style.display = 'none';
         document.getElementById('new-competition-section').style.display = 'none';
         profileDropdown.classList.remove('show');
+        profileDropdownLoggedOut.classList.remove('show');
         currentUser = null;
         competitionsLoaded = false;
         
@@ -1370,15 +1430,24 @@ async function getMemberTotalValueSek(member, fxRate) {
     }
 
     // --- Event Listeners ---
-    loginButton.addEventListener('click', () => { setAuthError(''); showAuthModal(true); });
+    loginButton?.addEventListener('click', () => { setAuthError(''); showAuthModal(true); });
     logoutButton.addEventListener('click', handleLogout);
-    profileBtn.addEventListener('click', (e) => { e.stopPropagation(); profileDropdown.classList.toggle('show'); });
+    profileBtn.addEventListener('click', (e) => { e.stopPropagation(); profileDropdown.classList.toggle('show'); profileDropdownLoggedOut.classList.remove('show'); });
+    profileBtnLoggedOut.addEventListener('click', (e) => { e.stopPropagation(); profileDropdownLoggedOut.classList.toggle('show'); profileDropdown.classList.remove('show'); });
     document.addEventListener('click', (e) => {
     const dropdown = document.getElementById('tournamentDropdown');
     const button = document.querySelector('.new-competition-btn');
 
     if (!dropdown.contains(e.target) && !button.contains(e.target)) {
         hideTournamentDropdown();
+    }
+    
+    // Close profile dropdowns when clicking outside
+    if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+        profileDropdown.classList.remove('show');
+    }
+    if (!profileBtnLoggedOut.contains(e.target) && !profileDropdownLoggedOut.contains(e.target)) {
+        profileDropdownLoggedOut.classList.remove('show');
     }
 });
     async function prefetchSystemTournamentHref() {
