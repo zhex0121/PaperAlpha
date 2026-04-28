@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16x16.png">
+<link rel="manifest" href="assets/icons/site.webmanifest">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konto & Sekretess - PaperAlpha</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg: #050505;
+            --surface: #121212;
+            --border: #282828;
+            --accent: #2962ff;
+            --up: #00ffaa;
+            --down: #ff3d71;
+            --text: #ffffff;
+            --text-dim: #b3b3b3;
+            --glass: rgba(255,255,255,0.05);
+            --glass-border: rgba(255,255,255,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(41, 98, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 255, 170, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(41, 98, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .top-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+            position: relative;
+        }
+
+        .logo-link {
+            text-decoration: none;
+            color: var(--text);
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+            text-shadow: 0 0 30px rgba(41, 98, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .logo-link:hover {
+            transform: scale(1.02);
+            text-shadow: 0 0 40px rgba(41, 98, 255, 0.5);
+        }
+
+        .profile-section {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .profile-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .profile-btn:hover {
+            border-color: var(--accent);
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .profile-dropdown {
+            position: absolute;
+            top: 50px;
+            right: 0;
+            background: rgba(18, 18, 18, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 240px;
+            width: max-content;
+            max-width: 320px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            z-index: 1001;
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .profile-dropdown.show {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .profile-dropdown-btn {
+            background: none;
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            text-align: left;
+            letter-spacing: 0.3px;
+            width: 100%;
+        }
+
+        .profile-dropdown-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(41, 98, 255, 0.2);
+        }
+
+        .profile-dropdown-btn:last-child {
+            margin-bottom: 0;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .login-btn:hover {
+            background: linear-gradient(135deg, var(--up), var(--accent));
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(41, 98, 255, 0.3);
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--down), #dc2626);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .logout-btn:hover {
+            background: linear-gradient(135deg, #dc2626, var(--down));
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 100%;
+            padding: 14px;
+            margin-top: 60px;
+            flex: 1;
+            position: relative;
+            z-index: 1;
+            box-sizing: border-box;
+        }
+
+        .account-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .page-title {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 700;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+            text-align: center;
+        }
+
+        .account-section {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+
+        .section-content {
+            color: var(--text-dim);
+            line-height: 1.6;
+            font-size: 1rem;
+        }
+
+        .section-content p {
+            margin-bottom: 15px;
+        }
+
+        .section-content ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .section-content li {
+            margin-bottom: 8px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            color: var(--text);
+        }
+
+        .action-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(41, 98, 255, 0.4);
+        }
+
+        .action-btn.secondary {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+        }
+
+        .action-btn.secondary:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(41, 98, 255, 0.2);
+        }
+
+        .action-btn.danger {
+            background: linear-gradient(135deg, var(--down), #dc2626);
+            color: white;
+        }
+
+        .action-btn.danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .account-container {
+                padding: 20px 15px;
+            }
+
+            .account-section {
+                padding: 20px;
+            }
+
+            .page-title {
+                margin-bottom: 1.5rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .action-btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-banner">
+        <a href="index.html" class="logo-link">PaperAlpha</a>
+        <div class="profile-section">
+            <div id="logged-out-view">
+                <button class="profile-btn" id="profileBtnLoggedOut">
+                    <svg id="profileInitialLoggedOut" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+                <div class="profile-dropdown" id="profileDropdownLoggedOut">
+                    <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & sekretess</a>
+                    <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
+                    <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
+                </div>
+            </div>
+            <div id="logged-in-view" style="display: none;">
+                <button class="profile-btn" id="profileBtn">
+                    <svg id="profileInitial" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+                <div class="profile-dropdown" id="profileDropdown">
+                    <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & sekretess</a>
+                    <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
+                    <button class="logout-btn">Logga ut</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="account-container">
+            <h1 class="page-title">Hantera konto & sekretess</h1>
+            
+            <div class="account-section">
+                <h2 class="section-title">Kontoinformation</h2>
+                <div class="section-content">
+                    <p>Här kan du hantera ditt konto och personliga inställningar.</p>
+                    <ul>
+                        <li>Uppdatera din profilinformation</li>
+                        <li>Ändra lösenord</li>
+                        <li>Hantera e-postinställningar</li>
+                    </ul>
+                </div>
+                <div class="action-buttons">
+                    <button class="action-btn primary">Redigera profil</button>
+                    <button class="action-btn secondary">Ändra lösenord</button>
+                </div>
+            </div>
+
+            <div class="account-section">
+                <h2 class="section-title">Sekretessinställningar</h2>
+                <div class="section-content">
+                    <p>Kontrollera och hantera dina sekretessinställningar.</p>
+                    <ul>
+                        <li>Vem kan se dina tävlingsresultat</li>
+                        <li>Databehandling och lagring</li>
+                        <li>Cookie-inställningar</li>
+                    </ul>
+                </div>
+                <div class="action-buttons">
+                    <button class="action-btn primary">Hantera sekretess</button>
+                    <button class="action-btn secondary">Cookie-inställningar</button>
+                </div>
+            </div>
+
+            <div class="account-section">
+                <h2 class="section-title">Datahantering</h2>
+                <div class="section-content">
+                    <p>Hantera dina personliga data enligt GDPR.</p>
+                    <ul>
+                        <li>Ladda ner dina data</li>
+                        <li>Begär radering av konto</li>
+                        <li>Visa datahistorik</li>
+                    </ul>
+                </div>
+                <div class="action-buttons">
+                    <button class="action-btn secondary">Ladda ner mina data</button>
+                    <button class="action-btn danger">Radera konto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="auth-modal" style="display:none;">
+        <div class="auth-card">
+            <h3 class="auth-title">PaperAlpha</h3>
+            <input type="email" id="authEmail" placeholder="Email">
+            <input type="password" id="authPassword" placeholder="Lösenord">
+            <div id="authError"></div>
+            <div class="auth-actions">
+                <button class="btn btn-buy" onclick="signIn()">LOGGA IN</button>
+                <button class="btn btn-sell" onclick="signUp()">REGISTRERA</button>
+            </div>
+             <button onclick="showAuthModal(false)" style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 20px; width:100%; text-align:center;">Avbryt</button>
+        </div>
+    </div>
+
+    <style>
+        .auth-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(20px);
+        }
+
+        .auth-card {
+            width: min(450px, 92vw);
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--up), var(--accent));
+            animation: shimmer 2s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .auth-title {
+            margin: 0 0 30px 0;
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+        
+        .auth-card input {
+            width: 100%;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 14px 16px;
+            color: white;
+            border-radius: 12px;
+            box-sizing: border-box;
+            margin-top: 10px;
+            backdrop-filter: blur(10px);
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .auth-card input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .auth-card input::placeholder {
+            color: var(--text-dim);
+        }
+
+        #authError {
+            margin: 15px 0;
+            min-height: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--down);
+        }
+
+        .auth-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .auth-actions .btn {
+            width: 100%;
+            margin-top: 0;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .auth-actions .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .auth-actions .btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn-buy { 
+            background: linear-gradient(135deg, var(--up), #00cc88);
+            color: black;
+            box-shadow: 0 5px 15px rgba(0, 255, 170, 0.3);
+        }
+        
+        .btn-buy:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 255, 170, 0.4);
+        }
+        
+        .btn-sell { 
+            background: linear-gradient(135deg, var(--down), #ff2951);
+            color: white;
+            box-shadow: 0 5px 15px rgba(255, 61, 113, 0.3);
+        }
+        
+        .btn-sell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 61, 113, 0.4);
+        }
+    </style>
+
+    <script>
+    const SUPABASE_URL = 'https://jdpwqtoltrkrflopvicr.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkcHdxdG9sdHJrcmZsb3B2aWNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDYwMzUsImV4cCI6MjA5MTIyMjAzNX0.MfZrnYRgEHSJlL24DiyoXw7OZ5qXeBKww0BlS-XVW6A';
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    });
+
+    const loggedOutView = document.getElementById('logged-out-view');
+    const loggedInView = document.getElementById('logged-in-view');
+    const profileBtn = document.getElementById('profileBtn');
+    const profileBtnLoggedOut = document.getElementById('profileBtnLoggedOut');
+    const profileDropdown = document.getElementById('profileDropdown');
+    const profileDropdownLoggedOut = document.getElementById('profileDropdownLoggedOut');
+    const logoutButton = loggedInView.querySelector('.logout-btn');
+    const authModal = document.getElementById('authModal');
+    const authError = document.getElementById('authError');
+
+    let currentUser = null;
+
+    // --- UI Functions ---
+    function showAuthModal(show) {
+        authModal.style.display = show ? 'flex' : 'none';
+    }
+
+    function showLoggedInUI(user) {
+        console.log('[UI] showLoggedInUI called for:', user.email);
+        loggedOutView.style.display = 'none';
+        loggedInView.style.display = 'flex';
+        currentUser = user;
+    }
+
+    function showLoggedOutUI() {
+        console.log('[UI] showLoggedOutUI called');
+        loggedOutView.style.display = 'block';
+        loggedInView.style.display = 'none';
+        profileDropdown.classList.remove('show');
+        profileDropdownLoggedOut.classList.remove('show');
+        currentUser = null;
+    }
+
+    // --- Auth Logic ---
+    async function signIn() {
+        setAuthError('');
+        const email = document.getElementById('authEmail').value.trim();
+        const password = document.getElementById('authPassword').value.trim();
+        if (!email || !password) { setAuthError('Vänligen fyll i både e-post och lösenord.'); return; }
+        console.log('[Auth] Attempting sign in for:', email);
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+            console.error('[Auth] Sign in error:', error.message);
+            if (error.message.includes('Invalid login credentials')) {
+                setAuthError('Fel e-post eller lösenord. Försök igen!');
+            } else if (error.message.includes('Email not confirmed')) {
+                setAuthError('E-postadressen är inte bekräftad.');
+            } else {
+                setAuthError('Inloggning misslyckades. Försök igen!');
+            }
+        } else {
+            console.log('[Auth] Sign in successful, closing modal');
+            showAuthModal(false);
+            if (data?.user) {
+                currentUser = data.user;
+                showLoggedInUI(data.user);
+            }
+        }
+    }
+
+    async function signUp() {
+        setAuthError('');
+        const email = document.getElementById('authEmail').value.trim();
+        const password = document.getElementById('authPassword').value.trim();
+        if (!email || !password) { setAuthError('Du måste fylla i e-post och lösenord för att skapa konto.'); return; }
+        if (password.length < 8) { setAuthError('Lösenordet måste vara minst 8 tecken långt.'); return; }
+        console.log('[Auth] Attempting sign up for:', email);
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) {
+            if (error.message.includes('User already registered')) {
+                setAuthError('Det finns redan ett konto med den här e-postadressen.');
+            } else if (error.message.includes('invalid email')) {
+                setAuthError('Ogiltig e-postadress. Kontrollera och försök igen.');
+            } else if (error.message.includes('Password should be')) {
+                setAuthError('Lösenordet måste vara minst 8 tecken långt.');
+            } else {
+                setAuthError('Kunde inte skapa konto. Försök igen.');
+            }
+            return;
+        }
+        if (data?.session) { 
+            showAuthModal(false);
+        } else { 
+            setAuthError('Kontot skapat. Du kan nu logga in.');
+        }
+    }
+
+    async function handleLogout() {
+        console.log('[Auth] Logging out');
+        await supabaseClient.auth.signOut();
+    }
+
+    function setAuthError(msg) { authError.innerText = msg || ''; }
+
+    // --- Event Listeners ---
+    logoutButton.addEventListener('click', handleLogout);
+    profileBtn.addEventListener('click', (e) => { e.stopPropagation(); profileDropdown.classList.toggle('show'); profileDropdownLoggedOut.classList.remove('show'); });
+    profileBtnLoggedOut.addEventListener('click', (e) => { e.stopPropagation(); profileDropdownLoggedOut.classList.toggle('show'); profileDropdown.classList.remove('show'); });
+    
+    document.addEventListener('click', (e) => {
+        // Close profile dropdowns when clicking outside
+        if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+            profileDropdown.classList.remove('show');
+        }
+        if (!profileBtnLoggedOut.contains(e.target) && !profileDropdownLoggedOut.contains(e.target)) {
+            profileDropdownLoggedOut.classList.remove('show');
+        }
+    });
+
+    // --- Supabase Auth Listener ---
+    async function setupAuthListener() {
+        console.log('[Auth] Getting initial session...');
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        if (session?.user) {
+            console.log('[Auth] Initial session found:', session.user.email);
+            showLoggedInUI(session.user);
+        } else {
+            console.log('[Auth] No initial session found');
+            showLoggedOutUI();
+        }
+
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            console.log('[Auth] onAuthStateChange event:', event, '| user:', session?.user?.email ?? 'none');
+
+            if (event === 'TOKEN_REFRESHED') {
+                console.log('[Auth] TOKEN_REFRESHED — skipping UI update');
+                return;
+            }
+
+            if (event === 'SIGNED_IN' && session?.user) {
+                console.log('[Auth] New SIGNED_IN — loading UI');
+                showLoggedInUI(session.user);
+            } else if (event === 'SIGNED_OUT') {
+                console.log('[Auth] SIGNED_OUT — resetting UI');
+                showLoggedOutUI();
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setupAuthListener();
+    });
+    </script>
+</body>
+</html>
