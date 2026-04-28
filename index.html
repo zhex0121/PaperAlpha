@@ -1069,8 +1069,8 @@
                     </svg>
                 </button>
                 <div class="profile-dropdown" id="profileDropdownLoggedOut">
-                    <button class="profile-dropdown-btn" onclick="handleStartNow(event)">Mina tävlingar</button>
-                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & sekretess</a>
+                    <button class="profile-dropdown-btn" onclick="profileDropdownLoggedOut.classList.remove('show'); handleStartNow(event);">Mina tävlingar</button>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
                 </div>
@@ -1083,8 +1083,8 @@
                     </svg>
                 </button>
                 <div class="profile-dropdown" id="profileDropdown">
-                    <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
-                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & sekretess</a>
+                    <button class="profile-dropdown-btn" onclick="profileDropdown.classList.remove('show'); window.location.href='index.html';">Mina tävlingar</button>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="logout-btn">Logga ut</button>
                 </div>
@@ -1437,21 +1437,25 @@ async function getMemberTotalValueSek(member, fxRate) {
     profileBtn.addEventListener('click', (e) => { e.stopPropagation(); profileDropdown.classList.toggle('show'); profileDropdownLoggedOut.classList.remove('show'); });
     profileBtnLoggedOut.addEventListener('click', (e) => { e.stopPropagation(); profileDropdownLoggedOut.classList.toggle('show'); profileDropdown.classList.remove('show'); });
     document.addEventListener('click', (e) => {
-    const dropdown = document.getElementById('tournamentDropdown');
-    const button = document.querySelector('.new-competition-btn');
+        // Close tournament dropdown when clicking outside
+        const tournamentDropdown = document.getElementById('tournamentDropdown');
+        const newCompBtn = document.querySelector('.new-competition-btn');
+        if (tournamentDropdown && (!newCompBtn || !newCompBtn.contains(e.target)) && !tournamentDropdown.contains(e.target)) {
+            hideTournamentDropdown();
+        }
 
-    if (!dropdown.contains(e.target) && !button.contains(e.target)) {
-        hideTournamentDropdown();
-    }
-    
-    // Close profile dropdowns when clicking outside
-    if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
-        profileDropdown.classList.remove('show');
-    }
-    if (!profileBtnLoggedOut.contains(e.target) && !profileDropdownLoggedOut.contains(e.target)) {
-        profileDropdownLoggedOut.classList.remove('show');
-    }
-});
+        // Close logged-in profile dropdown when clicking outside
+        if (profileBtn && profileDropdown &&
+            !profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+            profileDropdown.classList.remove('show');
+        }
+
+        // Close logged-out profile dropdown when clicking outside
+        if (profileBtnLoggedOut && profileDropdownLoggedOut &&
+            !profileBtnLoggedOut.contains(e.target) && !profileDropdownLoggedOut.contains(e.target)) {
+            profileDropdownLoggedOut.classList.remove('show');
+        }
+    });
     async function prefetchSystemTournamentHref() {
     try {
         const { data: tournaments } = await supabaseClient
