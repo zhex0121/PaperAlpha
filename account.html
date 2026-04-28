@@ -8,7 +8,7 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Konto & Sekretess - PaperAlpha</title>
+    <title>Konto & Integritet - PaperAlpha</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
@@ -229,63 +229,141 @@
         }
 
         .account-container {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 40px 20px;
         }
 
-        .page-title {
-            font-size: clamp(2rem, 5vw, 3.5rem);
-            font-weight: 700;
-            margin-bottom: 2rem;
-            background: linear-gradient(135deg, var(--accent), var(--up));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            letter-spacing: -0.02em;
-            text-align: center;
+        .account-layout {
+            display: flex;
+            gap: 30px;
+            margin-top: 30px;
         }
 
-        .account-section {
+        .sidebar {
+            flex: 0 0 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sidebar-btn {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            text-align: left;
+            letter-spacing: 0.3px;
+            width: 100%;
+        }
+
+        .sidebar-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(41, 98, 255, 0.2);
+        }
+
+        .sidebar-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 3px 10px rgba(41, 98, 255, 0.3);
+        }
+
+        .content-area {
+            flex: 1;
             background: var(--glass);
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 18px;
             padding: 30px;
-            margin-bottom: 30px;
+            min-height: 400px;
         }
 
-        .section-title {
-            font-size: 1.5rem;
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .content-section h2 {
+            font-size: 1.8rem;
             font-weight: 600;
             margin-bottom: 20px;
             color: var(--text);
         }
 
-        .section-content {
+        .content-section p {
             color: var(--text-dim);
             line-height: 1.6;
             font-size: 1rem;
-        }
-
-        .section-content p {
             margin-bottom: 15px;
         }
 
-        .section-content ul {
-            margin-left: 20px;
-            margin-bottom: 15px;
+        .account-form {
+            max-width: 500px;
         }
 
-        .section-content li {
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
             margin-bottom: 8px;
+            color: var(--text);
+            font-weight: 600;
+            font-size: 0.95rem;
         }
 
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 25px;
-            flex-wrap: wrap;
+        .current-value {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-dim);
+            font-size: 1rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 12px 16px;
+            color: white;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-dim);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 8px;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .form-actions {
+            margin-top: 30px;
         }
 
         .action-btn {
@@ -310,26 +388,36 @@
             box-shadow: 0 8px 25px rgba(41, 98, 255, 0.4);
         }
 
-        .action-btn.secondary {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            color: var(--text);
+        .message {
+            margin-top: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
         }
 
-        .action-btn.secondary:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(41, 98, 255, 0.2);
+        .message.success {
+            background: rgba(0, 255, 170, 0.1);
+            border: 1px solid var(--up);
+            color: var(--up);
         }
 
-        .action-btn.danger {
-            background: linear-gradient(135deg, var(--down), #dc2626);
-            color: white;
+        .message.error {
+            background: rgba(255, 61, 113, 0.1);
+            border: 1px solid var(--down);
+            color: var(--down);
         }
 
-        .action-btn.danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+        .page-title {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 700;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+            text-align: center;
         }
 
         @media (max-width: 768px) {
@@ -337,21 +425,30 @@
                 padding: 20px 15px;
             }
 
-            .account-section {
+            .account-layout {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .sidebar {
+                flex: none;
+                flex-direction: row;
+                justify-content: center;
+            }
+
+            .sidebar-btn {
+                flex: 1;
+                text-align: center;
+                max-width: 150px;
+            }
+
+            .content-area {
                 padding: 20px;
+                min-height: 300px;
             }
 
             .page-title {
                 margin-bottom: 1.5rem;
-            }
-
-            .action-buttons {
-                flex-direction: column;
-            }
-
-            .action-btn {
-                width: 100%;
-                text-align: center;
             }
         }
     </style>
@@ -369,7 +466,7 @@
                 </button>
                 <div class="profile-dropdown" id="profileDropdownLoggedOut">
                     <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
-                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & sekretess</a>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
                 </div>
@@ -383,7 +480,7 @@
                 </button>
                 <div class="profile-dropdown" id="profileDropdown">
                     <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
-                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & sekretess</a>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="logout-btn">Logga ut</button>
                 </div>
@@ -393,53 +490,44 @@
 
     <div class="container">
         <div class="account-container">
-            <h1 class="page-title">Hantera konto & sekretess</h1>
+            <h1 class="page-title">Hantera konto & integritet</h1>
             
-            <div class="account-section">
-                <h2 class="section-title">Kontoinformation</h2>
-                <div class="section-content">
-                    <p>Här kan du hantera ditt konto och personliga inställningar.</p>
-                    <ul>
-                        <li>Uppdatera din profilinformation</li>
-                        <li>Ändra lösenord</li>
-                        <li>Hantera e-postinställningar</li>
-                    </ul>
+            <div class="account-layout">
+                <div class="sidebar">
+                    <button class="sidebar-btn active" onclick="showSection('account')">Mitt konto</button>
+                    <button class="sidebar-btn" onclick="showSection('privacy')">Integritetspolicy</button>
+                    <button class="sidebar-btn" onclick="showSection('about')">Om oss</button>
                 </div>
-                <div class="action-buttons">
-                    <button class="action-btn primary">Redigera profil</button>
-                    <button class="action-btn secondary">Ändra lösenord</button>
-                </div>
-            </div>
-
-            <div class="account-section">
-                <h2 class="section-title">Sekretessinställningar</h2>
-                <div class="section-content">
-                    <p>Kontrollera och hantera dina sekretessinställningar.</p>
-                    <ul>
-                        <li>Vem kan se dina tävlingsresultat</li>
-                        <li>Databehandling och lagring</li>
-                        <li>Cookie-inställningar</li>
-                    </ul>
-                </div>
-                <div class="action-buttons">
-                    <button class="action-btn primary">Hantera sekretess</button>
-                    <button class="action-btn secondary">Cookie-inställningar</button>
-                </div>
-            </div>
-
-            <div class="account-section">
-                <h2 class="section-title">Datahantering</h2>
-                <div class="section-content">
-                    <p>Hantera dina personliga data enligt GDPR.</p>
-                    <ul>
-                        <li>Ladda ner dina data</li>
-                        <li>Begär radering av konto</li>
-                        <li>Visa datahistorik</li>
-                    </ul>
-                </div>
-                <div class="action-buttons">
-                    <button class="action-btn secondary">Ladda ner mina data</button>
-                    <button class="action-btn danger">Radera konto</button>
+                
+                <div class="content-area">
+                    <div id="account-section" class="content-section active">
+                        <h2>Mitt konto</h2>
+                        <div class="account-form">
+                            <div class="form-group">
+                                <label for="current-username">Nuvarande användarnamn:</label>
+                                <div id="current-username" class="current-value">-</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-username">Nytt användarnamn:</label>
+                                <input type="text" id="new-username" placeholder="Ange nytt användarnamn..." maxlength="30">
+                                
+                            </div>
+                            <div class="form-actions">
+                                <button class="action-btn primary" onclick="updateUsername()">Uppdatera användarnamn</button>
+                            </div>
+                            <div id="username-message" class="message"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="privacy-section" class="content-section">
+                        <h2>Integritetspolicy</h2>
+                        <p>Läs om hur vi hanterar dina personliga data.</p>
+                    </div>
+                    
+                    <div id="about-section" class="content-section">
+                        <h2>Om oss</h2>
+                        <p>Information om PaperAlpha och vårt team.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -624,6 +712,137 @@
 
     let currentUser = null;
 
+    // --- Section Switching ---
+    function showSection(sectionName) {
+        // Hide all sections
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        
+        // Remove active class from all buttons
+        document.querySelectorAll('.sidebar-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Show selected section
+        const selectedSection = document.getElementById(sectionName + '-section');
+        if (selectedSection) {
+            selectedSection.classList.add('active');
+        }
+        
+        // Add active class to clicked button
+        event.target.classList.add('active');
+    }
+
+    // --- Username Management ---
+    async function loadCurrentUsername() {
+        if (!currentUser) return;
+        
+        try {
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .select('username')
+                .eq('user_id', currentUser.id)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') {
+                console.error('Error loading username:', error);
+                return;
+            }
+            
+            const currentUsernameEl = document.getElementById('current-username');
+            if (data?.username) {
+                currentUsernameEl.textContent = data.username;
+            } else {
+                // Use email prefix as default
+                currentUsernameEl.textContent = currentUser.email.split('@')[0];
+            }
+        } catch (error) {
+            console.error('Error loading username:', error);
+        }
+    }
+
+    async function updateUsername() {
+        if (!currentUser) {
+            showMessage('Du måste vara inloggad för att ändra användarnamn.', 'error');
+            return;
+        }
+        
+        const newUsername = document.getElementById('new-username').value.trim();
+        const messageEl = document.getElementById('username-message');
+        
+        // Validation
+        if (!newUsername) {
+            showMessage('Ange ett användarnamn.', 'error');
+            return;
+        }
+        
+        if (newUsername.length > 30) {
+            showMessage('Användarnamnet får vara max 30 tecken.', 'error');
+            return;
+        }
+        
+        try {
+            // Check if username is already taken
+            const { data: existingUser, error: checkError } = await supabaseClient
+                .from('profiles')
+                .select('username')
+                .eq('username', newUsername)
+                .neq('user_id', currentUser.id)
+                .single();
+            
+            if (checkError && checkError.code !== 'PGRST116') {
+                console.error('Error checking username:', checkError);
+                showMessage('Ett fel uppstod. Försök igen.', 'error');
+                return;
+            }
+            
+            if (existingUser) {
+                showMessage('Detta användarnamn är redan taget.', 'error');
+                return;
+            }
+            
+            // Update username
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .upsert({
+                    user_id: currentUser.id,
+                    email: currentUser.email,
+                    username: newUsername,
+                    updated_at: new Date().toISOString()
+                })
+                .select('username')
+                .single();
+            
+            if (error) {
+                console.error('Error updating username:', error);
+                showMessage('Kunde inte uppdatera användarnamn. Försök igen.', 'error');
+                return;
+            }
+            
+            // Success
+            document.getElementById('current-username').textContent = data.username;
+            document.getElementById('new-username').value = '';
+            showMessage('Användarnamnet uppdaterades!', 'success');
+            
+        } catch (error) {
+            console.error('Error updating username:', error);
+            showMessage('Ett oväntat fel uppstod. Försök igen.', 'error');
+        }
+    }
+
+    function showMessage(text, type) {
+        const messageEl = document.getElementById('username-message');
+        messageEl.textContent = text;
+        messageEl.className = `message ${type}`;
+        messageEl.style.display = 'block';
+        
+        // Hide message after 5 seconds
+        setTimeout(() => {
+            messageEl.style.display = 'none';
+        }, 5000);
+    }
+
     // --- UI Functions ---
     function showAuthModal(show) {
         authModal.style.display = show ? 'flex' : 'none';
@@ -634,6 +853,7 @@
         loggedOutView.style.display = 'none';
         loggedInView.style.display = 'flex';
         currentUser = user;
+        loadCurrentUsername();
     }
 
     function showLoggedOutUI() {
@@ -748,6 +968,9 @@
             } else if (event === 'SIGNED_OUT') {
                 console.log('[Auth] SIGNED_OUT — resetting UI');
                 showLoggedOutUI();
+            } else if (event === 'INITIAL_SESSION' && session?.user) {
+                console.log('[Auth] Initial session found:', session.user.email);
+                showLoggedInUI(session.user);
             }
         });
     }
