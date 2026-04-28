@@ -408,6 +408,20 @@
             color: var(--down);
         }
 
+        .form-divider {
+            border: none;
+            height: 1px;
+            background: var(--glass-border);
+            margin: 40px 0;
+        }
+
+        .account-form h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+
         .page-title {
             font-size: clamp(2rem, 5vw, 3.5rem);
             font-weight: 700;
@@ -510,12 +524,53 @@
                             <div class="form-group">
                                 <label for="new-username">Nytt användarnamn:</label>
                                 <input type="text" id="new-username" placeholder="Ange nytt användarnamn..." maxlength="30">
-                                
                             </div>
                             <div class="form-actions">
                                 <button class="action-btn primary" onclick="updateUsername()">Uppdatera användarnamn</button>
                             </div>
                             <div id="username-message" class="message"></div>
+                        </div>
+                        
+                        <hr class="form-divider">
+                        
+                        <div class="account-form">
+                            <h3>Ändra e-post</h3>
+                            <div class="form-group">
+                                <label for="current-email">Nuvarande e-post:</label>
+                                <div id="current-email" class="current-value">-</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-email">Ny e-post:</label>
+                                <input type="email" id="new-email" placeholder="Ange ny e-postadress...">
+                                
+                            </div>
+                            <div class="form-actions">
+                                <button class="action-btn primary" onclick="updateEmail()">Uppdatera e-post</button>
+                            </div>
+                            <div id="email-message" class="message"></div>
+                        </div>
+                        
+                        <hr class="form-divider">
+                        
+                        <div class="account-form">
+                            <h3>Ändra lösenord</h3>
+                            <div class="form-group">
+                                <label for="current-password">Nuvarande lösenord:</label>
+                                <input type="password" id="current-password" placeholder="Ange ditt nuvarande lösenord...">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-password">Nytt lösenord:</label>
+                                <input type="password" id="new-password" placeholder="Ange nytt lösenord...">
+                                <small>Lösenordet måste vara minst 8 tecken långt.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm-password">Bekräfta nytt lösenord:</label>
+                                <input type="password" id="confirm-password" placeholder="Bekräfta nytt lösenord...">
+                            </div>
+                            <div class="form-actions">
+                                <button class="action-btn primary" onclick="updatePassword()">Uppdatera lösenord</button>
+                            </div>
+                            <div id="password-message" class="message"></div>
                         </div>
                     </div>
                     
@@ -751,12 +806,17 @@
             }
             
             const currentUsernameEl = document.getElementById('current-username');
+            const currentEmailEl = document.getElementById('current-email');
+            
             if (data?.username) {
                 currentUsernameEl.textContent = data.username;
             } else {
                 // Use email prefix as default
                 currentUsernameEl.textContent = currentUser.email.split('@')[0];
             }
+            
+            // Display current email
+            currentEmailEl.textContent = currentUser.email;
         } catch (error) {
             console.error('Error loading username:', error);
         }
@@ -831,8 +891,8 @@
         }
     }
 
-    function showMessage(text, type) {
-        const messageEl = document.getElementById('username-message');
+    function showMessage(text, type, section = 'username') {
+        const messageEl = document.getElementById(`${section}-message`);
         messageEl.textContent = text;
         messageEl.className = `message ${type}`;
         messageEl.style.display = 'block';
@@ -841,6 +901,134 @@
         setTimeout(() => {
             messageEl.style.display = 'none';
         }, 5000);
+    }
+
+    // --- Email Management ---
+    async function updateEmail() {
+        if (!currentUser) {
+            showMessage('Du måste vara inloggad för att ändra e-post.', 'error', 'email');
+            return;
+        }
+        
+        const newEmail = document.getElementById('new-email').value.trim();
+        
+        // Validation
+        if (!newEmail) {
+            showMessage('Ange en ny e-postadress.', 'error', 'email');
+            return;
+        }
+        
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newEmail)) {
+            showMessage('Ange en giltig e-postadress.', 'error', 'email');
+            return;
+        }
+        
+        // Check if new email is the same as current email
+        if (newEmail === currentUser.email) {
+            document.getElementById('new-email').value = '';
+            showMessage('E-postadress uppdaterad!', 'success', 'email');
+            return;
+        }
+        
+        try {
+            const { data, error } = await supabaseClient.auth.updateUser({
+                email: newEmail
+            });
+            
+            if (error) {
+                console.error('Error updating email:', error);
+                if (error.message.includes('already registered') || error.message.includes('already in use')) {
+                    showMessage('Den här e-postadressen används redan av ett annat konto. Välj en annan e-postadress.', 'error', 'email');
+                } else {
+                    showMessage('Kunde inte uppdatera e-post. Försök igen.', 'error', 'email');
+                }
+                return;
+            }
+            
+            // Success - update current user email and clear form
+            currentUser.email = newEmail;
+            document.getElementById('current-email').textContent = newEmail;
+            document.getElementById('new-email').value = '';
+            showMessage('E-postadress uppdaterad! Du kan nu logga in med din nya e-postadress.', 'success', 'email');
+            
+        } catch (error) {
+            console.error('Error updating email:', error);
+            showMessage('Ett oväntat fel uppstod. Försök igen.', 'error', 'email');
+        }
+    }
+
+    // --- Password Management ---
+    async function updatePassword() {
+        if (!currentUser) {
+            showMessage('Du måste vara inloggad för att ändra lösenord.', 'error', 'password');
+            return;
+        }
+        
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        
+        // Validation
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showMessage('Fyll i alla lösenordsfält.', 'error', 'password');
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            showMessage('Det nya lösenordet måste vara minst 8 tecken.', 'error', 'password');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            showMessage('Lösenorden matchar inte.', 'error', 'password');
+            return;
+        }
+        
+        // Check if new password is the same as current password
+        if (currentPassword === newPassword) {
+            // Clear form and show success message
+            document.getElementById('current-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            showMessage('Lösenordet uppdaterades!', 'success', 'password');
+            return;
+        }
+        
+        try {
+            // First verify current password by signing in
+            const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+                email: currentUser.email,
+                password: currentPassword
+            });
+            
+            if (signInError) {
+                showMessage('Det nuvarande lösenordet är felaktigt.', 'error', 'password');
+                return;
+            }
+            
+            // Update password
+            const { data, error } = await supabaseClient.auth.updateUser({
+                password: newPassword
+            });
+            
+            if (error) {
+                console.error('Error updating password:', error);
+                showMessage('Kunde inte uppdatera lösenord. Försök igen.', 'error', 'password');
+                return;
+            }
+            
+            // Success - clear form
+            document.getElementById('current-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            showMessage('Lösenordet uppdaterades!', 'success', 'password');
+            
+        } catch (error) {
+            console.error('Error updating password:', error);
+            showMessage('Ett oväntat fel uppstod. Försök igen.', 'error', 'password');
+        }
     }
 
     // --- UI Functions ---
@@ -922,6 +1110,8 @@
     async function handleLogout() {
         console.log('[Auth] Logging out');
         await supabaseClient.auth.signOut();
+        // Redirect to landing page after logout
+        window.location.href = 'index.html';
     }
 
     function setAuthError(msg) { authError.innerText = msg || ''; }
