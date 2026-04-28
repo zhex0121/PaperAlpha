@@ -1070,6 +1070,8 @@
                 </button>
                 <div class="profile-dropdown" id="profileDropdownLoggedOut">
                     <button class="profile-dropdown-btn" onclick="handleStartNow(event)">Mina tävlingar</button>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & sekretess</a>
+                    <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
                 </div>
             </div>
@@ -1082,6 +1084,8 @@
                 </button>
                 <div class="profile-dropdown" id="profileDropdown">
                     <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & sekretess</a>
+                    <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="logout-btn">Logga ut</button>
                 </div>
             </div>
@@ -1109,20 +1113,18 @@
 
                 <div id="activeCompetitions" class="competitions-list">
                     <div class="no-competitions">
-                        <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
-                        <div id="loginPromptActive" style="display: none; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
-                            <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
-                            <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
+                        <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga aktiva tävlingar</div>
+                        <div id="loginPromptActive" style="display: none;">
+                            <button class="login-button large" onclick="showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att tävla</button>
                         </div>
                     </div>
                 </div>
 
                 <div id="finishedCompetitions" class="competitions-list" style="display: none;">
                     <div class="no-competitions">
-                        <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
-                        <div id="loginPromptFinished" style="display: none; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
-                            <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
-                            <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
+                        <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga avslutade tävlingar</div>
+                        <div id="loginPromptFinished" style="display: none;">
+                            <button class="login-button large" onclick="showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att se resultat</button>
                         </div>
                     </div>
                 </div>
@@ -1511,10 +1513,9 @@ async function getMemberTotalValueSek(member, fxRate) {
                 if (activeEl) {
                     activeEl.innerHTML = `
                         <div class="no-competitions">
-                            <div style="margin-bottom: 15px;">Inga aktiva tävlingar</div>
-                            <div id="loginPromptActive" style="display: block; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
-                                <div style="margin-bottom: 10px;">Logga in för att se dina tävlingar och delta i nya.</div>
-                                <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att tävla</button>
+                            <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga aktiva tävlingar</div>
+                            <div id="loginPromptActive" style="display: block;">
+                                <button class="login-button large" onclick="showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att tävla</button>
                             </div>
                         </div>
                     `;
@@ -1522,10 +1523,9 @@ async function getMemberTotalValueSek(member, fxRate) {
                 if (finishedEl) {
                     finishedEl.innerHTML = `
                         <div class="no-competitions">
-                            <div style="margin-bottom: 15px;">Inga avslutade tävlingar</div>
-                            <div id="loginPromptFinished" style="display: block; color: var(--text-dim); font-size: 0.9rem; line-height: 1.4;">
-                                <div style="margin-bottom: 10px;">Logga in för att se dina tidigare tävlingar och resultat.</div>
-                                <button class="login-button" onclick="showAuthModal(true)" style="margin-top: 10px;">Logga in för att se historik</button>
+                            <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga avslutade tävlingar</div>
+                            <div id="loginPromptFinished" style="display: block;">
+                                <button class="login-button large" onclick="showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att se resultat</button>
                             </div>
                         </div>
                     `;
