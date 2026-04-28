@@ -479,7 +479,7 @@
                     </svg>
                 </button>
                 <div class="profile-dropdown" id="profileDropdownLoggedOut">
-                    <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
+                    <button class="profile-dropdown-btn" onclick="profileDropdownLoggedOut.classList.remove('show'); window.location.href='index.html?goto=home';">Mina tävlingar</button>
                     <a class="profile-dropdown-btn" href="account.html" onclick="profileDropdown.classList.remove('show')" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
@@ -493,7 +493,7 @@
                     </svg>
                 </button>
                 <div class="profile-dropdown" id="profileDropdown">
-                    <button class="profile-dropdown-btn" onclick="window.location.href='index.html'">Mina tävlingar</button>
+                    <button class="profile-dropdown-btn" onclick="profileDropdown.classList.remove('show'); window.location.href='index.html';">Mina tävlingar</button>
                     <a class="profile-dropdown-btn" href="account.html" onclick="profileDropdownLoggedOut.classList.remove('show')" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="logout-btn">Logga ut</button>
@@ -531,24 +531,7 @@
                             <div id="username-message" class="message"></div>
                         </div>
                         
-                        <hr class="form-divider">
                         
-                        <div class="account-form">
-                            <h3>Ändra e-post</h3>
-                            <div class="form-group">
-                                <label for="current-email">Nuvarande e-post:</label>
-                                <div id="current-email" class="current-value">-</div>
-                            </div>
-                            <div class="form-group">
-                                <label for="new-email">Ny e-post:</label>
-                                <input type="email" id="new-email" placeholder="Ange ny e-postadress...">
-                                
-                            </div>
-                            <div class="form-actions">
-                                <button class="action-btn primary" onclick="updateEmail()">Uppdatera e-post</button>
-                            </div>
-                            <div id="email-message" class="message"></div>
-                        </div>
                         
                         <hr class="form-divider">
                         
@@ -806,17 +789,12 @@
             }
             
             const currentUsernameEl = document.getElementById('current-username');
-            const currentEmailEl = document.getElementById('current-email');
             
             if (data?.username) {
                 currentUsernameEl.textContent = data.username;
             } else {
-                // Use email prefix as default
                 currentUsernameEl.textContent = currentUser.email.split('@')[0];
             }
-            
-            // Display current email
-            currentEmailEl.textContent = currentUser.email;
         } catch (error) {
             console.error('Error loading username:', error);
         }
@@ -903,61 +881,7 @@
         }, 5000);
     }
 
-    // --- Email Management ---
-    async function updateEmail() {
-        if (!currentUser) {
-            showMessage('Du måste vara inloggad för att ändra e-post.', 'error', 'email');
-            return;
-        }
-        
-        const newEmail = document.getElementById('new-email').value.trim();
-        
-        // Validation
-        if (!newEmail) {
-            showMessage('Ange en ny e-postadress.', 'error', 'email');
-            return;
-        }
-        
-        // Basic email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(newEmail)) {
-            showMessage('Ange en giltig e-postadress.', 'error', 'email');
-            return;
-        }
-        
-        // Check if new email is the same as current email
-        if (newEmail === currentUser.email) {
-            document.getElementById('new-email').value = '';
-            showMessage('E-postadress uppdaterad!', 'success', 'email');
-            return;
-        }
-        
-        try {
-            const { data, error } = await supabaseClient.auth.updateUser({
-                email: newEmail
-            });
-            
-            if (error) {
-                console.error('Error updating email:', error);
-                if (error.message.includes('already registered') || error.message.includes('already in use')) {
-                    showMessage('Den här e-postadressen används redan av ett annat konto. Välj en annan e-postadress.', 'error', 'email');
-                } else {
-                    showMessage('Kunde inte uppdatera e-post. Försök igen.', 'error', 'email');
-                }
-                return;
-            }
-            
-            // Success - update current user email and clear form
-            currentUser.email = newEmail;
-            document.getElementById('current-email').textContent = newEmail;
-            document.getElementById('new-email').value = '';
-            showMessage('E-postadress uppdaterad! Du kan nu logga in med din nya e-postadress.', 'success', 'email');
-            
-        } catch (error) {
-            console.error('Error updating email:', error);
-            showMessage('Ett oväntat fel uppstod. Försök igen.', 'error', 'email');
-        }
-    }
+    
 
     // --- Password Management ---
     async function updatePassword() {
