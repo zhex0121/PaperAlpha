@@ -1579,16 +1579,39 @@ async function fetchLiveCandles(ticker, limit = 50) {
         const safeLimit = Number.isFinite(requestedLimit)
             ? Math.max(1, Math.min(requestedLimit, 50))
             : 50;
+        let rows = null;
         const { data, error } = await marketDataClient
             .from('live_candles')
             .select('bucket_ts, open, high, low, close, volume')
             .eq('symbol', cleanTicker)
             .order('bucket_ts', { ascending: false })
             .limit(safeLimit);
-        if (error || !Array.isArray(data)) return [];
-        if (!Array.isArray(data)) return [];
+        if (!error && Array.isArray(data)) {
+            rows = data;
+        } else {
+            // Fallback: explicit REST call with headers in case client auth headers are dropped.
+            const qs = new URLSearchParams({
+                select: 'bucket_ts,open,high,low,close,volume',
+                symbol: `eq.${cleanTicker}`,
+                order: 'bucket_ts.desc',
+                limit: String(safeLimit)
+            });
+            const resp = await fetch(`${MARKET_SUPABASE_URL}/rest/v1/live_candles?${qs.toString()}`, {
+                headers: {
+                    apikey: MARKET_SUPABASE_PUBLISHABLE_KEY,
+                    Authorization: `Bearer ${MARKET_SUPABASE_PUBLISHABLE_KEY}`
+                }
+            });
+            if (!resp.ok) {
+                const text = await resp.text();
+                console.warn("Live candles fallback request failed:", resp.status, text);
+                return [];
+            }
+            rows = await resp.json();
+            if (!Array.isArray(rows)) return [];
+        }
 
-        return data
+        return rows
             .map(c => ({
                 x: Number(c.bucket_ts),
                 o: Number(c.open),
