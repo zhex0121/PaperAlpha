@@ -1575,22 +1575,27 @@ async function fetchLiveCandles(ticker, limit = 50) {
         : ticker;
 
     try {
-        const resp = await fetch(
-            `https://server-api-092b.onrender.com/api/live-candles/${encodeURIComponent(cleanTicker)}?limit=${limit}`
-        );
-        if (!resp.ok) return [];
-
-        const data = await resp.json();
+        const requestedLimit = Number(limit);
+        const safeLimit = Number.isFinite(requestedLimit)
+            ? Math.max(1, Math.min(requestedLimit, 50))
+            : 50;
+        const { data, error } = await marketDataClient
+            .from('live_candles')
+            .select('bucket_ts, open, high, low, close, volume')
+            .eq('symbol', cleanTicker)
+            .order('bucket_ts', { ascending: false })
+            .limit(safeLimit);
+        if (error || !Array.isArray(data)) return [];
         if (!Array.isArray(data)) return [];
 
         return data
             .map(c => ({
-                x: Number(c.x),
-                o: Number(c.o),
-                h: Number(c.h),
-                l: Number(c.l),
-                c: Number(c.c),
-                v: Number(c.v || 0)
+                x: Number(c.bucket_ts),
+                o: Number(c.open),
+                h: Number(c.high),
+                l: Number(c.low),
+                c: Number(c.close),
+                v: Number(c.volume || 0)
             }))
             .filter(c =>
                 Number.isFinite(c.x) &&
