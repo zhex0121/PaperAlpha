@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="sv">
 <head>
@@ -1698,18 +1697,21 @@ async function fetchPrice(ticker) {
 ticker.includes("(")
 ? ticker.split("(")[1].replace(")","").trim()
 : ticker;
-    const response = await fetch(`https://server-api-092b.onrender.com/api/price/${encodeURIComponent(cleanTicker)}`);
-
-    if (!response.ok) return null; 
-
-    const data = await response.json();
-    const price = Number(data.c);
-    const timestamp = Number(data.t);
+    const { data, error } = await supabaseClient
+      .from('stock_prices')
+      .select('price_usd, updated_at, market_status')
+      .eq('ticker', cleanTicker)
+      .single();
+    if (error || !data) return null;
+    const price = Number(data.price_usd);
+    const timestamp = Date.parse(data.updated_at);
 
     if (!Number.isFinite(price) || !Number.isFinite(timestamp)) return null;
     
     // Update market status cache from price API response
-    updateMarketStatusFromPriceResponse(cleanTicker, data);
+    updateMarketStatusFromPriceResponse(cleanTicker, {
+      marketStatus: data.market_status || 'open'
+    });
     
     return { price, timestamp };
   } catch (err) {
