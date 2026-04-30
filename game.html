@@ -162,7 +162,7 @@ body::before {
     padding: 7px 18px;
     border-radius: 16px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 1.1rem;
     font-weight: 600;
     letter-spacing: 0.3px;
     transition: background 0.2s, color 0.2s;
@@ -1414,7 +1414,7 @@ async function showLeagueInfo() {
     leaderboardBtn.classList.toggle('active', currentView === 'league');
 }
     
-function showChartView() {
+async function showChartView() {
     currentView = 'chart';
     document.getElementById('leagueInfoView').style.display = 'none';
     document.getElementById('chartView').style.display = 'flex';
@@ -1422,6 +1422,7 @@ function showChartView() {
    
     
     updateToggleVisibility();
+    await syncTradeControlsVisibility();
     // Sync toggle buttons
     const a = document.getElementById('btnChart');
     const b = document.getElementById('btnLeaderboard');
@@ -3527,6 +3528,7 @@ aktie.senasteLivePrisTid = quoteTs;
     if (aktivAktie) updateMarketStatusIndicator(aktivAktie);
     if (chart && aktivAktie) updateChartView();
     renderStockList(document.getElementById('searchInput').value);
+    await syncTradeControlsVisibility();
 
 }, PRICE_UPDATE_MS);
 
