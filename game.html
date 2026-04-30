@@ -1931,21 +1931,37 @@ async function syncTradeControlsVisibility(){
         const marketStatus = getSymbolMarketStatus(aktivAktie);
         updateMarketStatusIndicator(aktivAktie);
         
-        if (marketStatus === 'closed' || marketStatus === 'unknown') {
+        if (marketStatus === 'closed') {
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
-                const closedCopy = marketStatus === 'closed'
-                    ? getMarketClosedMessage(aktivAktie)
-                    : (hasReceivedAnyMarketStatus ? getMarketUnknownMessage(aktivAktie) : getMarketLoadingMessage());
+                const closedCopy = getMarketClosedMessage(aktivAktie);
                 marketClosedMessage.style.display = 'block';
                 marketClosedMessage.innerHTML = `
                     <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
                     <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
                 `;
             }
+            window.tradeLock = true;
+        } else if (marketStatus === 'unknown') {
+            // Still loading - hide controls but DON'T lock trade permanently
+            if (tradeControls) tradeControls.style.display = 'none';
+            if (marketClosedMessage) {
+                // Show loading message if we haven't received ANY market status yet
+                const closedCopy = (!hasReceivedAnyMarketStatus && !lastPriceUpdate)
+                    ? getMarketLoadingMessage()
+                    : getMarketUnknownMessage(aktivAktie);
+                marketClosedMessage.style.display = 'block';
+                marketClosedMessage.innerHTML = `
+                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
+                    <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
+                `;
+            }
+            // Don't lock trade here - let prices load
         } else {
+            // Market is open - show controls and unlock trade
             if (tradeControls) tradeControls.style.display = 'block';
             if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+            window.tradeLock = false;
         }
     }else{
         if (tradeControls) tradeControls.style.display = 'none';
@@ -1980,12 +1996,10 @@ async function checkCompetitionStatus() {
             const marketStatus = getSymbolMarketStatus(aktivAktie);
             updateMarketStatusIndicator(aktivAktie);
             
-            if (marketStatus === 'closed' || marketStatus === 'unknown') {
+            if (marketStatus === 'closed') {
                 if (tradeControls) tradeControls.style.display = 'none';
                 if (marketClosedMessage) {
-                    const closedCopy = marketStatus === 'closed'
-                        ? getMarketClosedMessage(aktivAktie)
-                        : (hasReceivedAnyMarketStatus ? getMarketUnknownMessage(aktivAktie) : getMarketLoadingMessage());
+                    const closedCopy = getMarketClosedMessage(aktivAktie);
                     marketClosedMessage.style.display = 'block';
                     marketClosedMessage.innerHTML = `
                         <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
@@ -1993,9 +2007,22 @@ async function checkCompetitionStatus() {
                     `;
                 }
                 window.tradeLock = true;
+            } else if (marketStatus === 'unknown') {
+                // Still loading - don't permanently lock trade
+                if (tradeControls) tradeControls.style.display = 'none';
+                if (marketClosedMessage) {
+                    const closedCopy = (!hasReceivedAnyMarketStatus && !lastPriceUpdate)
+                        ? getMarketLoadingMessage()
+                        : getMarketUnknownMessage(aktivAktie);
+                    marketClosedMessage.style.display = 'block';
+                    marketClosedMessage.innerHTML = `
+                        <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
+                        <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
+                    `;
+                }
+                // Don't lock trade - let it resolve when status loads
             } else {
                 if (marketClosedMessage) marketClosedMessage.style.display = 'none';
-                // Trade controls visibility will be handled by syncTradeControlsVisibility
                 window.tradeLock = false;
             }
         } else {
