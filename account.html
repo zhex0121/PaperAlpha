@@ -511,6 +511,7 @@
                     <button class="sidebar-btn active" onclick="showSection('account')">Mitt konto</button>
                     <button class="sidebar-btn" onclick="showSection('privacy')">Integritetspolicy</button>
                     <button class="sidebar-btn" onclick="showSection('about')">Om oss</button>
+                    <button class="sidebar-btn" onclick="showSection('kontakta')">Kontakta oss</button>
                 </div>
                 
                 <div class="content-area">
@@ -565,6 +566,12 @@
                     <div id="about-section" class="content-section">
                         <h2>Om oss</h2>
                         <p>Information om PaperAlpha och vårt team.</p>
+                    </div>
+                    
+                    <div id="kontakta-section" class="content-section">
+                        <h2>Kontakta oss</h2>
+                        <p>Om du behöver hjälp eller upplever problem med vår webbplats är du alltid välkommen att kontakta oss. Vi svarar så snabbt som möjligt.</p>
+                        <p>E-post: zhex0121@gmail.com</p>
                     </div>
                 </div>
             </div>
@@ -1095,6 +1102,33 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         setupAuthListener();
+        
+        // Handle URL parameter for section switching
+        const urlParams = new URLSearchParams(window.location.search);
+        const section = urlParams.get('section');
+        if (section) {
+            // Hide all sections first
+            document.querySelectorAll('.content-section').forEach(sec => {
+                sec.classList.remove('active');
+            });
+            // Remove active class from all buttons
+            document.querySelectorAll('.sidebar-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            // Show the requested section
+            const targetSection = document.getElementById(section + '-section');
+            const targetButton = Array.from(document.querySelectorAll('.sidebar-btn')).find(btn => 
+                btn.textContent.toLowerCase().includes(section.toLowerCase()) || 
+                btn.getAttribute('onclick').includes(section)
+            );
+            
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+            if (targetButton) {
+                targetButton.classList.add('active');
+            }
+        }
     });
     </script>
 </body>
