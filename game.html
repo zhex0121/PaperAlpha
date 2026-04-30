@@ -1193,10 +1193,6 @@ function laddaFrånLokalt() {
 
 let currentExchangeRate = null; // null = not yet fetched
 let fxReady = false;
-let hasReceivedAnyMarketStatus = false;
-
-// Simple market status cache - NO API CALLS, updated from price API responses
-let symbolMarketStatusCache = {}; // { symbol: { status, sector, timestamp } }
 
 function normalizeSymbolForStatus(symbol) {
     if (!symbol || typeof symbol !== 'string') return '';
@@ -1217,30 +1213,11 @@ function getSymbolMarketStatus(symbol) {
         return 'unknown'; // Still loading prices, show loading message for all
     }
     
-    const cached = symbolMarketStatusCache[normalized];
-    if (cached && (Date.now() - cached.timestamp) < 10 * 60 * 1000) { // 10 minutes cache
-        return cached.status;
-    }
-    
     // Default behavior based on symbol - NO API CALLS
     if (normalized.startsWith('BINANCE:')) {
         return 'open'; // Crypto is always open (once prices loaded)
     } else {
         return 'unknown'; // Require fresh status for non-crypto
-    }
-}
-
-// Function to update market status cache from price API response
-function updateMarketStatusFromPriceResponse(symbol, responseData) {
-    const normalized = normalizeSymbolForStatus(symbol);
-    if (responseData && responseData.marketStatus && normalized) {
-        hasReceivedAnyMarketStatus = true;
-        symbolMarketStatusCache[normalized] = {
-            status: responseData.marketStatus,
-            sector: responseData.sector || getSymbolSector(normalized),
-            timestamp: Date.now()
-        };
-        
     }
 }
 
