@@ -3171,7 +3171,14 @@ if (marketStatus === 'closed') {
 
 if (marketStatus === 'unknown') {
     const unknownCopy = getMarketUnknownMessage(aktivAktie);
-    visaTradeFel(`${unknownCopy.title}. ${unknownCopy.detail}`);
+    const mcMsg = document.getElementById('marketClosedMessage');
+    if (mcMsg) {
+        mcMsg.style.display = 'block';
+        mcMsg.innerHTML = `
+            <div style="font-size: 1.1rem; margin-bottom: 10px;">${unknownCopy.title}</div>
+            <div style="font-size: 0.9rem;">${unknownCopy.detail}</div>
+        `;
+    }
     return;
 }
     
@@ -3321,9 +3328,10 @@ setTimeout(rensaTradeFel,2000);
     }
 }
 finally{
-
-window.tradeLock=false;
-
+    const statusEfterAffär = getSymbolMarketStatus(aktivAktie);
+    if (statusEfterAffär === 'open') {
+        window.tradeLock = false;
+    }
 }
 }
 
@@ -3608,7 +3616,7 @@ document.getElementById('tradeAmount').addEventListener('input', rensaTradeFel);
 
 
 document.addEventListener("visibilitychange", async () => {
-    window.tradeLock = false;
+    
 
     if (document.hidden) return;
     if (!currentUser) return;
