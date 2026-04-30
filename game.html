@@ -1947,14 +1947,11 @@ async function syncTradeControlsVisibility(){
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
                 // Match the Laddar priser logic: check if we have ANY status for this symbol yet
-                const normalized = normalizeSymbolForStatus(aktivAktie);
-                const hasStatusInCache = normalized && symbolMarketStatusCache[normalized];
-                
-                // No cache entry yet = still loading (like s.pris === null)
-                // Has cache entry but status is unknown = actually unknown
-                const closedCopy = !hasStatusInCache
-                    ? getMarketLoadingMessage()
-                    : getMarketUnknownMessage(aktivAktie);
+                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+
+const closedCopy = !pricesHaveLoaded
+    ? getMarketLoadingMessage()
+    : getMarketUnknownMessage(aktivAktie);
                 marketClosedMessage.style.display = 'block';
                 marketClosedMessage.innerHTML = `
                     <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
@@ -2017,14 +2014,11 @@ async function checkCompetitionStatus() {
                 if (tradeControls) tradeControls.style.display = 'none';
                 if (marketClosedMessage) {
                     // Match the Laddar priser logic: check if we have ANY status for this symbol yet
-                    const normalized = normalizeSymbolForStatus(aktivAktie);
-                    const hasStatusInCache = normalized && symbolMarketStatusCache[normalized];
-                    
-                    // No cache entry yet = still loading (like s.pris === null)
-                    // Has cache entry but status is unknown = actually unknown
-                    const closedCopy = !hasStatusInCache
-                        ? getMarketLoadingMessage()
-                        : getMarketUnknownMessage(aktivAktie);
+              const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+
+const closedCopy = !pricesHaveLoaded
+    ? getMarketLoadingMessage()
+    : getMarketUnknownMessage(aktivAktie);
                     marketClosedMessage.style.display = 'block';
                     marketClosedMessage.innerHTML = `
                         <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
