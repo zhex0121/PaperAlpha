@@ -909,8 +909,8 @@ id="stockList">
 
     <div id="viewToggleBar" class="view-toggle-bar">
         <div class="view-toggle-pill">
-            <button id="btnChart" class="toggle-btn active" onclick="switchToChart()" title="Diagram">📈</button>
-            <button id="btnLeaderboard" class="toggle-btn" onclick="switchToLeaderboard()" title="Ledartavla">🏆</button>
+            <button id="btnChart" class="toggle-btn" onclick="switchToChart()" title="Diagram">📈</button>
+            <button id="btnLeaderboard" class="toggle-btn active" onclick="switchToLeaderboard()" title="Ledartavla">🏆</button>
         </div>
     </div>
 </div>
@@ -1561,48 +1561,66 @@ async function loadLeaderboard() {
         }
         updateInGameTopInfo();
         
-        // Get user emails for display
+        // Get usernames/emails from the normal Supabase client (not market client)
         const userIds = leaderboardData.map(item => item.userId);
         const { data: profiles, error: profilesError } = await supabaseClient
             .from('profiles')
-            .select('user_id, email')
+            .select('user_id, email, username')
             .in('user_id', userIds);
             
         if (profilesError) {
             console.error("Error fetching user profiles:", profilesError);
         }
         
-        const emailMap = {};
+        const profileMap = {};
         if (profiles) {
             profiles.forEach(profile => {
-                emailMap[profile.user_id] = profile.email;
+                profileMap[profile.user_id] = {
+                    email: profile.email || '',
+                    username: profile.username || ''
+                };
             });
         }
+
+        const escapeHtml = (value) => String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
         
         // Display leaderboard
         const leaderboardHtml = leaderboardData.map((entry, index) => {
-    const email = emailMap[entry.userId] || 'Okänd användare';
+    const profile = profileMap[entry.userId] || {};
+    const email = profile.email || '';
+    const username = (profile.username || '').trim();
     const isCurrentUser = entry.userId === currentUser?.id;
-    const displayName = email.split('@')[0]; 
+    const fallbackName = email.includes('@') ? email.split('@')[0] : (email || 'Okänd användare');
+    const displayName = escapeHtml(username || fallbackName);
+    const compactValue = formatMoney(entry.totalValue);
+    const rankBadge = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+    const rowAccent = isCurrentUser
+        ? 'linear-gradient(135deg, rgba(41,98,255,0.30), rgba(0,255,170,0.20))'
+        : 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))';
+    const rowBorder = isCurrentUser ? 'rgba(41,98,255,0.75)' : 'var(--border)';
 
     return `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; margin-bottom: 0.5rem; background: ${isCurrentUser ? 'var(--accent)' : 'var(--bg)'}; border-radius: 4px; border: 1px solid var(--border);">
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <!-- 排名数字圆圈 -->
-                <div style="width: 30px; height: 30px; border-radius: 50%; background: ${index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : 'var(--surface)'}; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; color: ${index <= 2 ? '#000' : 'var(--text)'};">
-                    ${index + 1}
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:0.9rem 1rem; margin-bottom:0.65rem; background:${rowAccent}; border-radius:12px; border:1px solid ${rowBorder}; box-shadow:${isCurrentUser ? '0 0 0 1px rgba(0,255,170,0.35), 0 12px 25px rgba(0,0,0,0.22)' : '0 6px 15px rgba(0,0,0,0.12)'};">
+            <div style="display:flex; align-items:center; gap:0.8rem; min-width:0;">
+                <div style="min-width:42px; height:42px; border-radius:999px; background:${index <= 2 ? 'rgba(255,215,0,0.16)' : 'rgba(255,255,255,0.08)'}; border:1px solid rgba(255,255,255,0.20); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">
+                    ${rankBadge}
                 </div>
-                <div>
-                    <!-- 只保留名字 -->
-                    <div style="font-weight: bold; color: ${isCurrentUser ? '#000' : 'var(--text)'};">
+                <div style="min-width:0;">
+                    <div style="font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                         ${displayName}${isCurrentUser ? ' (Du)' : ''}
                     </div>
-                    <!-- 删掉了原本在这里的 Saldo 和 Portfölj 的 div -->
+                    <div style="font-size:0.75rem; color:var(--text-dim); letter-spacing:0.2px;">
+                        ${index + 1 <= 3 ? 'Topprankad spelare' : 'Ligadeltagare'}
+                    </div>
                 </div>
             </div>
-            <!-- 右侧保留的总资产 -->
-            <div style="font-weight: bold; font-size: 1.1rem; color: ${isCurrentUser ? '#000' : 'var(--up)'};">
-                ${formatMoney(entry.totalValue)}
+            <div style="font-weight:800; font-size:1.05rem; color:${isCurrentUser ? '#c8ffef' : 'var(--up)'}; white-space:nowrap;">
+                ${compactValue}
             </div>
         </div>
     `;
@@ -1624,7 +1642,11 @@ async function loadLeaderboard() {
 
 function updateViewBasedOnAuth() {
     updateToggleVisibility();
-    showChartView();
+    if (currentUser && currentLeagueId && currentLeague) {
+        showLeagueInfo();
+    } else {
+        showChartView();
+    }
     updateInGameTopInfo();
 }
 
