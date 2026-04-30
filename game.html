@@ -1946,14 +1946,13 @@ async function syncTradeControlsVisibility(){
             // Still loading - hide controls but DON'T lock trade permanently
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
-                // Check if this specific symbol has market status cached
+                // Match the Laddar priser logic: check if we have ANY status for this symbol yet
                 const normalized = normalizeSymbolForStatus(aktivAktie);
-                const cached = normalized ? symbolMarketStatusCache[normalized] : null;
-                const hasSpecificStatus = cached && (Date.now() - cached.timestamp) < 10 * 60 * 1000;
+                const hasStatusInCache = normalized && symbolMarketStatusCache[normalized];
                 
-                // Show loading if we don't have status for THIS symbol yet
-                // Only show "unknown" error when we have cache but status is unknown
-                const closedCopy = !hasSpecificStatus
+                // No cache entry yet = still loading (like s.pris === null)
+                // Has cache entry but status is unknown = actually unknown
+                const closedCopy = !hasStatusInCache
                     ? getMarketLoadingMessage()
                     : getMarketUnknownMessage(aktivAktie);
                 marketClosedMessage.style.display = 'block';
@@ -2017,14 +2016,13 @@ async function checkCompetitionStatus() {
                 // Still loading - don't permanently lock trade
                 if (tradeControls) tradeControls.style.display = 'none';
                 if (marketClosedMessage) {
-                    // Check if this specific symbol has market status cached
+                    // Match the Laddar priser logic: check if we have ANY status for this symbol yet
                     const normalized = normalizeSymbolForStatus(aktivAktie);
-                    const cached = normalized ? symbolMarketStatusCache[normalized] : null;
-                    const hasSpecificStatus = cached && (Date.now() - cached.timestamp) < 10 * 60 * 1000;
+                    const hasStatusInCache = normalized && symbolMarketStatusCache[normalized];
                     
-                    // Show loading if we don't have status for THIS symbol yet
-                    // Only show "unknown" error when we have cache but status is unknown
-                    const closedCopy = !hasSpecificStatus
+                    // No cache entry yet = still loading (like s.pris === null)
+                    // Has cache entry but status is unknown = actually unknown
+                    const closedCopy = !hasStatusInCache
                         ? getMarketLoadingMessage()
                         : getMarketUnknownMessage(aktivAktie);
                     marketClosedMessage.style.display = 'block';
