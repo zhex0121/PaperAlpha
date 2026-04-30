@@ -1509,16 +1509,28 @@ async function loadLeaderboard() {
     return;
        }
         
-        // Collect all unique symbols from all member portfolios
+        // Collect all unique symbols and user IDs from members
         const allSymbols = new Set();
+        const userIds = members.map(m => m.user_id);
         for (const member of members) {
             if (member.portfolio && typeof member.portfolio === 'object') {
                 Object.keys(member.portfolio).forEach(s => allSymbols.add(s));
             }
         }
         
-        // Fetch all prices at once for better performance
-        const allPrices = await fetchAllPrices(Array.from(allSymbols));
+        // Fetch prices and profiles in parallel for better performance
+        const [allPrices, profilesResult] = await Promise.all([
+            fetchAllPrices(Array.from(allSymbols)),
+            supabaseClient
+                .from('profiles')
+                .select('user_id, email, username')
+                .in('user_id', userIds)
+        ]);
+        
+        const profiles = profilesResult.data;
+        if (profilesResult.error) {
+            console.error("Error fetching user profiles:", profilesResult.error);
+        }
         
         // Calculate portfolio values for all members using cached prices
         const leaderboardPromises = members.map(async (member) => {
@@ -1561,17 +1573,6 @@ async function loadLeaderboard() {
             }
         }
         updateInGameTopInfo();
-        
-        // Get usernames/emails from the normal Supabase client (not market client)
-        const userIds = leaderboardData.map(item => item.userId);
-        const { data: profiles, error: profilesError } = await supabaseClient
-            .from('profiles')
-            .select('user_id, email, username')
-            .in('user_id', userIds);
-            
-        if (profilesError) {
-            console.error("Error fetching user profiles:", profilesError);
-        }
         
         const profileMap = {};
         if (profiles) {
