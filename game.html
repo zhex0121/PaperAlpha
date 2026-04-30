@@ -928,9 +928,12 @@ id="stockList">
 </div>
 
 <!-- Chart View (hidden by default) -->
-<div id="chartView" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+<div id="chartView" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
     <div style="flex-shrink: 0;">
-        <h2 id="activeSymbol">Ansluter till servern...</h2>
+        <h2 id="activeSymbolWrap" style="display:flex; align-items:center; gap:8px; margin: 0;">
+            <span id="activeSymbol">Ansluter till servern...</span>
+            <span id="marketStatusDot" title="Marknadsstatus okänd" style="width:9px; height:9px; border-radius:50%; background:#666; display:inline-block; flex-shrink:0;"></span>
+        </h2>
         <h1 id="activePrice">Laddar priser...</h1>
     </div>
     
@@ -1076,8 +1079,9 @@ function formatMoney(number) {
 
 let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
 
-let marketIsOpen = false; // Track if we're receiving live prices
-let lastPriceUpdate = null; // Track when we last received prices
+let marketIsOpen = false; // Track symbol status transitions for log clarity
+let lastPriceUpdate = null; // Track when we last received fresh prices
+let lastLoggedSymbolMarketStatus = null;
   
 let aktivAktie=null;
 
@@ -1193,15 +1197,24 @@ let fxReady = false;
 // Simple market status cache - NO API CALLS, updated from price API responses
 let symbolMarketStatusCache = {}; // { symbol: { status, sector, timestamp } }
 
+function normalizeSymbolForStatus(symbol) {
+    if (!symbol || typeof symbol !== 'string') return '';
+    if (symbol.includes("(") && symbol.includes(")")) {
+        return symbol.split("(")[1].replace(")","").trim();
+    }
+    return symbol.trim();
+}
+
 // Function to get market status from cache or determine sector
 function getSymbolMarketStatus(symbol) {
-    const cached = symbolMarketStatusCache[symbol];
+    const normalized = normalizeSymbolForStatus(symbol);
+    const cached = symbolMarketStatusCache[normalized];
     if (cached && (Date.now() - cached.timestamp) < 10 * 60 * 1000) { // 10 minutes cache
         return cached.status;
     }
     
     // Default behavior based on symbol - NO API CALLS
-    if (symbol.startsWith('BINANCE:')) {
+    if (normalized.startsWith('BINANCE:')) {
         return 'open'; // Crypto is always open
     } else {
         return 'open'; // Default to open for US stocks
@@ -1210,10 +1223,11 @@ function getSymbolMarketStatus(symbol) {
 
 // Function to update market status cache from price API response
 function updateMarketStatusFromPriceResponse(symbol, responseData) {
-    if (responseData && responseData.marketStatus && responseData.sector) {
-        symbolMarketStatusCache[symbol] = {
+    const normalized = normalizeSymbolForStatus(symbol);
+    if (responseData && responseData.marketStatus && normalized) {
+        symbolMarketStatusCache[normalized] = {
             status: responseData.marketStatus,
-            sector: responseData.sector,
+            sector: responseData.sector || getSymbolSector(normalized),
             timestamp: Date.now()
         };
         
@@ -1222,10 +1236,81 @@ function updateMarketStatusFromPriceResponse(symbol, responseData) {
 
 // Function to get sector info
 function getSymbolSector(symbol) {
-    if (symbol.startsWith('BINANCE:')) {
+    const normalized = normalizeSymbolForStatus(symbol);
+    if (normalized.startsWith('BINANCE:')) {
         return 'CRYPTO';
     } else {
         return 'US_MARKET';
+    }
+}
+
+function formatNextUsOpenInStockholm(now = new Date()) {
+    const nyPartsFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+    let candidate = new Date(now.getTime() + 60 * 1000);
+    const maxSearchMs = 10 * 24 * 60 * 60 * 1000;
+    const endTime = now.getTime() + maxSearchMs;
+
+    while (candidate.getTime() <= endTime) {
+        const parts = nyPartsFormatter.formatToParts(candidate);
+        const weekdayLabel = parts.find(p => p.type === 'weekday')?.value || '';
+        const hour = Number(parts.find(p => p.type === 'hour')?.value || 0);
+        const minute = Number(parts.find(p => p.type === 'minute')?.value || 0);
+        const isWeekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekdayLabel);
+
+        if (isWeekday && hour === 9 && minute === 30) {
+            return new Intl.DateTimeFormat('sv-SE', {
+                timeZone: 'Europe/Stockholm',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).format(candidate);
+        }
+        candidate = new Date(candidate.getTime() + 60 * 1000);
+    }
+
+    return '15:30';
+}
+
+function getMarketClosedMessage(symbol) {
+    const sector = getSymbolSector(symbol);
+    if (sector === 'US_MARKET') {
+        const nextOpen = formatNextUsOpenInStockholm();
+        return {
+            title: 'Amerikanska marknaden är stängd',
+            detail: `Handel öppnar igen ${nextOpen} (svensk tid)`
+        };
+    }
+    if (sector === 'CRYPTO') {
+        return {
+            title: 'Cryptomarknaden är stängd',
+            detail: 'Handel är för närvarande inte möjlig (oväntat fel)'
+        };
+    }
+    return {
+        title: 'Marknaden är stängd',
+        detail: 'Handel är endast möjlig under öppna marknadstider'
+    };
+}
+
+function updateMarketStatusIndicator(symbol) {
+    const dot = document.getElementById('marketStatusDot');
+    if (!dot) return;
+    const status = symbol ? getSymbolMarketStatus(symbol) : 'unknown';
+    if (status === 'open') {
+        dot.style.background = 'var(--up)';
+        dot.title = 'Marknaden är öppen';
+    } else if (status === 'closed') {
+        dot.style.background = 'var(--down)';
+        dot.title = 'Marknaden är stängd';
+    } else {
+        dot.style.background = '#666';
+        dot.title = 'Marknadsstatus okänd';
     }
 }
 
@@ -1797,29 +1882,17 @@ async function syncTradeControlsVisibility(){
     if(currentUser && aktivAktie && !isCompetitionEnded()){
         // Get market status from cache - NO API CALLS
         const marketStatus = getSymbolMarketStatus(aktivAktie);
-        const sector = getSymbolSector(aktivAktie);
+        updateMarketStatusIndicator(aktivAktie);
         
         if (marketStatus === 'closed') {
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
+                const closedCopy = getMarketClosedMessage(aktivAktie);
                 marketClosedMessage.style.display = 'block';
-                // Update message with sector-specific information
-                if (sector === 'US_MARKET') {
-                    marketClosedMessage.innerHTML = `
-                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Amerikanska marknaden är stängd</div>
-                        <div style="font-size: 0.9rem;">Handel är endast möjlig under amerikanska öppettider (9:30-16:00 ET)</div>
-                    `;
-                } else if (sector === 'CRYPTO') {
-                    marketClosedMessage.innerHTML = `
-                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Cryptomarknaden är stängd</div>
-                        <div style="font-size: 0.9rem;">Handel är för närvarande inte möjlig (oväntat fel)</div>
-                    `;
-                } else {
-                    marketClosedMessage.innerHTML = `
-                        <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
-                        <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
-                    `;
-                }
+                marketClosedMessage.innerHTML = `
+                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
+                    <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
+                `;
             }
         } else {
             if (tradeControls) tradeControls.style.display = 'block';
@@ -1856,29 +1929,17 @@ async function checkCompetitionStatus() {
         // Check market status based on selected symbol - NO API CALLS
         if (aktivAktie) {
             const marketStatus = getSymbolMarketStatus(aktivAktie);
-            const sector = getSymbolSector(aktivAktie);
+            updateMarketStatusIndicator(aktivAktie);
             
             if (marketStatus === 'closed') {
                 if (tradeControls) tradeControls.style.display = 'none';
                 if (marketClosedMessage) {
+                    const closedCopy = getMarketClosedMessage(aktivAktie);
                     marketClosedMessage.style.display = 'block';
-                    // Update message with sector-specific information
-                    if (sector === 'US_MARKET') {
-                        marketClosedMessage.innerHTML = `
-                            <div style="font-size: 1.1rem; margin-bottom: 10px;">Amerikanska marknaden är stängd</div>
-                            <div style="font-size: 0.9rem;">Handel är endast möjlig under amerikanska öppettider (9:30-16:00 ET)</div>
-                        `;
-                    } else if (sector === 'CRYPTO') {
-                        marketClosedMessage.innerHTML = `
-                            <div style="font-size: 1.1rem; margin-bottom: 10px;">Cryptomarknaden är stängd</div>
-                            <div style="font-size: 0.9rem;">Handel är för närvarande inte möjlig (oväntat fel)</div>
-                        `;
-                    } else {
-                        marketClosedMessage.innerHTML = `
-                            <div style="font-size: 1.1rem; margin-bottom: 10px;">Marknaden är stängd</div>
-                            <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
-                        `;
-                    }
+                    marketClosedMessage.innerHTML = `
+                        <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
+                        <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
+                    `;
                 }
                 window.tradeLock = true;
             } else {
@@ -1889,6 +1950,7 @@ async function checkCompetitionStatus() {
         } else {
             // No symbol selected, hide market closed message
             if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+            updateMarketStatusIndicator(null);
             window.tradeLock = false;
         }
     }
@@ -2609,16 +2671,17 @@ maximumFractionDigits:2
 
 
   
-async function väljAktie(ticker){
+async function väljAktie(ticker, { switchToChartView = true } = {}){
     aktivAktie = ticker;
 
     // Keep chart view visible immediately on selection/startup
-    showChartView();
+    if (switchToChartView) showChartView();
 
     // Use the async function to check market status
     await syncTradeControlsVisibility();
 
     document.getElementById('activeSymbol').innerText = ticker;
+    updateMarketStatusIndicator(ticker);
 
     uppdateraAktiv();
 
@@ -3007,17 +3070,10 @@ if (isCompetitionEnded()) {
 // Check if market is open for this specific symbol
 
 const marketStatus = getSymbolMarketStatus(aktivAktie);
-const sector = getSymbolSector(aktivAktie);
 
 if (marketStatus === 'closed') {
-    // Show sector-specific error message - NO API CALLS
-    if (sector === 'US_MARKET') {
-        visaTradeFel("Amerikanska marknaden är stängd. Handel är endast möjlig under amerikanska öppettider.");
-    } else if (sector === 'CRYPTO') {
-        visaTradeFel("Cryptomarknaden är stängd (oväntat). Försök igen om en stund.");
-    } else {
-        visaTradeFel("Marknaden för detta värdepapper är stängd. Handel är endast möjlig under öppna marknadstider.");
-    }
+    const closedCopy = getMarketClosedMessage(aktivAktie);
+    visaTradeFel(`${closedCopy.title}. ${closedCopy.detail}`);
     return;
 }
     
@@ -3387,23 +3443,32 @@ aktie.senasteLivePrisTid = quoteTs;
 
     await Promise.all(promises); // Vänta på att alla priser hämtats
 
-    // Update market status based on whether we received prices
-    const previousMarketState = marketIsOpen;
-    marketIsOpen = pricesUpdated;
-    
+    // Keep feed freshness log separate from exchange open/closed status
     if (pricesUpdated) {
         lastPriceUpdate = Date.now();
-        if (!previousMarketState) {
-            console.log("Marknaden öppnade - vi tar emot livepriser");
-        }
-    } else {
-        if (previousMarketState) {
-            console.log("Marknaden stängde - inga livepriser mottagna");
+    }
+    const feedIsFresh = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90 * 1000);
+    if (feedIsFresh !== marketIsOpen) {
+        marketIsOpen = feedIsFresh;
+        console.log(feedIsFresh
+            ? "Livefeed aktiv - vi tar emot färska priser"
+            : "Livefeed inaktiv - väntar på nya priser");
+    }
+
+    // Exchange open/closed transitions should come from Supabase market_status
+    if (aktivAktie) {
+        const symbolStatus = getSymbolMarketStatus(aktivAktie);
+        if (symbolStatus !== lastLoggedSymbolMarketStatus) {
+            lastLoggedSymbolMarketStatus = symbolStatus;
+            console.log(symbolStatus === 'open'
+                ? "Marknaden öppnade (status från Supabase)"
+                : "Marknaden stängde (status från Supabase)");
         }
     }
 
     uppdateraAktiv(aktivRiktning);
     uppdateraPortfölj();
+    if (aktivAktie) updateMarketStatusIndicator(aktivAktie);
     if (chart && aktivAktie) updateChartView();
     renderStockList(document.getElementById('searchInput').value);
 
@@ -3421,10 +3486,10 @@ if(currentUser) uppdateraPortfölj();
 // 4. Se till att Live-knappen lyser blått och systemet vet att vi är i live-mode
 setChartMode('live');
 
-// Ensure chart area + support link are visible immediately on first paint
-showChartView();
+// Default to leaderboard/league view on first paint.
+showLeagueInfo().catch(() => showChartView());
 
-väljAktie(symboler[0]);
+väljAktie(symboler[0], { switchToChartView: false });
     
 // 5. Håll kvar din error-rensares lyssnare
 document.getElementById('tradeAmount').addEventListener('input', rensaTradeFel);
@@ -3450,6 +3515,7 @@ document.addEventListener("visibilitychange", async () => {
         }
 
         await ensureProfileAndLoad(); // isLoadingProfile guard prevents double-run
+        await syncTradeControlsVisibility();
         uppdateraPortfölj();
     } catch (e) {
         console.error("Refresh after tab switch failed:", e);
