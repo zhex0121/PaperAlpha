@@ -1919,11 +1919,12 @@ updateToggleVisibility();
 async function syncTradeControlsVisibility(){
     const tradeControls = document.getElementById('tradeControls');
     const marketClosedMessage = document.getElementById('marketClosedMessage');
+    let marketStatus = 'unknown';
     
     if(currentUser && aktivAktie && !isCompetitionEnded()){
         // Fetch market status from dedicated table
         const statusData = await fetchMarketStatus(aktivAktie);
-        const marketStatus = statusData.status;
+        marketStatus = statusData.status;
         updateMarketStatusIndicator(aktivAktie, marketStatus);
         
         if (marketStatus === 'closed') {
@@ -1962,6 +1963,8 @@ async function syncTradeControlsVisibility(){
         if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         window.tradeLock = true;
     }
+    
+    return marketStatus;
 }
 
 function isCompetitionEnded() {
@@ -2752,10 +2755,10 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
     if (switchToChartView) showChartView();
 
     // Use the async function to check market status
-    await syncTradeControlsVisibility();
+    const marketStatus = await syncTradeControlsVisibility();
 
     document.getElementById('activeSymbol').innerText = ticker;
-    updateMarketStatusIndicator(ticker);
+    updateMarketStatusIndicator(ticker, marketStatus);
 
     uppdateraAktiv();
 
