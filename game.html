@@ -1309,17 +1309,10 @@ function getMarketClosedMessage(symbol) {
 }
 
 function getMarketUnknownMessage(symbol) {
-    const sector = getSymbolSector(symbol);
-    if (sector === 'CRYPTO') {
         return {
             title: 'Marknadsstatus okänd',
             detail: 'Kunde inte bekräfta marknadsstatus. Testa igen om en stund eller ladda om sidan.'
         };
-    }
-    return {
-        title: 'Marknadsstatus okänd',
-        detail: 'Kunde inte bekräfta om marknaden är öppen. Testa igen om en stund eller ladda om sidan.'
-    };
 }
 
 function getMarketLoadingMessage() {
