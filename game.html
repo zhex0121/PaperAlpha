@@ -1861,6 +1861,34 @@ ticker.includes("(")
   }
 }
 
+async function fetchAllPrices(tickers) {
+  try {
+    const cleanTickers = tickers.map(t =>
+      t.includes("(") ? t.split("(")[1].replace(")", "").trim() : t
+    );
+    const { data, error } = await marketDataClient
+      .from('stock_prices')
+      .select('ticker, price_usd, updated_at')
+      .in('ticker', cleanTickers);
+    if (error || !data) {
+      console.error("Bulk price fetch error:", error);
+      return {};
+    }
+    const result = {};
+    for (const row of data) {
+      const price = Number(row.price_usd);
+      const timestamp = Date.parse(row.updated_at);
+      if (Number.isFinite(price) && Number.isFinite(timestamp)) {
+        result[row.ticker] = { price, timestamp };
+      }
+    }
+    return result;
+  } catch (err) {
+    console.error("Bulk price fetch error:", err);
+    return {};
+  }
+}
+
 async function fetchMarketStatus(symbol) {
   try {
     const normalized = normalizeSymbolForStatus(symbol);
@@ -3473,46 +3501,48 @@ setInterval(async () => {
     let aktivRiktning = null;
     let pricesUpdated = false;
     
-    // Vi skapar en lista av löften (promises) för att hämta alla priser samtidigt
-    const promises = Object.keys(aktier).map(async (s) => {
+    // Hämta alla priser i en bulk-query för bättre prestanda
+    const allTickers = Object.keys(aktier);
+    const allPrices = await fetchAllPrices(allTickers);
+    
+    // Processa alla priser
+    for (const s of allTickers) {
         const aktie = aktier[s];
         const gammaltPris = aktie.pris;
-        const quote = await fetchPrice(s); // HÄMTAR RIKTIGT PRIS
+        const cleanTicker = s.includes("(") ? s.split("(")[1].replace(")", "").trim() : s;
+        const quote = allPrices[cleanTicker];
+        
         if (!quote) {
-    console.warn("Ingen prisdata för", s);
-    return;
-    }
+            console.warn("Ingen prisdata för", s);
+            continue;
+        }
+        
         const nyttPris = quote.price;
         const quoteTs = quote.timestamp;
         const candleTs = Math.floor(quoteTs / CANDLE_MS) * CANDLE_MS;
         const prevQuoteTs = Number(aktie.senasteLivePrisTid || 0);
         if (quoteTs <= prevQuoteTs) {
-            return; // stale cached quote: do not mutate candles
+            continue; // stale cached quote: do not mutate candles
         }
         
         pricesUpdated = true; // Mark that we received at least one price
         
+        // Första riktiga priset → skapa första candle
+        if (aktie.history.length === 0) {
+            aktie.pris = nyttPris;
+            aktie.senasteLivePrisTid = quoteTs;
+            aktie.history.push({
+                x: candleTs,
+                o: nyttPris,
+                h: nyttPris,
+                l: nyttPris,
+                c: nyttPris
+            });
+            continue;
+        }
 
-// Första riktiga priset → skapa första candle
-if(aktie.history.length === 0){
-
-    aktie.pris = nyttPris;
-    aktie.senasteLivePrisTid = quoteTs;
-
-    aktie.history.push({
-        x: candleTs,
-        o: nyttPris,
-        h: nyttPris,
-        l: nyttPris,
-        c: nyttPris
-    });
-
-    return;
-}
-
-aktie.pris = nyttPris;
-aktie.senasteLivePrisTid = quoteTs;
-
+        aktie.pris = nyttPris;
+        aktie.senasteLivePrisTid = quoteTs;
         
         if (s === aktivAktie) {
             if (nyttPris > gammaltPris) aktivRiktning = 'up';
@@ -3536,9 +3566,7 @@ aktie.senasteLivePrisTid = quoteTs;
             });
             if (aktie.history.length > MAX_CANDLES) aktie.history.shift();
         }
-    });
-
-    await Promise.all(promises); // Vänta på att alla priser hämtats
+    }
 
     // Keep feed freshness log separate from exchange open/closed status
     if (pricesUpdated) {
