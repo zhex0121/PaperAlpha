@@ -1569,7 +1569,7 @@ async function fetchHistory(ticker, resolution='D') {
     }
 }
 
-async function fetchLiveCandles(ticker, limit = 50) {
+async function fetchLiveCandles(ticker, limit = 360) {
     const cleanTicker = ticker.includes("(")
         ? ticker.split("(")[1].replace(")","").trim()
         : ticker;
@@ -1577,8 +1577,8 @@ async function fetchLiveCandles(ticker, limit = 50) {
     try {
         const requestedLimit = Number(limit);
         const safeLimit = Number.isFinite(requestedLimit)
-            ? Math.max(1, Math.min(requestedLimit, 50))
-            : 50;
+            ? Math.max(1, Math.min(requestedLimit, 360))
+            : 360;
         let rows = null;
         const { data, error } = await marketDataClient
             .from('live_candles')
@@ -2627,7 +2627,7 @@ async function väljAktie(ticker){
     // Hydrate from both historical and persisted live candles
     const [historicalCandles, liveCandles] = await Promise.all([
         fetchHistory(ticker, 'D'),
-        fetchLiveCandles(ticker, 50)
+        fetchLiveCandles(ticker, 360)
     ]);
     aktie.history = mergeCandles(historicalCandles, liveCandles);
 
