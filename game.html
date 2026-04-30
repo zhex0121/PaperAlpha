@@ -1995,11 +1995,26 @@ async function syncTradeControlsVisibility(){
                 `;
             }
             window.tradeLock = true;
-        } else {
-            // Market is open - show controls and unlock trade
+        } else if (marketStatus === 'open') {
+            // Market is explicitly open - show controls and unlock trade
             if (tradeControls) tradeControls.style.display = 'block';
             if (marketClosedMessage) marketClosedMessage.style.display = 'none';
             window.tradeLock = false;
+        } else {
+            // Any other status (including invalid/random values) - treat as unknown/locked
+            if (tradeControls) tradeControls.style.display = 'none';
+            if (marketClosedMessage) {
+                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+                const copy = !pricesHaveLoaded
+                    ? getMarketLoadingMessage()
+                    : getMarketUnknownMessage(aktivAktie);
+                marketClosedMessage.style.display = 'block';
+                marketClosedMessage.innerHTML = `
+                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
+                    <div style="font-size: 0.9rem;">${copy.detail}</div>
+                `;
+            }
+            window.tradeLock = true;
         }
     } else {
         if (tradeControls) tradeControls.style.display = 'none';
@@ -3209,7 +3224,7 @@ if (marketStatus === 'closed') {
     return;
 }
 
-if (marketStatus === 'unknown' || window.tradeLock) {
+if (marketStatus !== 'open' || window.tradeLock) {
     await syncTradeControlsVisibility();
     return;
 }
