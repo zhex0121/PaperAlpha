@@ -1346,6 +1346,47 @@ async function fetchPriceUsd(symbolLabel) {
     }
 }
 
+async function fetchAllPrices(tickers) {
+    try {
+        const cleanTickers = tickers.map(t =>
+            t.includes("(") ? t.split("(")[1].replace(")", "").trim() : t.trim()
+        );
+        const { data, error } = await marketDataClient
+            .from('stock_prices')
+            .select('ticker, price_usd')
+            .in('ticker', cleanTickers);
+        if (error || !data) {
+            console.error("Bulk price fetch error:", error);
+            return {};
+        }
+        const result = {};
+        for (const row of data) {
+            result[row.ticker] = Number(row.price_usd) || 0;
+        }
+        return result;
+    } catch (err) {
+        console.error("Bulk price fetch error:", err);
+        return {};
+    }
+}
+
+function getMemberTotalValueSekWithPrices(member, fxRate, priceMap) {
+    const balance = Number(member?.balance || 0);
+    const portfolio = member?.portfolio || {};
+    let holdingsValueSek = 0;
+
+    for (const [symbol, holding] of Object.entries(portfolio)) {
+        const amount = Number(holding?.antal || 0);
+        if (amount <= 0) continue;
+
+        const ticker = extractTicker(symbol);
+        const priceUsd = priceMap[ticker] || 0;
+        holdingsValueSek += amount * priceUsd * fxRate;
+    }
+
+    return balance + holdingsValueSek;
+}
+
 async function getMemberTotalValueSek(member, fxRate) {
     const balance = Number(member?.balance || 0);
     const portfolio = member?.portfolio || {};
@@ -1937,8 +1978,46 @@ async function getMemberTotalValueSek(member, fxRate) {
             const finishedCompetitions = leagues.filter(l => new Date(l.end_time) <= now);
             console.log('[Competitions] Active:', activeCompetitions.length, '| Finished:', finishedCompetitions.length);
 
-            renderCompetitions('activeCompetitions', activeCompetitions, true);
-            renderCompetitions('finishedCompetitions', finishedCompetitions, false);
+            // Batch fetch all members for all leagues at once
+            const allLeagueIds = leagues.map(l => l.id);
+            const { data: allMembersData } = await supabaseClient
+                .from('league_members')
+                .select('league_id, user_id, balance, portfolio')
+                .in('league_id', allLeagueIds);
+
+            // Collect all unique tickers from all portfolios for batch price fetch
+            const allTickers = new Set();
+            if (allMembersData) {
+                for (const member of allMembersData) {
+                    const portfolio = member.portfolio || {};
+                    for (const symbol of Object.keys(portfolio)) {
+                        const ticker = extractTicker(symbol);
+                        if (ticker) allTickers.add(ticker);
+                    }
+                }
+            }
+
+            // Fetch FX rate and all prices in parallel
+            const [fxRate, priceMap] = await Promise.all([
+                getExchangeRate(),
+                allTickers.size > 0 ? fetchAllPrices(Array.from(allTickers)) : {}
+            ]);
+
+            console.log('[Competitions] Batch fetched', allTickers.size, 'tickers, FX rate:', fxRate);
+
+            // Group members by league for efficient lookup
+            const membersByLeague = {};
+            if (allMembersData) {
+                for (const member of allMembersData) {
+                    if (!membersByLeague[member.league_id]) {
+                        membersByLeague[member.league_id] = [];
+                    }
+                    membersByLeague[member.league_id].push(member);
+                }
+            }
+
+            renderCompetitions('activeCompetitions', activeCompetitions, true, membersByLeague, priceMap, fxRate);
+            renderCompetitions('finishedCompetitions', finishedCompetitions, false, membersByLeague, priceMap, fxRate);
             competitionsLoaded = true;
 
         } catch (error) {
@@ -1948,7 +2027,7 @@ async function getMemberTotalValueSek(member, fxRate) {
         }
     }
 
-    async function renderCompetitions(containerId, competitions, isActive) {
+    async function renderCompetitions(containerId, competitions, isActive, membersByLeague, priceMap, fxRate) {
         const container = document.getElementById(containerId);
         if (competitions.length === 0) {
             container.innerHTML = `<div class="no-competitions">Inga ${isActive ? 'aktiva' : 'avslutade'} tävlingar</div>`;
@@ -1957,22 +2036,16 @@ async function getMemberTotalValueSek(member, fxRate) {
 
         const competitionsWithData = await Promise.all(competitions.map(async (league) => {
     try {
-        const fxRate = await getExchangeRate();
+        const allMembers = membersByLeague[league.id] || [];
+        const memberData = allMembers.find(m => m.user_id === currentUser.id);
 
-        const { data: memberData } = await supabaseClient
-            .from('league_members')
-            .select('*')
-            .eq('league_id', league.id)
-            .eq('user_id', currentUser.id)
-            .single();
+        if (!memberData) {
+            return { ...league, placement: '-', totalPlayers: allMembers.length, portfolioValue: 0 };
+        }
 
-        const { data: allMembers } = await supabaseClient
-            .from('league_members')
-            .select('user_id, balance, portfolio')
-            .eq('league_id', league.id);
-
-        const allValues = await Promise.all((allMembers || []).map(m => getMemberTotalValueSek(m, fxRate)));
-        const userValue = await getMemberTotalValueSek(memberData, fxRate);
+        // Calculate values using pre-fetched price map (no async, instant)
+        const allValues = allMembers.map(m => getMemberTotalValueSekWithPrices(m, fxRate, priceMap));
+        const userValue = getMemberTotalValueSekWithPrices(memberData, fxRate, priceMap);
 
         const sortedValues = [...allValues].sort((a, b) => b - a);
         const placement = sortedValues.indexOf(userValue) + 1;
