@@ -1943,28 +1943,29 @@ async function syncTradeControlsVisibility(){
             }
             window.tradeLock = true;
         } else if (marketStatus === 'unknown') {
-    if (tradeControls) tradeControls.style.display = 'none';
-    if (marketClosedMessage) {
-        const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
-        const closedCopy = !pricesHaveLoaded
-            ? getMarketLoadingMessage()
-            : getMarketUnknownMessage(aktivAktie);
-        marketClosedMessage.style.display = 'block';
-        marketClosedMessage.innerHTML = `
-            <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
-            <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
-        `;
-    }
-    window.tradeLock = true; // ← ADD THIS
+            if (tradeControls) tradeControls.style.display = 'none';
+            if (marketClosedMessage) {
+                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+                const copy = !pricesHaveLoaded
+                    ? getMarketLoadingMessage()
+                    : getMarketUnknownMessage(aktivAktie);
+                marketClosedMessage.style.display = 'block';
+                marketClosedMessage.innerHTML = `
+                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
+                    <div style="font-size: 0.9rem;">${copy.detail}</div>
+                `;
+            }
+            window.tradeLock = true;
         } else {
             // Market is open - show controls and unlock trade
             if (tradeControls) tradeControls.style.display = 'block';
             if (marketClosedMessage) marketClosedMessage.style.display = 'none';
             window.tradeLock = false;
         }
-    }else{
+    } else {
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+        window.tradeLock = true;
     }
 }
 
@@ -2007,23 +2008,20 @@ async function checkCompetitionStatus() {
                 }
                 window.tradeLock = true;
             } else if (marketStatus === 'unknown') {
-                // Still loading - don't permanently lock trade
-                if (tradeControls) tradeControls.style.display = 'none';
-                if (marketClosedMessage) {
-                    // Match the Laddar priser logic: check if we have ANY status for this symbol yet
-              const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
-
-const closedCopy = !pricesHaveLoaded
-    ? getMarketLoadingMessage()
-    : getMarketUnknownMessage(aktivAktie);
-                    marketClosedMessage.style.display = 'block';
-                    marketClosedMessage.innerHTML = `
-                        <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
-                        <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
-                    `;
-                }
-window.tradeLock = true; // ← ADD THIS
-            } else {
+            if (tradeControls) tradeControls.style.display = 'none';
+            if (marketClosedMessage) {
+                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+                const copy = !pricesHaveLoaded
+                    ? getMarketLoadingMessage()
+                    : getMarketUnknownMessage(aktivAktie);
+                marketClosedMessage.style.display = 'block';
+                marketClosedMessage.innerHTML = `
+                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
+                    <div style="font-size: 0.9rem;">${copy.detail}</div>
+                `;
+            }
+            window.tradeLock = true;
+        } else {
                 if (marketClosedMessage) marketClosedMessage.style.display = 'none';
                 window.tradeLock = false;
             }
@@ -3169,23 +3167,11 @@ if (marketStatus === 'closed') {
     return;
 }
 
-if (marketStatus === 'unknown') {
-    const unknownCopy = getMarketUnknownMessage(aktivAktie);
-    const mcMsg = document.getElementById('marketClosedMessage');
-    if (mcMsg) {
-        mcMsg.style.display = 'block';
-        mcMsg.innerHTML = `
-            <div style="font-size: 1.1rem; margin-bottom: 10px;">${unknownCopy.title}</div>
-            <div style="font-size: 0.9rem;">${unknownCopy.detail}</div>
-        `;
-    }
+if (marketStatus === 'unknown' || window.tradeLock) {
+    await syncTradeControlsVisibility();
     return;
 }
     
-if(window.tradeLock) {
-    visaTradeFel("Handeln är tillfälligt låst. Vänta ett ögonblick och försök igen.");
-    return;
-}
 
 try{
     
@@ -3328,10 +3314,8 @@ setTimeout(rensaTradeFel,2000);
     }
 }
 finally{
-    const statusEfterAffär = getSymbolMarketStatus(aktivAktie);
-    if (statusEfterAffär === 'open') {
-        window.tradeLock = false;
-    }
+    // Re-sync controls after trade attempt — this sets tradeLock correctly
+    await syncTradeControlsVisibility();
 }
 }
 
