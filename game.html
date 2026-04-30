@@ -1947,7 +1947,8 @@ async function syncTradeControlsVisibility(){
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
                 // Show loading message if we haven't received ANY market status yet
-                const closedCopy = (!hasReceivedAnyMarketStatus && !lastPriceUpdate)
+                // Only show "unknown" error when we've actually tried and failed to get status
+                const closedCopy = !hasReceivedAnyMarketStatus
                     ? getMarketLoadingMessage()
                     : getMarketUnknownMessage(aktivAktie);
                 marketClosedMessage.style.display = 'block';
@@ -2011,7 +2012,9 @@ async function checkCompetitionStatus() {
                 // Still loading - don't permanently lock trade
                 if (tradeControls) tradeControls.style.display = 'none';
                 if (marketClosedMessage) {
-                    const closedCopy = (!hasReceivedAnyMarketStatus && !lastPriceUpdate)
+                    // Show loading message if we haven't received ANY market status yet
+                    // Only show "unknown" error when we've actually tried and failed to get status
+                    const closedCopy = !hasReceivedAnyMarketStatus
                         ? getMarketLoadingMessage()
                         : getMarketUnknownMessage(aktivAktie);
                     marketClosedMessage.style.display = 'block';
