@@ -3497,7 +3497,8 @@ window.debugData = () => {
     console.log("Lokal data:", laddaFrånLokalt());
     return { currentUser, saldo, portfölj };
 };
-setInterval(async () => {
+
+async function updateAllPrices() {
     let aktivRiktning = null;
     let pricesUpdated = false;
     
@@ -3600,8 +3601,11 @@ setInterval(async () => {
     if (chart && aktivAktie) updateChartView();
     renderStockList(document.getElementById('searchInput').value);
     await syncTradeControlsVisibility();
+}
 
-}, PRICE_UPDATE_MS);
+// Start price updates: immediately and then every 5 seconds
+updateAllPrices();
+setInterval(updateAllPrices, PRICE_UPDATE_MS);
 
 
     
