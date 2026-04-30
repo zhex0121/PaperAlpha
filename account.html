@@ -481,6 +481,7 @@
                 <div class="profile-dropdown" id="profileDropdownLoggedOut">
                     <button class="profile-dropdown-btn" onclick="profileDropdownLoggedOut.classList.remove('show'); window.location.href='index.html?goto=home';">Mina tävlingar</button>
                     <a class="profile-dropdown-btn" href="account.html" onclick="profileDropdown.classList.remove('show')" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
+                    <a class="profile-dropdown-btn" href="account.html?section=kontakta" style="text-decoration:none; color:inherit;">Kontakta oss</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
                 </div>
@@ -495,6 +496,7 @@
                 <div class="profile-dropdown" id="profileDropdown">
                     <button class="profile-dropdown-btn" onclick="profileDropdown.classList.remove('show'); window.location.href='index.html';">Mina tävlingar</button>
                     <a class="profile-dropdown-btn" href="account.html" onclick="profileDropdownLoggedOut.classList.remove('show')" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
+                    <a class="profile-dropdown-btn" href="account.html?section=kontakta" style="text-decoration:none; color:inherit;">Kontakta oss</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
                     <button class="logout-btn">Logga ut</button>
                 </div>
@@ -622,7 +624,7 @@
                     <div id="kontakta-section" class="content-section">
                         <h2>Kontakta oss</h2>
                         <p>Om du behöver hjälp eller upplever problem med vår webbplats är du alltid välkommen att kontakta oss. Vi svarar så snabbt som möjligt.</p>
-                        <p>E-post: paperalpha.contact@gmail.com </p>
+                        <p>E-post: paperalpha.contact@gmail.com</p>
                     </div>
                 </div>
             </div>
@@ -1057,28 +1059,52 @@
             return;
         }
 
-        // Show loading state
-        const confirmButton = event.target;
+        // Get the button that was clicked (more reliable than event.target)
+        const confirmButton = document.querySelector('button[onclick="confirmDeleteAccount()"]');
         const originalText = confirmButton.textContent;
         confirmButton.textContent = 'Raderar...';
         confirmButton.disabled = true;
 
         try {
+            console.log('Starting account deletion for user:', currentUser.email);
+            
             // Call the delete function from Supabase
-            const { error } = await supabaseClient.rpc('delete_user_full_data');
+            const { data, error } = await supabaseClient.rpc('delete_user_full_data');
+            
+            console.log('Delete function response:', { data, error });
             
             if (error) {
                 console.error('Error deleting account:', error);
-                showDeleteError('Kunde inte radera kontot. Försök igen senare.');
+                let errorMessage = 'Kunde inte radera kontot. Försök igen senare.';
+                
+                // More specific error messages
+                if (error.message.includes('Ingen användare inloggad')) {
+                    errorMessage = 'Sessionsfel. Logga ut och logga in igen, försök sedan radera kontot.';
+                } else if (error.message.includes('permission')) {
+                    errorMessage = 'Behörighetsfel. Kontakta support.';
+                }
+                
+                showDeleteError(errorMessage);
                 confirmButton.textContent = originalText;
                 confirmButton.disabled = false;
                 return;
             }
 
-            // Success - logout and redirect
+            // Success - show success message briefly
             console.log('Account deleted successfully');
-            await supabaseClient.auth.signOut();
-            window.location.href = 'index.html';
+            showDeleteError('Kontot raderas... Vänligen vänta.', false);
+            
+            // Wait a moment for the deletion to complete, then logout and redirect
+            setTimeout(async () => {
+                try {
+                    await supabaseClient.auth.signOut();
+                    window.location.href = 'index.html';
+                } catch (signOutError) {
+                    console.error('Error signing out:', signOutError);
+                    // Force redirect even if sign out fails
+                    window.location.href = 'index.html';
+                }
+            }, 1000);
             
         } catch (error) {
             console.error('Error during account deletion:', error);
@@ -1088,10 +1114,11 @@
         }
     }
 
-    function showDeleteError(message) {
+    function showDeleteError(message, isError = true) {
         const deleteErrorEl = document.getElementById('deleteError');
         deleteErrorEl.textContent = message;
         deleteErrorEl.style.display = 'block';
+        deleteErrorEl.style.color = isError ? 'var(--down)' : 'var(--up)';
     }
 
     // --- UI Functions ---
