@@ -1208,6 +1208,7 @@ function normalizeSymbolForStatus(symbol) {
 // Function to get market status from cache or determine sector
 function getSymbolMarketStatus(symbol) {
     const normalized = normalizeSymbolForStatus(symbol);
+    if (!normalized) return 'unknown';
     const cached = symbolMarketStatusCache[normalized];
     if (cached && (Date.now() - cached.timestamp) < 10 * 60 * 1000) { // 10 minutes cache
         return cached.status;
@@ -1217,7 +1218,7 @@ function getSymbolMarketStatus(symbol) {
     if (normalized.startsWith('BINANCE:')) {
         return 'open'; // Crypto is always open
     } else {
-        return 'open'; // Default to open for US stocks
+        return 'unknown'; // Require fresh status for non-crypto
     }
 }
 
@@ -1295,6 +1296,20 @@ function getMarketClosedMessage(symbol) {
     return {
         title: 'Marknaden är stängd',
         detail: 'Handel är endast möjlig under öppna marknadstider'
+    };
+}
+
+function getMarketUnknownMessage(symbol) {
+    const sector = getSymbolSector(symbol);
+    if (sector === 'CRYPTO') {
+        return {
+            title: 'Marknadsstatus okänd',
+            detail: 'Kunde inte bekräfta marknadsstatus. Testa igen om en stund eller ladda om sidan.'
+        };
+    }
+    return {
+        title: 'Marknadsstatus okänd',
+        detail: 'Kunde inte bekräfta om marknaden är öppen. Testa igen om en stund eller ladda om sidan.'
     };
 }
 
@@ -1884,10 +1899,12 @@ async function syncTradeControlsVisibility(){
         const marketStatus = getSymbolMarketStatus(aktivAktie);
         updateMarketStatusIndicator(aktivAktie);
         
-        if (marketStatus === 'closed') {
+        if (marketStatus === 'closed' || marketStatus === 'unknown') {
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
-                const closedCopy = getMarketClosedMessage(aktivAktie);
+                const closedCopy = marketStatus === 'closed'
+                    ? getMarketClosedMessage(aktivAktie)
+                    : getMarketUnknownMessage(aktivAktie);
                 marketClosedMessage.style.display = 'block';
                 marketClosedMessage.innerHTML = `
                     <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
@@ -1931,10 +1948,12 @@ async function checkCompetitionStatus() {
             const marketStatus = getSymbolMarketStatus(aktivAktie);
             updateMarketStatusIndicator(aktivAktie);
             
-            if (marketStatus === 'closed') {
+            if (marketStatus === 'closed' || marketStatus === 'unknown') {
                 if (tradeControls) tradeControls.style.display = 'none';
                 if (marketClosedMessage) {
-                    const closedCopy = getMarketClosedMessage(aktivAktie);
+                    const closedCopy = marketStatus === 'closed'
+                        ? getMarketClosedMessage(aktivAktie)
+                        : getMarketUnknownMessage(aktivAktie);
                     marketClosedMessage.style.display = 'block';
                     marketClosedMessage.innerHTML = `
                         <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
@@ -3074,6 +3093,12 @@ const marketStatus = getSymbolMarketStatus(aktivAktie);
 if (marketStatus === 'closed') {
     const closedCopy = getMarketClosedMessage(aktivAktie);
     visaTradeFel(`${closedCopy.title}. ${closedCopy.detail}`);
+    return;
+}
+
+if (marketStatus === 'unknown') {
+    const unknownCopy = getMarketUnknownMessage(aktivAktie);
+    visaTradeFel(`${unknownCopy.title}. ${unknownCopy.detail}`);
     return;
 }
     
