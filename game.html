@@ -1322,14 +1322,14 @@ function getMarketLoadingMessage() {
     };
 }
 
-function updateMarketStatusIndicator(symbol) {
+function updateMarketStatusIndicator(symbol, status) {
     const dot = document.getElementById('marketStatusDot');
     if (!dot) return;
-    const status = symbol ? getSymbolMarketStatus(symbol) : 'unknown';
-    if (status === 'open') {
+    const marketStatus = status || (symbol ? getSymbolMarketStatus(symbol) : 'unknown');
+    if (marketStatus === 'open') {
         dot.style.background = 'var(--up)';
         dot.title = 'Marknaden är öppen';
-    } else if (status === 'closed') {
+    } else if (marketStatus === 'closed') {
         dot.style.background = 'var(--down)';
         dot.title = 'Marknaden är stängd';
     } else {
@@ -1868,7 +1868,7 @@ ticker.includes("(")
 : ticker;
     const { data, error } = await marketDataClient
       .from('stock_prices')
-      .select('price_usd, updated_at, market_status')
+      .select('price_usd, updated_at')
       .eq('ticker', cleanTicker)
       .single();
     if (error || !data) return null;
@@ -1877,15 +1877,32 @@ ticker.includes("(")
 
     if (!Number.isFinite(price) || !Number.isFinite(timestamp)) return null;
     
-    // Update market status cache from price API response
-    updateMarketStatusFromPriceResponse(cleanTicker, {
-      marketStatus: data.market_status || 'open'
-    });
-    
     return { price, timestamp };
   } catch (err) {
     console.error("API error for", ticker, err);
     return null;
+  }
+}
+
+async function fetchMarketStatus(symbol) {
+  try {
+    const normalized = normalizeSymbolForStatus(symbol);
+    const sector = getSymbolSector(normalized);
+    
+    const { data, error } = await marketDataClient
+      .from('market_status')
+      .select('status, updated_at')
+      .eq('sector', sector)
+      .single();
+    
+    if (error || !data) {
+      return { status: 'unknown', sector };
+    }
+    
+    return { status: data.status || 'unknown', sector, updatedAt: data.updated_at };
+  } catch (err) {
+    console.error("Market status fetch error for", symbol, err);
+    return { status: 'unknown', sector: getSymbolSector(symbol) };
   }
 }
     
@@ -1927,9 +1944,10 @@ async function syncTradeControlsVisibility(){
     const marketClosedMessage = document.getElementById('marketClosedMessage');
     
     if(currentUser && aktivAktie && !isCompetitionEnded()){
-        // Get market status from cache - NO API CALLS
-        const marketStatus = getSymbolMarketStatus(aktivAktie);
-        updateMarketStatusIndicator(aktivAktie);
+        // Fetch market status from dedicated table
+        const statusData = await fetchMarketStatus(aktivAktie);
+        const marketStatus = statusData.status;
+        updateMarketStatusIndicator(aktivAktie, marketStatus);
         
         if (marketStatus === 'closed') {
             if (tradeControls) tradeControls.style.display = 'none';
@@ -1991,10 +2009,11 @@ async function checkCompetitionStatus() {
         // Hide ended message
         if (endedMessage) endedMessage.style.display = 'none';
         
-        // Check market status based on selected symbol - NO API CALLS
+        // Check market status based on selected symbol
         if (aktivAktie) {
-            const marketStatus = getSymbolMarketStatus(aktivAktie);
-            updateMarketStatusIndicator(aktivAktie);
+            const statusData = await fetchMarketStatus(aktivAktie);
+            const marketStatus = statusData.status;
+            updateMarketStatusIndicator(aktivAktie, marketStatus);
             
             if (marketStatus === 'closed') {
                 if (tradeControls) tradeControls.style.display = 'none';
@@ -3158,8 +3177,8 @@ if (isCompetitionEnded()) {
 }
 
 // Check if market is open for this specific symbol
-
-const marketStatus = getSymbolMarketStatus(aktivAktie);
+const statusData = await fetchMarketStatus(aktivAktie);
+const marketStatus = statusData.status;
 
 if (marketStatus === 'closed') {
     const closedCopy = getMarketClosedMessage(aktivAktie);
@@ -3555,18 +3574,21 @@ aktie.senasteLivePrisTid = quoteTs;
 
     // Exchange open/closed transitions should come from Supabase market_status
     if (aktivAktie) {
-        const symbolStatus = getSymbolMarketStatus(aktivAktie);
+        const statusData = await fetchMarketStatus(aktivAktie);
+        const symbolStatus = statusData.status;
         if (symbolStatus !== lastLoggedSymbolMarketStatus) {
             lastLoggedSymbolMarketStatus = symbolStatus;
             console.log(symbolStatus === 'open'
                 ? "Marknaden öppnade (status från Supabase)"
-                : "Marknaden stängde (status från Supabase)");
+                : symbolStatus === 'closed'
+                    ? "Marknaden stängde (status från Supabase)"
+                    : `Marknadsstatus: ${symbolStatus}`);
         }
     }
 
     uppdateraAktiv(aktivRiktning);
     uppdateraPortfölj();
-    if (aktivAktie) updateMarketStatusIndicator(aktivAktie);
+    if (aktivAktie && lastLoggedSymbolMarketStatus) updateMarketStatusIndicator(aktivAktie, lastLoggedSymbolMarketStatus);
     if (chart && aktivAktie) updateChartView();
     renderStockList(document.getElementById('searchInput').value);
     await syncTradeControlsVisibility();
