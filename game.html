@@ -1617,7 +1617,7 @@ async function loadLeaderboard() {
     return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:0.9rem 1rem; margin-bottom:0.65rem; background:${rowAccent}; border-radius:12px; border:1px solid ${rowBorder}; box-shadow:${isCurrentUser ? '0 0 0 1px rgba(0,255,170,0.35), 0 12px 25px rgba(0,0,0,0.22)' : '0 6px 15px rgba(0,0,0,0.12)'};">
             <div style="display:flex; align-items:center; gap:0.8rem; min-width:0;">
-                <div style="min-width:${index <= 2 ? '46px' : '42px'}; height:${index <= 2 ? '46px' : '42px'}; border-radius:999px; background:${index <= 2 ? 'rgba(255,215,0,0.16)' : 'rgba(255,255,255,0.08)'}; border:1px solid rgba(255,255,255,0.20); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:${index <= 2 ? '1.3rem' : '0.9rem'}; line-height:1;">
+                <div style="min-width:${index <= 2 ? '50px' : '42px'}; height:${index <= 2 ? '50px' : '42px'}; border-radius:999px; background:${index <= 2 ? 'rgba(255,215,0,0.16)' : 'rgba(255,255,255,0.08)'}; border:1px solid rgba(255,255,255,0.20); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:${index <= 2 ? '1.6rem' : '0.9rem'}; line-height:1;">
                     ${rankBadge}
                 </div>
                 <div style="min-width:0;">
@@ -3104,7 +3104,10 @@ console.log("TRADE CLICKED", {
     locked: window.tradeLock
 });
 
-if (!appReady) return;
+if (!appReady) {
+    visaTradeFel("Appen startar fortfarande. Vänta ett ögonblick och försök igen.");
+    return;
+}
 
 if (!fxReady) {
     console.warn("Trade blocked: FX not ready");
@@ -3134,7 +3137,10 @@ if (marketStatus === 'unknown') {
     return;
 }
     
-if(window.tradeLock) return;
+if(window.tradeLock) {
+    visaTradeFel("Handeln är tillfälligt låst. Vänta ett ögonblick och försök igen.");
+    return;
+}
 
 try{
     
@@ -3146,8 +3152,13 @@ try{
 
     const råVärde=document.getElementById('tradeAmount').value.trim().replace(',', '.');
 
-    if(!aktivAktie||!/^\d*\.?\d+$/.test(råVärde)){
-        visaTradeFel("Välj ett värdepapper och ange ett giltigt antal.");
+    if(!aktivAktie){
+        visaTradeFel("Välj ett värdepapper i listan till vänster först.");
+        return;
+    }
+    
+    if(!/^\d*\.?\d+$/.test(råVärde)){
+        visaTradeFel("Ange ett giltigt antal.");
         return;
     }
 
@@ -3551,7 +3562,8 @@ document.getElementById('chartView').style.display = 'none';
 syncViewToggleButtons();
 updateToggleVisibility();
 
-väljAktie(symboler[0], { switchToChartView: false });
+// Initial stock selection removed - user starts on leaderboard view
+// väljAktie(symboler[0], { switchToChartView: false });
     
 // 5. Håll kvar din error-rensares lyssnare
 document.getElementById('tradeAmount').addEventListener('input', rensaTradeFel);
