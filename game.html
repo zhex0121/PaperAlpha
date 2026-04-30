@@ -931,10 +931,10 @@ id="stockList">
 <div id="chartView" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
     <div style="flex-shrink: 0;">
         <h2 id="activeSymbolWrap" style="display:flex; align-items:center; gap:8px; margin: 0;">
-            <span id="activeSymbol">Ansluter till servern...</span>
+            <span id="activeSymbol">Laddar marknadsdata...</span>
             <span id="marketStatusDot" title="Marknadsstatus okänd" style="width:9px; height:9px; border-radius:50%; background:#666; display:inline-block; flex-shrink:0;"></span>
         </h2>
-        <h1 id="activePrice">Laddar priser...</h1>
+        <h1 id="activePrice">Hämtar priser...</h1>
     </div>
     
     <div class="chart-container" style="flex: 1; min-height: 0;">
@@ -1210,6 +1210,13 @@ function normalizeSymbolForStatus(symbol) {
 function getSymbolMarketStatus(symbol) {
     const normalized = normalizeSymbolForStatus(symbol);
     if (!normalized) return 'unknown';
+    
+    // Check if we have any price data yet - if not, show loading for ALL symbols including crypto
+    const hasLoadedPrices = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+    if (!hasLoadedPrices) {
+        return 'unknown'; // Still loading prices, show loading message for all
+    }
+    
     const cached = symbolMarketStatusCache[normalized];
     if (cached && (Date.now() - cached.timestamp) < 10 * 60 * 1000) { // 10 minutes cache
         return cached.status;
@@ -1217,7 +1224,7 @@ function getSymbolMarketStatus(symbol) {
     
     // Default behavior based on symbol - NO API CALLS
     if (normalized.startsWith('BINANCE:')) {
-        return 'open'; // Crypto is always open
+        return 'open'; // Crypto is always open (once prices loaded)
     } else {
         return 'unknown'; // Require fresh status for non-crypto
     }
@@ -1617,7 +1624,7 @@ async function loadLeaderboard() {
     return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:0.9rem 1rem; margin-bottom:0.65rem; background:${rowAccent}; border-radius:12px; border:1px solid ${rowBorder}; box-shadow:${isCurrentUser ? '0 0 0 1px rgba(0,255,170,0.35), 0 12px 25px rgba(0,0,0,0.22)' : '0 6px 15px rgba(0,0,0,0.12)'};">
             <div style="display:flex; align-items:center; gap:0.8rem; min-width:0;">
-                <div style="min-width:${index <= 2 ? '50px' : '42px'}; height:${index <= 2 ? '50px' : '42px'}; border-radius:999px; background:${index <= 2 ? 'rgba(255,215,0,0.16)' : 'rgba(255,255,255,0.08)'}; border:1px solid rgba(255,255,255,0.20); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:${index <= 2 ? '1.6rem' : '0.9rem'}; line-height:1;">
+                <div style="min-width:46px; height:46px; border-radius:999px; background:${index <= 2 ? 'rgba(255,215,0,0.16)' : 'rgba(255,255,255,0.08)'}; border:1px solid rgba(255,255,255,0.20); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:${index <= 2 ? '1.6rem' : '0.9rem'}; line-height:1;">
                     ${rankBadge}
                 </div>
                 <div style="min-width:0;">
@@ -2763,11 +2770,20 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
   
 function uppdateraAktiv(riktning=null){
 
-if(!aktivAktie)return;
+const priceEl=document.getElementById('activePrice');
+const symbolEl=document.getElementById('activeSymbol');
+
+// If no stock selected, show appropriate message based on whether prices have loaded
+if(!aktivAktie){
+    const hasLoadedPrices = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+    if(hasLoadedPrices){
+        symbolEl.innerText = 'Välj ett värdepapper';
+        priceEl.innerText = 'Klicka på en aktie i listan för att se priset';
+    }
+    return;
+}
 
 const s=aktier[aktivAktie];
-
-const priceEl=document.getElementById('activePrice');
 
 priceEl.innerText =
 s.pris===null
