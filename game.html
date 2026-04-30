@@ -1193,6 +1193,7 @@ function laddaFrånLokalt() {
 
 let currentExchangeRate = null; // null = not yet fetched
 let fxReady = false;
+let hasReceivedAnyMarketStatus = false;
 
 // Simple market status cache - NO API CALLS, updated from price API responses
 let symbolMarketStatusCache = {}; // { symbol: { status, sector, timestamp } }
@@ -1226,6 +1227,7 @@ function getSymbolMarketStatus(symbol) {
 function updateMarketStatusFromPriceResponse(symbol, responseData) {
     const normalized = normalizeSymbolForStatus(symbol);
     if (responseData && responseData.marketStatus && normalized) {
+        hasReceivedAnyMarketStatus = true;
         symbolMarketStatusCache[normalized] = {
             status: responseData.marketStatus,
             sector: responseData.sector || getSymbolSector(normalized),
@@ -1310,6 +1312,13 @@ function getMarketUnknownMessage(symbol) {
     return {
         title: 'Marknadsstatus okänd',
         detail: 'Kunde inte bekräfta om marknaden är öppen. Testa igen om en stund eller ladda om sidan.'
+    };
+}
+
+function getMarketLoadingMessage() {
+    return {
+        title: 'Laddar marknadsstatus...',
+        detail: 'Hämtar senaste prisdata. Handel aktiveras automatiskt när status är uppdaterad.'
     };
 }
 
@@ -1607,7 +1616,7 @@ async function loadLeaderboard() {
     return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:0.9rem 1rem; margin-bottom:0.65rem; background:${rowAccent}; border-radius:12px; border:1px solid ${rowBorder}; box-shadow:${isCurrentUser ? '0 0 0 1px rgba(0,255,170,0.35), 0 12px 25px rgba(0,0,0,0.22)' : '0 6px 15px rgba(0,0,0,0.12)'};">
             <div style="display:flex; align-items:center; gap:0.8rem; min-width:0;">
-                <div style="min-width:42px; height:42px; border-radius:999px; background:${index <= 2 ? 'rgba(255,215,0,0.16)' : 'rgba(255,255,255,0.08)'}; border:1px solid rgba(255,255,255,0.20); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">
+                <div style="min-width:${index <= 2 ? '46px' : '42px'}; height:${index <= 2 ? '46px' : '42px'}; border-radius:999px; background:${index <= 2 ? 'rgba(255,215,0,0.16)' : 'rgba(255,255,255,0.08)'}; border:1px solid rgba(255,255,255,0.20); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:${index <= 2 ? '1.3rem' : '0.9rem'}; line-height:1;">
                     ${rankBadge}
                 </div>
                 <div style="min-width:0;">
@@ -1926,7 +1935,7 @@ async function syncTradeControlsVisibility(){
             if (marketClosedMessage) {
                 const closedCopy = marketStatus === 'closed'
                     ? getMarketClosedMessage(aktivAktie)
-                    : getMarketUnknownMessage(aktivAktie);
+                    : (hasReceivedAnyMarketStatus ? getMarketUnknownMessage(aktivAktie) : getMarketLoadingMessage());
                 marketClosedMessage.style.display = 'block';
                 marketClosedMessage.innerHTML = `
                     <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
@@ -1975,7 +1984,7 @@ async function checkCompetitionStatus() {
                 if (marketClosedMessage) {
                     const closedCopy = marketStatus === 'closed'
                         ? getMarketClosedMessage(aktivAktie)
-                        : getMarketUnknownMessage(aktivAktie);
+                        : (hasReceivedAnyMarketStatus ? getMarketUnknownMessage(aktivAktie) : getMarketLoadingMessage());
                     marketClosedMessage.style.display = 'block';
                     marketClosedMessage.innerHTML = `
                         <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
@@ -2548,8 +2557,6 @@ console.log('League parameters detected:', { leagueId: currentLeagueId, code: cu
 // Don't set initial values to 0 - let them be loaded from database
 let initialLoad = true;
 
-showLoggedOutUI();
-
     const { data: { session } } =
         await supabaseClient.auth.getSession();
 
@@ -2564,6 +2571,8 @@ showLoggedOutUI();
         await ensureProfileAndLoad();
 
         appReady = true; // ✅ IMPORTANT (fix for hard reload case)
+    } else {
+        showLoggedOutUI();
     }
 
     supabaseClient.auth.onAuthStateChange(
@@ -3533,8 +3542,12 @@ if(currentUser) uppdateraPortfölj();
 // 4. Se till att Live-knappen lyser blått och systemet vet att vi är i live-mode
 setChartMode('live');
 
-// Default to leaderboard/league view on first paint.
-showLeagueInfo().catch(() => showChartView());
+// Default to leaderboard/league view on first paint (without auth-dependent routing).
+currentView = 'league';
+document.getElementById('leagueInfoView').style.display = 'flex';
+document.getElementById('chartView').style.display = 'none';
+syncViewToggleButtons();
+updateToggleVisibility();
 
 väljAktie(symboler[0], { switchToChartView: false });
     
