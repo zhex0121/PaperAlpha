@@ -1509,14 +1509,28 @@ async function loadLeaderboard() {
     return;
        }
         
-        // Calculate portfolio values for all members
+        // Collect all unique symbols from all member portfolios
+        const allSymbols = new Set();
+        for (const member of members) {
+            if (member.portfolio && typeof member.portfolio === 'object') {
+                Object.keys(member.portfolio).forEach(s => allSymbols.add(s));
+            }
+        }
+        
+        // Fetch all prices at once for better performance
+        const allPrices = await fetchAllPrices(Array.from(allSymbols));
+        
+        // Calculate portfolio values for all members using cached prices
         const leaderboardPromises = members.map(async (member) => {
             let portfolioValue = 0;
             
             if (member.portfolio && typeof member.portfolio === 'object') {
                 for (const [symbol, holding] of Object.entries(member.portfolio)) {
                     if (holding && holding.antal > 0) {
-                        const quote = await fetchPrice(symbol);
+                        const cleanSymbol = symbol.includes("(") 
+                            ? symbol.split("(")[1].replace(")", "").trim() 
+                            : symbol;
+                        const quote = allPrices[cleanSymbol];
                         if (quote && Number.isFinite(quote.price)) {
                             portfolioValue += quote.price * holding.antal;
                         }
