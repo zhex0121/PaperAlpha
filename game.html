@@ -1943,22 +1943,19 @@ async function syncTradeControlsVisibility(){
             }
             window.tradeLock = true;
         } else if (marketStatus === 'unknown') {
-            // Still loading - hide controls but DON'T lock trade permanently
-            if (tradeControls) tradeControls.style.display = 'none';
-            if (marketClosedMessage) {
-                // Match the Laddar priser logic: check if we have ANY status for this symbol yet
-                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
-
-const closedCopy = !pricesHaveLoaded
-    ? getMarketLoadingMessage()
-    : getMarketUnknownMessage(aktivAktie);
-                marketClosedMessage.style.display = 'block';
-                marketClosedMessage.innerHTML = `
-                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
-                    <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
-                `;
-            }
-            // Don't lock trade here - let prices load
+    if (tradeControls) tradeControls.style.display = 'none';
+    if (marketClosedMessage) {
+        const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+        const closedCopy = !pricesHaveLoaded
+            ? getMarketLoadingMessage()
+            : getMarketUnknownMessage(aktivAktie);
+        marketClosedMessage.style.display = 'block';
+        marketClosedMessage.innerHTML = `
+            <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
+            <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
+        `;
+    }
+    window.tradeLock = true; // ← ADD THIS
         } else {
             // Market is open - show controls and unlock trade
             if (tradeControls) tradeControls.style.display = 'block';
@@ -2025,7 +2022,7 @@ const closedCopy = !pricesHaveLoaded
                         <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
                     `;
                 }
-                // Don't lock trade - let it resolve when status loads
+window.tradeLock = true; // ← ADD THIS
             } else {
                 if (marketClosedMessage) marketClosedMessage.style.display = 'none';
                 window.tradeLock = false;
