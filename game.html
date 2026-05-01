@@ -86,16 +86,18 @@ body::before {
     top: 0;
     left: 0;
     right: 0;
-    height: 60px;
+    min-height: 60px;
+    height: auto;
     background: var(--glass);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--glass-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 14px;
     z-index: 1000;
-    
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .in-game-top-info {
@@ -122,7 +124,22 @@ body::before {
 
 @media (max-width: 1100px) {
     .in-game-top-info .time-part {
-        display: none; /* hide time first when space tight */
+        display: none;
+    }
+}
+
+@media (max-width: 700px) {
+    .top-banner {
+        padding: 6px 12px;
+    }
+    .in-game-top-info {
+        order: 3;
+        flex-basis: 100%;
+        font-size: 0.72rem;
+        text-align: center;
+        padding: 2px 0 6px;
+        margin: 0;
+        border-top: 1px solid var(--glass-border);
     }
 }
 
@@ -367,6 +384,14 @@ body::before {
     position: relative;
 }
 
+@media (max-width: 700px) {
+    .main-wrapper {
+        grid-template-columns: 1fr;
+        height: calc(100vh - 60px);
+        margin-top: 60px;
+    }
+}
+
 
 
 .market-side {
@@ -383,6 +408,7 @@ body::before {
     z-index: 500;
     transform: translateX(-100%);
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
 }
 
 .market-side.panel-open {
@@ -995,7 +1021,99 @@ margin-top:0;
     margin-bottom: 5px;
 }
 
+/* ============ MOBILE RESPONSIVE ============ */
 
+@media (max-width: 700px) {
+
+    /* Banner wraps to 2 rows when in-game info present */
+    .top-banner {
+        padding: 6px 12px;
+    }
+
+    .in-game-top-info {
+        order: 3;
+        flex-basis: 100%;
+        font-size: 0.72rem;
+        text-align: center;
+        padding: 3px 0 6px;
+        margin: 0;
+        border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* Main layout: hide trade side by default, stack vertically */
+    .main-wrapper {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+
+    /* Trade side becomes a bottom drawer */
+    .trade-side {
+        height: auto;
+        max-height: 38vh;
+        border-left: none;
+        border-top: 1px solid var(--glass-border);
+        padding: 14px 16px;
+        overflow-y: auto;
+    }
+
+    /* Stat box tighter on mobile */
+    .stat-box {
+        padding: 14px;
+        margin-bottom: 14px;
+    }
+
+    #portfolioValueDisplay {
+        font-size: 1.2rem;
+    }
+
+    /* Left panel: wider on mobile, slides in as overlay */
+    .market-side {
+        width: min(88vw, 340px);
+    }
+
+    /* Panel tab: slightly larger touch target */
+    .panel-tab-inner {
+        padding: 18px 8px;
+        font-size: 0.65rem;
+    }
+
+    /* Main content: remove extra left padding (no persistent panel on mobile) */
+    .main-content {
+        padding: 16px 14px 14px 14px;
+    }
+
+    /* Leaderboard title smaller */
+    .leaderboard-big-title {
+        font-size: 1.8rem;
+        margin-bottom: 14px;
+    }
+
+    /* Chart view: tighter header */
+    #chartView h2 {
+        font-size: 0.95rem;
+    }
+
+    #chartView h1 {
+        font-size: 1.4rem;
+    }
+
+    /* Chart mode buttons smaller */
+    #liveBtn, #historyBtn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+
+    /* Portfolio items: tighter */
+    .portfolio-list > div {
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+    }
+
+    /* Leaderboard rows: compact */
+    #leaderboardList > div {
+        padding: 0.7rem 0.8rem !important;
+    }
+}
     
 </style>
 
@@ -1533,6 +1651,10 @@ async function showLeagueInfo() {
     currentView = 'league';
     document.getElementById('leagueInfoView').style.display = 'flex';
     document.getElementById('chartView').style.display = 'none';
+
+    // Hide trade controls and market message when no security is in view
+    document.getElementById('tradeControls').style.display = 'none';
+    document.getElementById('marketClosedMessage').style.display = 'none';
 
     updateToggleVisibility();
     syncViewToggleButtons();
@@ -2160,7 +2282,7 @@ function showLoggedOutUI() {
     document.getElementById('balanceDisplay').innerText='Logga in för att handla';
     document.getElementById('portfolioDisplay').innerHTML = '';
     document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
-
+    document.getElementById('marketClosedMessage').style.display='none';
     // Show chart view when logged out
     showChartView();
 
