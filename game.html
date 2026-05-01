@@ -1638,7 +1638,7 @@ async function loadLeaderboard() {
     // Profit/loss color based on starting capital (instant, no extra loading - currentLeague already loaded)
     const startingCapital = currentLeague?.starting_balance || 100000;
     const isProfit = entry.totalValue >= startingCapital;
-    const valueColor = isCurrentUser ? '#c8ffef' : (isProfit ? 'var(--up)' : 'var(--down)');
+    const valueColor = isProfit ? 'var(--up)' : 'var(--down)';
 
     return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:${isPodium ? '1rem 1.1rem' : '0.85rem 1rem'}; margin-bottom:0.7rem; background:${rowAccent}; border-radius:14px; border:1px solid ${rowBorder}; box-shadow:${boxShadow}; transition:transform 0.15s ease;">
