@@ -307,6 +307,52 @@ body::before {
     box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
 }
 
+.profile-dropdown-btn {
+    background: none;
+    border: 1px solid var(--glass-border);
+    color: var(--text);
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    text-align: left;
+    letter-spacing: 0.3px;
+    width: 100%;
+}
+
+.profile-dropdown-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(41, 98, 255, 0.2);
+}
+
+.profile-dropdown-btn:last-child {
+    margin-bottom: 0;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--up));
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+}
+
+.login-btn:hover {
+    background: linear-gradient(135deg, var(--up), var(--accent));
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(41, 98, 255, 0.3);
+}
+
 .main-wrapper {
     display: grid;
     grid-template-columns: 350px 1fr 300px;
@@ -860,19 +906,37 @@ margin-top:0;
     <a href="index.html" class="logo-link">PaperAlpha</a>
     <div id="inGameTopInfo" class="in-game-top-info" style="display:none;"></div>
     <div class="profile-section">
-        <div id="loginPrompt" class="login-prompt" style="color: var(--text-dim); font-size: 0.9rem;">
-            <button class="login-button" onclick="showAuthModal(true)">Logga in</button>
-        </div>
-        <div id="profileSection" style="display: none;">
-            <button class="profile-btn" id="profileBtn" onclick="toggleProfileDropdown()">
-                <span id="profileInitial">?</span>
-            </button>
-            <div class="profile-dropdown" id="profileDropdown">
-                <div class="profile-email" id="profileEmail"></div>
-                <button class="logout-btn" onclick="handleLogout()">Logga ut</button>
+            <div id="logged-out-view">
+                <button class="profile-btn" id="profileBtnLoggedOut">
+                    <svg id="profileInitialLoggedOut" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+                <div class="profile-dropdown" id="profileDropdownLoggedOut">
+                    <button class="profile-dropdown-btn" onclick="profileDropdownLoggedOut.classList.remove('show'); window.location.href='index.html';">Mina tävlingar</button>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
+                    <a class="profile-dropdown-btn" href="account.html?section=kontakta" style="text-decoration:none; color:inherit;">Kontakta oss</a>
+                    <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
+                    <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
+                </div>
+            </div>
+            <div id="logged-in-view" style="display: none;">
+                <button class="profile-btn" id="profileBtn">
+                    <svg id="profileInitial" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+                <div class="profile-dropdown" id="profileDropdown">
+                    <button class="profile-dropdown-btn" onclick="profileDropdown.classList.remove('show'); window.location.href='index.html';">Mina tävlingar</button>
+                    <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
+                    <a class="profile-dropdown-btn" href="account.html?section=kontakta" style="text-decoration:none; color:inherit;">Kontakta oss</a>
+                    <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
+                    <button class="logout-btn" onclick="handleLogout()">Logga ut</button>
+                </div>
             </div>
         </div>
-    </div>
 </div>
 
 <div class="main-wrapper">
@@ -1968,30 +2032,31 @@ document.getElementById('authModal').style.display = show ? 'flex' : 'none';
 
 }
 
-function showLoggedOutUI(){
+function showLoggedOutUI() {
+    console.log('[UI] showLoggedOutUI called');
+    const loggedOutView = document.getElementById('logged-out-view');
+    const loggedInView = document.getElementById('logged-in-view');
+    
+    if (loggedOutView) loggedOutView.style.display = 'block';
+    if (loggedInView) loggedInView.style.display = 'none';
+    
+    authReady = true;
+    currentUser = null;
+    showAuthModal(false);
+    
+    // Hide game-specific elements when logged out
+    document.getElementById('accountBar').style.display='none';
+    document.getElementById('tradeControls').style.display='none';
+    document.getElementById('portfolioDisplay').style.display='none';
+    document.getElementById('balanceDisplay').innerText='Logga in för att handla';
+    document.getElementById('portfolioDisplay').innerHTML = '';
+    document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
 
-authReady=true;
+    // Show chart view when logged out
+    showChartView();
 
-currentUser=null;
-
-showAuthModal(false);
-
-// Dölj profil-sektionen i bannern
-document.getElementById('profileSection').style.display = 'none';
-document.getElementById('loginPrompt').style.display = 'block';
-document.getElementById('accountBar').style.display='none';
-document.getElementById('tradeControls').style.display='none';
-document.getElementById('portfolioDisplay').style.display='none';
-document.getElementById('balanceDisplay').innerText='Logga in för att handla';
-document.getElementById('portfolioDisplay').innerHTML = '';
-document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
-
-// Show chart view when logged out
-showChartView();
-
-updateInGameTopInfo();
-
-updateToggleVisibility();
+    updateInGameTopInfo();
+    updateToggleVisibility();
 }
 
 async function syncTradeControlsVisibility(){
@@ -2127,18 +2192,48 @@ async function checkCompetitionStatus() {
 }
     
 // Funktion för att visa/dölja profil-dropdown
-function toggleProfileDropdown() {
-    const dropdown = document.getElementById('profileDropdown');
-    dropdown.classList.toggle('show');
+// Profile dropdown event listeners (matching index.html)
+const loggedOutView = document.getElementById('logged-out-view');
+const loggedInView = document.getElementById('logged-in-view');
+const profileBtn = document.getElementById('profileBtn');
+const profileBtnLoggedOut = document.getElementById('profileBtnLoggedOut');
+const profileDropdown = document.getElementById('profileDropdown');
+const profileDropdownLoggedOut = document.getElementById('profileDropdownLoggedOut');
+const logoutButton = loggedInView?.querySelector('.logout-btn');
+
+// Add event listeners if elements exist
+if (profileBtn) {
+    profileBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        profileDropdown.classList.toggle('show'); 
+        profileDropdownLoggedOut.classList.remove('show'); 
+    });
 }
 
-// Stäng dropdown när man klickar utanför
-document.addEventListener('click', function(event) {
-    const profileSection = document.getElementById('profileSection');
-    const dropdown = document.getElementById('profileDropdown');
-    
-    if (!profileSection.contains(event.target)) {
-        dropdown.classList.remove('show');
+if (profileBtnLoggedOut) {
+    profileBtnLoggedOut.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        profileDropdownLoggedOut.classList.toggle('show'); 
+        profileDropdown.classList.remove('show'); 
+    });
+}
+
+if (logoutButton) {
+    logoutButton.addEventListener('click', handleLogout);
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+    // Close logged-in profile dropdown when clicking outside
+    if (profileBtn && profileDropdown &&
+        !profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+        profileDropdown.classList.remove('show');
+    }
+
+    // Close logged-out profile dropdown when clicking outside
+    if (profileBtnLoggedOut && profileDropdownLoggedOut &&
+        !profileBtnLoggedOut.contains(e.target) && !profileDropdownLoggedOut.contains(e.target)) {
+        profileDropdownLoggedOut.classList.remove('show');
     }
 });
 
@@ -2151,19 +2246,25 @@ function toggleEmailView() {
 
     
 async function showLoggedInUI() {
+    console.log('[UI] showLoggedInUI called for:', currentUser?.email);
+    const loggedOutView = document.getElementById('logged-out-view');
+    const loggedInView = document.getElementById('logged-in-view');
+    
+    if (loggedOutView) loggedOutView.style.display = 'none';
+    if (loggedInView) loggedInView.style.display = 'flex';
+    
     authReady = true;
     showAuthModal(false);
     
-    // Visa profil-sektionen i bannern
-    document.getElementById('profileSection').style.display = 'flex';
-    document.getElementById('loginPrompt').style.display = 'none';
-    
-    // Uppdatera profil-knappen
+    // Update profile button with user initial
     const first = (currentUser?.email || '?').trim()[0]?.toUpperCase() || '';
-    document.getElementById('profileInitial').innerText = first;
-    document.getElementById('profileEmail').innerText = currentUser?.email || '';
+    const profileInitial = document.getElementById('profileInitial');
+    if (profileInitial) {
+        // Keep the SVG but update parent button styling if needed
+        profileInitial.parentElement.style.background = 'var(--accent)';
+    }
     
-    // Dölj gamla accountBar
+    // Hide old accountBar
     document.getElementById('accountBar').style.display='none';
     
     document.getElementById('portfolioDisplay').style.display = 'block'; 
@@ -2552,7 +2653,8 @@ return saveQueue;
 }
 
 
-async function handleLogout(){
+async function handleLogout() {
+    console.log('[Auth] Logging out');
     try{
         // spara nuvarande data till molnet först
         if(currentUser) {
@@ -2579,23 +2681,23 @@ async function handleLogout(){
         saldo = undefined;
         portfölj = undefined;
         isLoadingProfile = false;
-        // uppdatera UI till utloggat tillstånd
-        showLoggedOutUI();
+        
+        // Redirect to index.html after logout
+        window.location.href = 'index.html';
         
         console.log("Utloggad och data rensad");
 
     }catch(e){
         console.error("Logout fel:", e);
-        // även vid fel, rensa gränssnittet
+        // även vid fel, rensa gränssnittet och redirecta
         currentUser = null;
         currentLeague = null;
         currentLeagueId = null;
         currentLeagueCode = null;
-        // Clear data completely so it gets reloaded on login
         saldo = undefined;
         portfölj = undefined;
-        isLoadingProfile = false; 
-        showLoggedOutUI();
+        isLoadingProfile = false;
+        window.location.href = 'index.html';
     }
 }
 
