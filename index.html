@@ -2040,7 +2040,7 @@ async function getMemberTotalValueSek(member, fxRate) {
         const memberData = allMembers.find(m => m.user_id === currentUser.id);
 
         if (!memberData) {
-            return { ...league, placement: '-', totalPlayers: allMembers.length, portfolioValue: 0 };
+            return { ...league, placement: '-', totalPlayers: allMembers.length, portfolioValue: 0, isProfit: false };
         }
 
         // Calculate values using pre-fetched price map (no async, instant)
@@ -2051,12 +2051,16 @@ async function getMemberTotalValueSek(member, fxRate) {
         const placement = sortedValues.indexOf(userValue) + 1;
         const totalPlayers = sortedValues.length;
 
-        console.log(`[Competitions] League "${league.name}" — userValue: ${userValue.toFixed(0)}, placement: ${placement}/${totalPlayers}`);
+        // Profit/loss check against starting balance (instant, no extra loading)
+        const startingCapital = league.starting_balance || 100000;
+        const isProfit = userValue >= startingCapital;
 
-        return { ...league, placement, totalPlayers, portfolioValue: userValue };
+        console.log(`[Competitions] League "${league.name}" — userValue: ${userValue.toFixed(0)}, placement: ${placement}/${totalPlayers}, profit: ${isProfit}`);
+
+        return { ...league, placement, totalPlayers, portfolioValue: userValue, isProfit };
     } catch (err) {
         console.error(`[Competitions] Error getting data for league ${league.id}:`, err);
-        return { ...league, placement: '-', totalPlayers: '-', portfolioValue: 0 };
+        return { ...league, placement: '-', totalPlayers: '-', portfolioValue: 0, isProfit: false };
     }
 }));
         container.innerHTML = competitionsWithData.map(league => `
@@ -2070,7 +2074,7 @@ async function getMemberTotalValueSek(member, fxRate) {
                         </div>
                         <div class="competition-stat">
                             <div class="stat-label">PORTFÖLJVÄRDE</div>
-                            <div class="stat-value portfolio-value">${Number(league.portfolioValue).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} SEK</div>
+                            <div class="stat-value portfolio-value" style="color: ${league.isProfit ? 'var(--up)' : 'var(--down)'}">${Number(league.portfolioValue).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} SEK</div>
                         </div>
                     </div>
                 </div>
