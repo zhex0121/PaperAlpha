@@ -1066,9 +1066,12 @@ margin-top:0;
         font-size: 1.2rem;
     }
 
-    /* Left panel: wider on mobile, slides in as overlay */
+     /* Left panel: narrower on mobile so center section stays readable */
     .market-side {
-        width: min(88vw, 340px);
+        width: min(65vw, 280px);
+        top: 0;
+        height: 100vh;
+        padding-top: env(safe-area-inset-top, 0);
     }
 
     /* Panel tab: slightly larger touch target */
@@ -1114,7 +1117,10 @@ margin-top:0;
         padding: 0.7rem 0.8rem !important;
     }
 }
-    
+    /* Give main content a bit more top breathing room on mobile */
+    .main-content {
+        padding-top: 20px;
+    }
 </style>
 
 </head>
@@ -2294,6 +2300,13 @@ async function syncTradeControlsVisibility(){
     const tradeControls = document.getElementById('tradeControls');
     const marketClosedMessage = document.getElementById('marketClosedMessage');
     let marketStatus = 'unknown';
+
+    // Never show trade UI or market messages when leaderboard is active
+    if (currentView === 'league') {
+        if (tradeControls) tradeControls.style.display = 'none';
+        if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+        return marketStatus;
+    }
     
     if(currentUser && aktivAktie && !isCompetitionEnded()){
         // Fetch market status from dedicated table
@@ -4076,6 +4089,31 @@ document.addEventListener("visibilitychange", async () => {
     }
 });
 
+// Dynamically adjust main-wrapper margin to match actual banner height on mobile
+function adjustBannerOffset() {
+    const banner = document.querySelector('.top-banner');
+    const wrapper = document.querySelector('.main-wrapper');
+    const panel = document.getElementById('marketSide');
+    const tab = document.getElementById('panelTab');
+    if (!banner || !wrapper) return;
+    const h = banner.offsetHeight;
+    wrapper.style.marginTop = h + 'px';
+    wrapper.style.height = `calc(100vh - ${h}px)`;
+    if (panel) panel.style.top = h + 'px';
+    if (panel) panel.style.height = `calc(100vh - ${h}px)`;
+    if (tab) {
+        tab.style.top = '50%';
+        // Offset tab so it doesn't sit behind banner
+    }
+}
+adjustBannerOffset();
+window.addEventListener('resize', adjustBannerOffset);
+// Also run after in-game info updates (it may change banner height)
+const origUpdateInGameTopInfo = updateInGameTopInfo;
+updateInGameTopInfo = function() {
+    origUpdateInGameTopInfo.apply(this, arguments);
+    setTimeout(adjustBannerOffset, 50);
+};
 
 </script>
 </body>
