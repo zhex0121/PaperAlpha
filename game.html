@@ -3094,7 +3094,7 @@ const CHART_WINDOW_MS=20*60*1000;
 const MAX_CANDLES=400;
 
 const CANDLE_MS=60000;
-const PRICE_UPDATE_MS=5000;
+const PRICE_UPDATE_MS=2000; // Match server jitter interval (2 seconds)
 
 
   
@@ -3955,6 +3955,11 @@ async function updateAllPrices() {
             continue; // stale cached quote: do not mutate candles
         }
         
+        // Debug: Log price changes (throttled to avoid console spam)
+        if (Math.abs(nyttPris - gammaltPris) > 0.0001 && s === aktivAktie) {
+            console.log(`[Price] ${s}: ${gammaltPris.toFixed(4)} → ${nyttPris.toFixed(4)} (Δ${(nyttPris-gammaltPris).toFixed(4)})`);
+        }
+        
         pricesUpdated = true; // Mark that we received at least one price
         
         // Första riktiga priset → skapa första candle
@@ -4032,9 +4037,10 @@ async function updateAllPrices() {
     await syncTradeControlsVisibility();
 }
 
-// Start price updates: immediately and then every 5 seconds
+// Start price updates: immediately and then every 2 seconds (matching server jitter)
 updateAllPrices();
 setInterval(updateAllPrices, PRICE_UPDATE_MS);
+console.log(`[Price Feed] Polling Supabase every ${PRICE_UPDATE_MS}ms for jittered prices`);
 
 
     
