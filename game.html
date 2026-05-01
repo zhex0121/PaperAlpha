@@ -1632,8 +1632,13 @@ async function loadLeaderboard() {
         boxShadow = '0 4px 12px rgba(0,0,0,0.10)';
     }
 
-    // Subtle rank label for podium
-    const rankLabel = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : null;
+    // Subtle rank label for podium (Swedish)
+    const rankLabel = index === 0 ? '1:a' : index === 1 ? '2:a' : index === 2 ? '3:e' : null;
+
+    // Profit/loss color based on starting capital (instant, no extra loading - currentLeague already loaded)
+    const startingCapital = currentLeague?.starting_balance || 100000;
+    const isProfit = entry.totalValue >= startingCapital;
+    const valueColor = isCurrentUser ? '#c8ffef' : (isProfit ? 'var(--up)' : 'var(--down)');
 
     return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:${isPodium ? '1rem 1.1rem' : '0.85rem 1rem'}; margin-bottom:0.7rem; background:${rowAccent}; border-radius:14px; border:1px solid ${rowBorder}; box-shadow:${boxShadow}; transition:transform 0.15s ease;">
@@ -1647,11 +1652,11 @@ async function loadLeaderboard() {
                         ${displayName}${isCurrentUser ? ' <span style="font-weight:500; opacity:0.7;">(Du)</span>' : ''}
                     </div>
                     <div style="font-size:0.72rem; color:var(--text-dim); letter-spacing:0.3px; text-transform:uppercase;">
-                        ${index === 0 ? '🏆 Champion' : index === 1 ? '🥈 Runner-up' : index === 2 ? '🥉 Third place' : 'Ligadeltagare'}
+                        ${index === 0 ? '🏆 Mästare' : index === 1 ? '🥈 Andra plats' : index === 2 ? '🥉 Tredje plats' : 'Ligadeltagare'}
                     </div>
                 </div>
             </div>
-            <div style="font-weight:800; font-size:${isPodium ? '1.15rem' : '1.05rem'}; color:${isCurrentUser ? '#c8ffef' : isPodium ? 'var(--text)' : 'var(--up)'}; white-space:nowrap; text-shadow:${isPodium ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'};">
+            <div style="font-weight:800; font-size:${isPodium ? '1.15rem' : '1.05rem'}; color:${valueColor}; white-space:nowrap; text-shadow:${isPodium ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'};">
                 ${compactValue}
             </div>
         </div>
