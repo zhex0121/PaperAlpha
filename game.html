@@ -155,7 +155,96 @@ body::before {
 .chart-mode-buttons {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+}
+
+/* Timeframe selector styling */
+.timeframe-group,
+.timeframe-specific {
+    position: relative;
+}
+
+.timeframe-select {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 8px 28px 8px 12px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: all 0.2s ease;
+    min-width: 80px;
+}
+
+.timeframe-select:hover {
+    border-color: var(--accent);
+    background-color: rgba(41, 98, 255, 0.1);
+}
+
+.timeframe-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.2);
+}
+
+.timeframe-select option {
+    background: var(--surface);
+    color: var(--text);
+}
+
+/* Chart mode toggle (Låst/Fri) */
+.chart-mode-toggle {
+    display: flex;
+    align-items: center;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.mode-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    padding: 6px 14px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.mode-btn.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.mode-btn:hover:not(.active) {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+}
+
+/* Mobile adjustments */
+@media (max-width: 700px) {
+    .timeframe-select {
+        padding: 6px 24px 6px 10px;
+        font-size: 0.8rem;
+        min-width: 70px;
+    }
+    .mode-btn {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+    }
 }
     
 .view-toggle-bar {
@@ -1100,10 +1189,9 @@ margin-top:0;
         font-size: 1.4rem;
     }
 
-    /* Chart mode buttons smaller */
-    #liveBtn, #historyBtn {
-        padding: 8px 12px;
-        font-size: 0.8rem;
+    /* Timeframe controls mobile adjustments */
+    .chart-mode-buttons {
+        gap: 6px;
     }
 
     /* Portfolio items: tighter */
@@ -1196,8 +1284,25 @@ id="stockList">
 
     <div id="viewTopRow" class="view-top-row" style="display:none;">
     <div id="chartModeButtons" class="chart-mode-buttons">
-        <button class="btn" style="width:auto;background:#1e1e1e;color:white;margin-top:0;" onclick="setChartMode('live')" id="liveBtn">REALTID</button>
-        <button class="btn" style="width:auto;background:#1e1e1e;color:white;margin-top:0;" onclick="setChartMode('history')" id="historyBtn">HISTORISKT</button>
+        <!-- Timeframe Group Selector -->
+        <div class="timeframe-group">
+            <select id="timeframeGroupSelect" class="timeframe-select" onchange="onTimeframeGroupChange()">
+                <option value="short">Kort</option>
+                <option value="medium">Medel</option>
+                <option value="long">Lång</option>
+            </select>
+        </div>
+        <!-- Specific Timeframe Selector -->
+        <div class="timeframe-specific">
+            <select id="timeframeSelect" class="timeframe-select" onchange="onTimeframeChange()">
+                <!-- Populated dynamically based on group -->
+            </select>
+        </div>
+        <!-- Mode Toggle: Låst / Fri -->
+        <div class="chart-mode-toggle">
+            <button class="mode-btn" id="lockedBtn" onclick="setChartMode('locked')">Låst</button>
+            <button class="mode-btn" id="freeBtn" onclick="setChartMode('free')">Fri</button>
+        </div>
         <button class="chart-close-btn" onclick="showLeagueInfo()" title="Visa leaderboard">✕</button>
     </div>
 </div>
@@ -2029,34 +2134,41 @@ async function fetchHistory(ticker, resolution='D') {
     }
 }
 
-async function fetchLiveCandles(ticker, limit = 360) {
+async function fetchTimeframeCandles(ticker, timeframe, limit = 360) {
     const cleanTicker = ticker.includes("(")
         ? ticker.split("(")[1].replace(")","").trim()
         : ticker;
 
+    // Get table name from timeframe config
+    const tfConfig = getCurrentTimeframeConfig();
+    const tableName = tfConfig.table;
+
     try {
         const requestedLimit = Number(limit);
         const safeLimit = Number.isFinite(requestedLimit)
-            ? Math.max(1, Math.min(requestedLimit, 360))
+            ? Math.max(1, Math.min(requestedLimit, 500))
             : 360;
         let rows = null;
+        
+        // Try using the Supabase client first
         const { data, error } = await marketDataClient
-            .from('live_candles')
+            .from(tableName)
             .select('bucket_ts, open, high, low, close, volume')
             .eq('symbol', cleanTicker)
             .order('bucket_ts', { ascending: false })
             .limit(safeLimit);
+            
         if (!error && Array.isArray(data)) {
             rows = data;
         } else {
-            // Fallback: explicit REST call with headers in case client auth headers are dropped.
+            // Fallback: explicit REST call with headers
             const qs = new URLSearchParams({
                 select: 'bucket_ts,open,high,low,close,volume',
                 symbol: `eq.${cleanTicker}`,
                 order: 'bucket_ts.desc',
                 limit: String(safeLimit)
             });
-            const resp = await fetch(`${MARKET_SUPABASE_URL}/rest/v1/live_candles?${qs.toString()}`, {
+            const resp = await fetch(`${MARKET_SUPABASE_URL}/rest/v1/${tableName}?${qs.toString()}`, {
                 headers: {
                     apikey: MARKET_SUPABASE_PUBLISHABLE_KEY,
                     Authorization: `Bearer ${MARKET_SUPABASE_PUBLISHABLE_KEY}`
@@ -2064,7 +2176,7 @@ async function fetchLiveCandles(ticker, limit = 360) {
             });
             if (!resp.ok) {
                 const text = await resp.text();
-                console.warn("Live candles fallback request failed:", resp.status, text);
+                console.warn(`${tableName} fallback request failed:`, resp.status, text);
                 return [];
             }
             rows = await resp.json();
@@ -3082,7 +3194,29 @@ let initialLoad = true;
 }
     
 
-let chartMode='live'; // live or history
+// Timeframe configuration: value is the Supabase table suffix
+const TIMEFRAME_CONFIG = {
+    short: [
+        { value: '1min', label: '1 minut', table: 'live_candles', ms: 60000 },
+        { value: '3min', label: '3 minuter', table: 'candles_3min', ms: 180000 },
+        { value: '5min', label: '5 minuter', table: 'candles_5min', ms: 300000 }
+    ],
+    medium: [
+        { value: '10min', label: '10 minuter', table: 'candles_10min', ms: 600000 },
+        { value: '15min', label: '15 minuter', table: 'candles_15min', ms: 900000 },
+        { value: '30min', label: '30 minuter', table: 'candles_30min', ms: 1800000 }
+    ],
+    long: [
+        { value: '1hr', label: '1 timme', table: 'candles_1hr', ms: 3600000 },
+        { value: '2hr', label: '2 timmar', table: 'candles_2hr', ms: 7200000 },
+        { value: '4hr', label: '4 timmar', table: 'candles_4hr', ms: 14400000 },
+        { value: '1day', label: '1 dag', table: 'candles_1day', ms: 86400000 }
+    ]
+};
+
+let currentTimeframeGroup = 'short';
+let currentTimeframe = '3min'; // Default to 3 minutes
+let chartViewMode = 'locked'; // 'locked' (Låst) or 'free' (Fri) - default locked
 
 const LIVE_CANDLES=30;
 
@@ -3224,12 +3358,9 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
 
     const aktie = aktier[ticker];
 
-    // Hydrate from both historical and persisted live candles
-    const [historicalCandles, liveCandles] = await Promise.all([
-        fetchHistory(ticker, 'D'),
-        fetchLiveCandles(ticker, 360)
-    ]);
-    aktie.history = mergeCandles(historicalCandles, liveCandles);
+    // Fetch candles for the currently selected timeframe
+    const timeframeCandles = await fetchTimeframeCandles(ticker, currentTimeframe, 500);
+    aktie.history = timeframeCandles;
 
     // Keep latest known live quote when switching ticker (fast execution),
     // but never fallback to DB historical close as tradable price.
@@ -3452,12 +3583,12 @@ grace:'5%'
 });
 
 chart.options.plugins.zoom.onPan = function() {
-    if(chartMode === 'live'){
+    if(chartViewMode === 'locked'){
         liveAutoScrollEnabled = false; // user manually moved chart
     }
 };
 chart.options.plugins.zoom.onZoom = function() {
-    if(chartMode === 'live'){
+    if(chartViewMode === 'locked'){
         liveAutoScrollEnabled = false; // user manually zoomed
     }
 };
@@ -3470,41 +3601,97 @@ updateChartView();
 
 
   
+// Timeframe dropdown handling
+function populateTimeframeSelect() {
+    const groupSelect = document.getElementById('timeframeGroupSelect');
+    const timeframeSelect = document.getElementById('timeframeSelect');
+    const group = groupSelect.value;
+    
+    const timeframes = TIMEFRAME_CONFIG[group];
+    timeframeSelect.innerHTML = '';
+    
+    timeframes.forEach(tf => {
+        const option = document.createElement('option');
+        option.value = tf.value;
+        option.textContent = tf.label;
+        if (tf.value === currentTimeframe) {
+            option.selected = true;
+        }
+        timeframeSelect.appendChild(option);
+    });
+}
+
+function onTimeframeGroupChange() {
+    const groupSelect = document.getElementById('timeframeGroupSelect');
+    currentTimeframeGroup = groupSelect.value;
+    
+    // Select first timeframe in the new group
+    const timeframes = TIMEFRAME_CONFIG[currentTimeframeGroup];
+    currentTimeframe = timeframes[0].value;
+    
+    populateTimeframeSelect();
+    
+    // Reload chart data with new timeframe
+    if (aktivAktie) {
+        laddaAktie(aktivAktie);
+    }
+}
+
+function onTimeframeChange() {
+    const timeframeSelect = document.getElementById('timeframeSelect');
+    currentTimeframe = timeframeSelect.value;
+    
+    // Reload chart data with new timeframe
+    if (aktivAktie) {
+        laddaAktie(aktivAktie);
+    }
+}
+
+function getCurrentTimeframeConfig() {
+    const allTimeframes = [
+        ...TIMEFRAME_CONFIG.short,
+        ...TIMEFRAME_CONFIG.medium,
+        ...TIMEFRAME_CONFIG.long
+    ];
+    return allTimeframes.find(tf => tf.value === currentTimeframe) || TIMEFRAME_CONFIG.short[1];
+}
+
 function setChartMode(mode){
-    chartMode = mode;
+    // mode is 'locked' (Låst) or 'free' (Fri)
+    chartViewMode = mode;
 
-    document.getElementById('liveBtn').style.background =
-        mode==='live' ? '#2962ff' : '#1e1e1e';
-    document.getElementById('historyBtn').style.background =
-        mode==='history' ? '#2962ff' : '#1e1e1e';
-
-    liveAutoScrollEnabled = (mode === 'live');
-
-    // AUTO ZOOM ONLY WHEN SWITCHING MODE
-   if(mode === 'history' && chart && aktivAktie){
-
-    // 🔥 OPTION B FIX (ADD THIS FIRST)
-    chart.options.scales.x.time.unit = 'day';
-
-    const history = aktier[aktivAktie].history;
-
-    if(typeof chart.resetZoom === 'function'){
-        chart.resetZoom();
+    // Update button styling
+    const lockedBtn = document.getElementById('lockedBtn');
+    const freeBtn = document.getElementById('freeBtn');
+    
+    if (lockedBtn) {
+        lockedBtn.classList.toggle('active', mode === 'locked');
+    }
+    if (freeBtn) {
+        freeBtn.classList.toggle('active', mode === 'free');
     }
 
-    if(history.length){
-        const first = history[0].x;
-        const last = history[history.length-1].x;
+    liveAutoScrollEnabled = (mode === 'locked');
 
-        const padding = (last-first)*0.05;
+    // When switching to free mode, reset to full view
+    if(mode === 'free' && chart && aktivAktie){
+        const history = aktier[aktivAktie].history;
 
-        chart.options.scales.x.min = first - padding;
-        chart.options.scales.x.max = last + padding;
+        if(typeof chart.resetZoom === 'function'){
+            chart.resetZoom();
+        }
 
-        chart.options.scales.y.min = undefined;
-        chart.options.scales.y.max = undefined;
+        if(history.length){
+            const first = history[0].x;
+            const last = history[history.length-1].x;
+            const padding = (last-first)*0.05;
 
-        chart.update('none');
+            chart.options.scales.x.min = first - padding;
+            chart.options.scales.x.max = last + padding;
+            chart.options.scales.y.min = undefined;
+            chart.options.scales.y.max = undefined;
+
+            chart.update('none');
         }
     }
 
@@ -3524,18 +3711,28 @@ function updateChartView() {
     const last = history[history.length - 1].x;
     const range = last - first;
 
-    // Always set time unit safely
-    if (chartMode === 'history') {
-        chart.options.scales.x.time.unit =
-            range > 7 * 24 * 60 * 60 * 1000 ? 'day' :
-            range > 24 * 60 * 60 * 1000 ? 'hour' : 'minute';
+    // Set time unit based on current timeframe and data range
+    const tfConfig = getCurrentTimeframeConfig();
+    if (tfConfig.ms >= 86400000) {
+        // Daily timeframe
+        chart.options.scales.x.time.unit = 'day';
+    } else if (tfConfig.ms >= 3600000) {
+        // Hourly timeframes
+        chart.options.scales.x.time.unit = range > 24 * 60 * 60 * 1000 ? 'day' : 'hour';
+    } else if (tfConfig.ms >= 600000) {
+        // 10min+ timeframes
+        chart.options.scales.x.time.unit = range > 24 * 60 * 60 * 1000 ? 'hour' : 'minute';
     } else {
+        // Sub-10min timeframes
         chart.options.scales.x.time.unit = 'minute';
     }
 
-    if (chartMode === 'live') {
+    if (chartViewMode === 'locked') {
         const newest = last;
-        const viewWindow = 30 * 60 * 1000;
+        // View window depends on timeframe - show more candles for higher timeframes
+        const viewWindow = tfConfig.ms >= 3600000 ? 6 * 60 * 60 * 1000 : // 6 hours for hourly+
+                          tfConfig.ms >= 600000 ? 2 * 60 * 60 * 1000 :   // 2 hours for 10-30min
+                          30 * 60 * 1000;                                  // 30 min for sub-10min
         const rightPadding = viewWindow * 0.33;
 
         if (liveAutoScrollEnabled) {
@@ -3562,7 +3759,7 @@ function updateChartView() {
         chart.options.plugins.zoom.zoom.pinch.enabled = false;
 
     } else {
-        // HISTORY MODE ONLY resets full range
+        // FREE MODE - allow full view and zooming
         const padding = range * 0.05;
 
         chart.options.scales.x.min = first - padding;
@@ -3949,7 +4146,13 @@ async function updateAllPrices() {
         
         const nyttPris = quote.price;
         const quoteTs = quote.timestamp;
-        const candleTs = Math.floor(quoteTs / CANDLE_MS) * CANDLE_MS;
+        
+        // Get current timeframe configuration
+        const tfConfig = getCurrentTimeframeConfig();
+        const candleMs = tfConfig.ms;
+        
+        // Calculate candle timestamp based on current timeframe
+        const candleTs = Math.floor(quoteTs / candleMs) * candleMs;
         const prevQuoteTs = Number(aktie.senasteLivePrisTid || 0);
         if (quoteTs <= prevQuoteTs) {
             continue; // stale cached quote: do not mutate candles
@@ -3987,16 +4190,16 @@ async function updateAllPrices() {
         // Uppdatera candlestick (samma logik som innan men med riktigt pris)
         let nu = candleTs;
         let senasteCandle = aktie.history[aktie.history.length - 1];
-        if (nu - senasteCandle.x < CANDLE_MS) {
+        if (senasteCandle && nu - senasteCandle.x < candleMs) {
             senasteCandle.c = nyttPris;
             senasteCandle.h = Math.max(senasteCandle.h, nyttPris);
             senasteCandle.l = Math.min(senasteCandle.l, nyttPris);
         } else {
             aktie.history.push({
                 x: nu,
-                o: senasteCandle.c,
-                h: Math.max(senasteCandle.c, nyttPris),
-                l: Math.min(senasteCandle.c, nyttPris),
+                o: senasteCandle ? senasteCandle.c : nyttPris,
+                h: Math.max(senasteCandle ? senasteCandle.c : nyttPris, nyttPris),
+                l: Math.min(senasteCandle ? senasteCandle.c : nyttPris, nyttPris),
                 c: nyttPris
             });
             if (aktie.history.length > MAX_CANDLES) aktie.history.shift();
@@ -4051,8 +4254,10 @@ renderStockList();
 // 2. Uppdatera portföljvisningen
 if(currentUser) uppdateraPortfölj();
 
-// 4. Se till att Live-knappen lyser blått och systemet vet att vi är i live-mode
-setChartMode('live');
+// 4. Initialize timeframe dropdowns and set default locked mode
+document.getElementById('timeframeGroupSelect').value = currentTimeframeGroup;
+populateTimeframeSelect();
+setChartMode('locked'); // Default to locked (Låst) mode
 
 // Default to leaderboard/league view on first paint (without auth-dependent routing).
 currentView = 'league';
