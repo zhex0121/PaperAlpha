@@ -281,9 +281,7 @@ body::before {
     
     .timeframe-grid-dropdown {
         position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        /* Position set by JS to be below trigger */
         min-width: 280px;
         max-width: calc(100vw - 16px);
         padding: 10px;
@@ -3681,6 +3679,30 @@ function renderTimeframeGrid() {
     });
 }
 
+function positionDropdownBelowTrigger() {
+    const grid = document.getElementById('timeframeGrid');
+    const trigger = document.getElementById('timeframeTrigger');
+    
+    if (!grid || !trigger) return;
+    
+    const rect = trigger.getBoundingClientRect();
+    const gridWidth = 280;
+    const spacing = 8;
+    
+    // Position below trigger
+    let top = rect.bottom + spacing;
+    
+    // Horizontal: align left with trigger, but keep within viewport
+    let left = rect.left;
+    if (left + gridWidth > window.innerWidth - 10) {
+        left = window.innerWidth - gridWidth - 10; // shift left if would overflow right
+    }
+    if (left < 10) left = 10; // minimum left margin
+    
+    grid.style.top = top + 'px';
+    grid.style.left = left + 'px';
+}
+
 function toggleTimeframeDropdown() {
     const grid = document.getElementById('timeframeGrid');
     const trigger = document.getElementById('timeframeTrigger');
@@ -3690,6 +3712,11 @@ function toggleTimeframeDropdown() {
     timeframeDropdownOpen = !timeframeDropdownOpen;
     grid.classList.toggle('open', timeframeDropdownOpen);
     trigger.classList.toggle('active', timeframeDropdownOpen);
+    
+    // Position below trigger when opening (mobile needs explicit positioning)
+    if (timeframeDropdownOpen && window.innerWidth <= 700) {
+        positionDropdownBelowTrigger();
+    }
     
     // Close on outside click
     if (timeframeDropdownOpen) {
