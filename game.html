@@ -159,44 +159,46 @@ body::before {
 }
 
 /* Timeframe selector styling */
-.timeframe-group,
-.timeframe-specific {
-    position: relative;
-}
-
-.timeframe-select {
+.timeframe-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(62px, 1fr));
+    grid-template-rows: repeat(3, auto);
+    gap: 6px;
     background: var(--glass);
     border: 1px solid var(--glass-border);
-    border-radius: 8px;
-    padding: 8px 28px 8px 12px;
-    color: var(--text);
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
+    border-radius: 10px;
+    padding: 8px;
     backdrop-filter: blur(10px);
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
+}
+
+.timeframe-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 7px 6px;
+    cursor: pointer;
     transition: all 0.2s ease;
-    min-width: 80px;
+    white-space: nowrap;
 }
 
-.timeframe-select:hover {
+.timeframe-btn:hover {
     border-color: var(--accent);
-    background-color: rgba(41, 98, 255, 0.1);
+    background: rgba(41, 98, 255, 0.14);
 }
 
-.timeframe-select:focus {
+.timeframe-btn.active {
+    border-color: var(--accent);
+    background: rgba(41, 98, 255, 0.25);
+    color: #fff;
+}
+
+.timeframe-btn:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.2);
-}
-
-.timeframe-select option {
-    background: var(--surface);
-    color: var(--text);
 }
 
 /* Chart mode toggle (Låst/Fri) */
@@ -236,10 +238,14 @@ body::before {
 
 /* Mobile adjustments */
 @media (max-width: 700px) {
-    .timeframe-select {
-        padding: 6px 24px 6px 10px;
-        font-size: 0.8rem;
-        min-width: 70px;
+    .timeframe-grid {
+        grid-template-columns: repeat(4, minmax(52px, 1fr));
+        gap: 4px;
+        padding: 6px;
+    }
+    .timeframe-btn {
+        padding: 6px 4px;
+        font-size: 0.7rem;
     }
     .mode-btn {
         padding: 5px 10px;
@@ -1284,20 +1290,8 @@ id="stockList">
 
     <div id="viewTopRow" class="view-top-row" style="display:none;">
     <div id="chartModeButtons" class="chart-mode-buttons">
-        <!-- Timeframe Group Selector -->
-        <div class="timeframe-group">
-            <select id="timeframeGroupSelect" class="timeframe-select" onchange="onTimeframeGroupChange()">
-                <option value="short">Kort</option>
-                <option value="medium">Medel</option>
-                <option value="long">Lång</option>
-            </select>
-        </div>
-        <!-- Specific Timeframe Selector -->
-        <div class="timeframe-specific">
-            <select id="timeframeSelect" class="timeframe-select" onchange="onTimeframeChange()">
-                <!-- Populated dynamically based on group -->
-            </select>
-        </div>
+        <!-- Timeframe Selector Grid -->
+        <div id="timeframeGrid" class="timeframe-grid"></div>
         <!-- Mode Toggle: Låst / Fri -->
         <div class="chart-mode-toggle">
             <button class="mode-btn" id="lockedBtn" onclick="setChartMode('locked')">Låst</button>
@@ -3195,28 +3189,23 @@ let initialLoad = true;
 }
     
 
-// Timeframe configuration: value is the Supabase table suffix
-const TIMEFRAME_CONFIG = {
-    short: [
-        { value: '1min', label: '1 minut', table: 'live_candles', ms: 60000 },
-        { value: '3min', label: '3 minuter', table: 'candles_3min', ms: 180000 },
-        { value: '5min', label: '5 minuter', table: 'candles_5min', ms: 300000 }
-    ],
-    medium: [
-        { value: '10min', label: '10 minuter', table: 'candles_10min', ms: 600000 },
-        { value: '15min', label: '15 minuter', table: 'candles_15min', ms: 900000 },
-        { value: '30min', label: '30 minuter', table: 'candles_30min', ms: 1800000 }
-    ],
-    long: [
-        { value: '1hr', label: '1 timme', table: 'candles_1hr', ms: 3600000 },
-        { value: '2hr', label: '2 timmar', table: 'candles_2hr', ms: 7200000 },
-        { value: '4hr', label: '4 timmar', table: 'candles_4hr', ms: 14400000 },
-        { value: '1day', label: '1 dag', table: 'candles_1day', ms: 86400000 }
-    ]
-};
+// Timeframe configuration ordered from smallest to largest
+const TIMEFRAME_CONFIG = [
+    { value: '15sec', label: '15 sek', table: 'candles_15sec', ms: 15000 },
+    { value: '1min', label: '1 minut', table: 'candles_1min', ms: 60000 },
+    { value: '3min', label: '3 minuter', table: 'candles_3min', ms: 180000 },
+    { value: '5min', label: '5 minuter', table: 'candles_5min', ms: 300000 },
+    { value: '10min', label: '10 minuter', table: 'candles_10min', ms: 600000 },
+    { value: '15min', label: '15 minuter', table: 'candles_15min', ms: 900000 },
+    { value: '30min', label: '30 minuter', table: 'candles_30min', ms: 1800000 },
+    { value: '1hr', label: '1 timme', table: 'candles_1hr', ms: 3600000 },
+    { value: '2hr', label: '2 timmar', table: 'candles_2hr', ms: 7200000 },
+    { value: '4hr', label: '4 timmar', table: 'candles_4hr', ms: 14400000 },
+    { value: '1day', label: '1 dag', table: 'candles_1day', ms: 86400000 },
+    { value: '1week', label: '1 vecka', table: 'candles_1week', ms: 604800000 }
+];
 
-let currentTimeframeGroup = 'short';
-let currentTimeframe = '3min'; // Default to 3 minutes
+let currentTimeframe = '15sec'; // Default to 15 sekunder
 let chartViewMode = 'locked'; // 'locked' (Låst) or 'free' (Fri) - default locked
 
 const LIVE_CANDLES=30;
@@ -3602,46 +3591,30 @@ updateChartView();
 
 
   
-// Timeframe dropdown handling
-function populateTimeframeSelect() {
-    const groupSelect = document.getElementById('timeframeGroupSelect');
-    const timeframeSelect = document.getElementById('timeframeSelect');
-    const group = groupSelect.value;
-    
-    const timeframes = TIMEFRAME_CONFIG[group];
-    timeframeSelect.innerHTML = '';
-    
-    timeframes.forEach(tf => {
-        const option = document.createElement('option');
-        option.value = tf.value;
-        option.textContent = tf.label;
-        if (tf.value === currentTimeframe) {
-            option.selected = true;
-        }
-        timeframeSelect.appendChild(option);
+// Timeframe grid handling
+function renderTimeframeGrid() {
+    const grid = document.getElementById('timeframeGrid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    TIMEFRAME_CONFIG.forEach(tf => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'timeframe-btn';
+        btn.textContent = tf.label;
+        btn.dataset.timeframe = tf.value;
+        btn.classList.toggle('active', tf.value === currentTimeframe);
+        btn.onclick = () => onTimeframeChange(tf.value);
+        grid.appendChild(btn);
     });
 }
 
-function onTimeframeGroupChange() {
-    const groupSelect = document.getElementById('timeframeGroupSelect');
-    currentTimeframeGroup = groupSelect.value;
-    
-    // Select first timeframe in the new group
-    const timeframes = TIMEFRAME_CONFIG[currentTimeframeGroup];
-    currentTimeframe = timeframes[0].value;
-    
-    populateTimeframeSelect();
-    
-    // Reload chart data with new timeframe
-    if (aktivAktie) {
-        väljAktie(aktivAktie);
-    }
-}
+function onTimeframeChange(nextTimeframe) {
+    if (!nextTimeframe || nextTimeframe === currentTimeframe) return;
+    currentTimeframe = nextTimeframe;
+    renderTimeframeGrid();
 
-function onTimeframeChange() {
-    const timeframeSelect = document.getElementById('timeframeSelect');
-    currentTimeframe = timeframeSelect.value;
-    
     // Reload chart data with new timeframe
     if (aktivAktie) {
         väljAktie(aktivAktie);
@@ -3649,12 +3622,7 @@ function onTimeframeChange() {
 }
 
 function getCurrentTimeframeConfig() {
-    const allTimeframes = [
-        ...TIMEFRAME_CONFIG.short,
-        ...TIMEFRAME_CONFIG.medium,
-        ...TIMEFRAME_CONFIG.long
-    ];
-    return allTimeframes.find(tf => tf.value === currentTimeframe) || TIMEFRAME_CONFIG.short[1];
+    return TIMEFRAME_CONFIG.find(tf => tf.value === currentTimeframe) || TIMEFRAME_CONFIG[0];
 }
 
 function setChartMode(mode){
@@ -4284,9 +4252,8 @@ renderStockList();
 // 2. Uppdatera portföljvisningen
 if(currentUser) uppdateraPortfölj();
 
-// 4. Initialize timeframe dropdowns and set default locked mode
-document.getElementById('timeframeGroupSelect').value = currentTimeframeGroup;
-populateTimeframeSelect();
+// 4. Initialize timeframe selector and set default locked mode
+renderTimeframeGrid();
 setChartMode('locked'); // Default to locked (Låst) mode
 
 // Default to leaderboard/league view on first paint (without auth-dependent routing).
