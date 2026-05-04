@@ -158,47 +158,81 @@ body::before {
     gap: 8px;
 }
 
-/* Timeframe selector styling */
-.timeframe-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(62px, 1fr));
-    grid-template-rows: repeat(3, auto);
-    gap: 6px;
+/* Timeframe Grid Dropdown Styling */
+.timeframe-dropdown-wrapper {
+    position: relative;
+}
+
+.timeframe-trigger {
     background: var(--glass);
     border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    padding: 8px;
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
     backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    min-width: 70px;
 }
 
-.timeframe-btn {
-    background: rgba(255,255,255,0.04);
+.timeframe-trigger:hover {
+    border-color: var(--accent);
+    background-color: rgba(41, 98, 255, 0.1);
+}
+
+.timeframe-trigger.active {
+    border-color: var(--accent);
+    background-color: rgba(41, 98, 255, 0.15);
+}
+
+.timeframe-grid-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    background: var(--surface);
     border: 1px solid var(--glass-border);
-    border-radius: 7px;
+    border-radius: 12px;
+    padding: 8px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 1000;
+    min-width: 240px;
+}
+
+.timeframe-grid-dropdown.open {
+    display: grid;
+}
+
+.timeframe-grid-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 10px 6px;
     color: var(--text);
     font-size: 0.75rem;
-    font-weight: 600;
-    padding: 7px 6px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
+    transition: all 0.15s ease;
+    text-align: center;
 }
 
-.timeframe-btn:hover {
+.timeframe-grid-btn:hover {
+    background: rgba(41, 98, 255, 0.2);
     border-color: var(--accent);
-    background: rgba(41, 98, 255, 0.14);
 }
 
-.timeframe-btn.active {
-    border-color: var(--accent);
-    background: rgba(41, 98, 255, 0.25);
+.timeframe-grid-btn.active {
+    background: var(--accent);
     color: #fff;
-}
-
-.timeframe-btn:focus {
-    outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.2);
 }
 
 /* Chart mode toggle (Låst/Fri) */
@@ -238,18 +272,32 @@ body::before {
 
 /* Mobile adjustments */
 @media (max-width: 700px) {
-    .timeframe-grid {
-        grid-template-columns: repeat(4, minmax(52px, 1fr));
-        gap: 4px;
-        padding: 6px;
+    .timeframe-trigger {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+        min-width: 60px;
     }
-    .timeframe-btn {
-        padding: 6px 4px;
+    
+    .timeframe-grid-dropdown {
+        left: 50%;
+        transform: translateX(-50%);
+        min-width: 220px;
+        padding: 6px;
+        gap: 3px;
+    }
+    
+    .timeframe-grid-btn {
+        padding: 8px 4px;
         font-size: 0.7rem;
     }
+    
     .mode-btn {
         padding: 5px 10px;
         font-size: 0.75rem;
+    }
+    
+    .chart-mode-buttons {
+        gap: 6px;
     }
 }
     
@@ -1290,8 +1338,18 @@ id="stockList">
 
     <div id="viewTopRow" class="view-top-row" style="display:none;">
     <div id="chartModeButtons" class="chart-mode-buttons">
-        <!-- Timeframe Selector Grid -->
-        <div id="timeframeGrid" class="timeframe-grid"></div>
+        <!-- Timeframe Grid Dropdown -->
+        <div class="timeframe-dropdown-wrapper">
+            <button class="timeframe-trigger" onclick="toggleTimeframeDropdown()" id="timeframeTrigger">
+                <span id="currentTimeframeLabel">15 s</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </button>
+            <div id="timeframeGrid" class="timeframe-grid-dropdown">
+                <!-- 12 buttons in 4×3 grid, populated by JS -->
+            </div>
+        </div>
         <!-- Mode Toggle: Låst / Fri -->
         <div class="chart-mode-toggle">
             <button class="mode-btn" id="lockedBtn" onclick="setChartMode('locked')">Låst</button>
@@ -3189,23 +3247,28 @@ let initialLoad = true;
 }
     
 
-// Timeframe configuration ordered from smallest to largest
-const TIMEFRAME_CONFIG = [
-    { value: '15sec', label: '15 sek', table: 'candles_15sec', ms: 15000 },
-    { value: '1min', label: '1 minut', table: 'candles_1min', ms: 60000 },
-    { value: '3min', label: '3 minuter', table: 'candles_3min', ms: 180000 },
-    { value: '5min', label: '5 minuter', table: 'candles_5min', ms: 300000 },
-    { value: '10min', label: '10 minuter', table: 'candles_10min', ms: 600000 },
-    { value: '15min', label: '15 minuter', table: 'candles_15min', ms: 900000 },
-    { value: '30min', label: '30 minuter', table: 'candles_30min', ms: 1800000 },
-    { value: '1hr', label: '1 timme', table: 'candles_1hr', ms: 3600000 },
-    { value: '2hr', label: '2 timmar', table: 'candles_2hr', ms: 7200000 },
-    { value: '4hr', label: '4 timmar', table: 'candles_4hr', ms: 14400000 },
-    { value: '1day', label: '1 dag', table: 'candles_1day', ms: 86400000 },
-    { value: '1week', label: '1 vecka', table: 'candles_1week', ms: 604800000 }
+// Timeframe configuration: flat array of 12 timeframes (4×3 grid)
+// Ordered: Row 1 (15s-5m), Row 2 (10m-1h), Row 3 (2h-1w)
+const TIMEFRAMES = [
+    // Row 1: Short intervals
+    { value: '15sec', label: '15 s', table: 'candles_15sec', ms: 15000 },
+    { value: '1min', label: '1 m', table: 'candles_1min', ms: 60000 },
+    { value: '3min', label: '3 m', table: 'candles_3min', ms: 180000 },
+    { value: '5min', label: '5 m', table: 'candles_5min', ms: 300000 },
+    // Row 2: Medium intervals
+    { value: '10min', label: '10 m', table: 'candles_10min', ms: 600000 },
+    { value: '15min', label: '15 m', table: 'candles_15min', ms: 900000 },
+    { value: '30min', label: '30 m', table: 'candles_30min', ms: 1800000 },
+    { value: '1hr', label: '1 h', table: 'candles_1hr', ms: 3600000 },
+    // Row 3: Long intervals
+    { value: '2hr', label: '2 h', table: 'candles_2hr', ms: 7200000 },
+    { value: '4hr', label: '4 h', table: 'candles_4hr', ms: 14400000 },
+    { value: '1day', label: '1 d', table: 'candles_1day', ms: 86400000 },
+    { value: '1week', label: '1 v', table: 'candles_1week', ms: 604800000 }
 ];
 
-let currentTimeframe = '15sec'; // Default to 15 sekunder
+let currentTimeframe = '15sec'; // Default to 15 seconds
+let timeframeDropdownOpen = false;
 let chartViewMode = 'locked'; // 'locked' (Låst) or 'free' (Fri) - default locked
 
 const LIVE_CANDLES=30;
@@ -3591,38 +3654,97 @@ updateChartView();
 
 
   
-// Timeframe grid handling
+// Timeframe Grid Dropdown Functions
 function renderTimeframeGrid() {
     const grid = document.getElementById('timeframeGrid');
     if (!grid) return;
-
+    
     grid.innerHTML = '';
-
-    TIMEFRAME_CONFIG.forEach(tf => {
+    
+    TIMEFRAMES.forEach(tf => {
         const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'timeframe-btn';
+        btn.className = 'timeframe-grid-btn';
         btn.textContent = tf.label;
-        btn.dataset.timeframe = tf.value;
-        btn.classList.toggle('active', tf.value === currentTimeframe);
-        btn.onclick = () => onTimeframeChange(tf.value);
+        btn.dataset.value = tf.value;
+        
+        if (tf.value === currentTimeframe) {
+            btn.classList.add('active');
+        }
+        
+        btn.onclick = () => selectTimeframe(tf.value);
         grid.appendChild(btn);
     });
 }
 
-function onTimeframeChange(nextTimeframe) {
-    if (!nextTimeframe || nextTimeframe === currentTimeframe) return;
-    currentTimeframe = nextTimeframe;
-    renderTimeframeGrid();
+function toggleTimeframeDropdown() {
+    const grid = document.getElementById('timeframeGrid');
+    const trigger = document.getElementById('timeframeTrigger');
+    
+    if (!grid || !trigger) return;
+    
+    timeframeDropdownOpen = !timeframeDropdownOpen;
+    grid.classList.toggle('open', timeframeDropdownOpen);
+    trigger.classList.toggle('active', timeframeDropdownOpen);
+    
+    // Close on outside click
+    if (timeframeDropdownOpen) {
+        setTimeout(() => {
+            document.addEventListener('click', closeTimeframeDropdownOutside, { once: true });
+        }, 10);
+    }
+}
 
-    // Reload chart data with new timeframe
+function closeTimeframeDropdownOutside(e) {
+    const grid = document.getElementById('timeframeGrid');
+    const trigger = document.getElementById('timeframeTrigger');
+    
+    if (grid && trigger && !grid.contains(e.target) && !trigger.contains(e.target)) {
+        timeframeDropdownOpen = false;
+        grid.classList.remove('open');
+        trigger.classList.remove('active');
+    } else if (timeframeDropdownOpen) {
+        // Re-add listener if still open
+        document.addEventListener('click', closeTimeframeDropdownOutside, { once: true });
+    }
+}
+
+function selectTimeframe(value) {
+    if (value === currentTimeframe) {
+        toggleTimeframeDropdown();
+        return;
+    }
+    
+    currentTimeframe = value;
+    
+    // Update UI
+    const label = document.getElementById('currentTimeframeLabel');
+    const tfConfig = TIMEFRAMES.find(tf => tf.value === value);
+    if (label && tfConfig) {
+        label.textContent = tfConfig.label;
+    }
+    
+    // Update grid button states
+    renderTimeframeGrid();
+    
+    // Close dropdown
+    toggleTimeframeDropdown();
+    
+    // Reload chart data
     if (aktivAktie) {
         väljAktie(aktivAktie);
     }
 }
 
+function updateTimeframeTriggerLabel() {
+    const label = document.getElementById('currentTimeframeLabel');
+    const tfConfig = TIMEFRAMES.find(tf => tf.value === currentTimeframe);
+    if (label && tfConfig) {
+        label.textContent = tfConfig.label;
+    }
+}
+
 function getCurrentTimeframeConfig() {
-    return TIMEFRAME_CONFIG.find(tf => tf.value === currentTimeframe) || TIMEFRAME_CONFIG[0];
+    return TIMEFRAMES.find(tf => tf.value === currentTimeframe) || TIMEFRAMES[0];
 }
 
 function setChartMode(mode){
@@ -4252,8 +4374,9 @@ renderStockList();
 // 2. Uppdatera portföljvisningen
 if(currentUser) uppdateraPortfölj();
 
-// 4. Initialize timeframe selector and set default locked mode
+// 4. Initialize timeframe dropdown and set default locked mode
 renderTimeframeGrid();
+updateTimeframeTriggerLabel();
 setChartMode('locked'); // Default to locked (Låst) mode
 
 // Default to leaderboard/league view on first paint (without auth-dependent routing).
