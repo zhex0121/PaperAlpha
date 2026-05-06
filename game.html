@@ -2150,44 +2150,33 @@ function updateViewBasedOnAuth() {
 }
 
 async function fetchHistory(ticker, resolution='D') {
-    const cleanTicker = ticker.includes("(")
-        ? ticker.split("(")[1].replace(")","").trim()
-        : ticker;
-
-    const now = Date.now();
-    const pastTime = now - (resolution === 'D' ? 30 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000); // Adjust based on resolution
-
-    try {
-        const resp = await fetch(
-            `https://server-api-092b.onrender.com/api/chart/${encodeURIComponent(cleanTicker)}?resolution=${resolution}&start_time=${pastTime}`
-        );
-
-        const data = await resp.json();
-        if (!Array.isArray(data)) return [];
-
-        // Ensure we are only processing data within acceptable limits
-        const filteredData = data.filter(c => c.x >= pastTime && c.x <= now);
-
-        console.log("RAW DATA:", filteredData);
-
-        const cleaned = filteredData.map(c => ({
-            x: Number(c.x),
-            o: Number(c.o),
-            h: Number(c.h),
-            l: Number(c.l),
-            c: Number(c.c),
-            v: Number(c.v || 0)
-        }));
-
-        const sorted = cleaned.sort((a, b) => a.x - b.x);
-
-        console.log("FINAL DATA:", sorted.length);
-
-        return sorted;
-    } catch (e) {
-        console.error("Historical data error:", e);
-        return [];
-    }
+    const resolutionToTf = {
+        '15sec': '15sec',
+        '1': '1min',
+        '1min': '1min',
+        '3': '3min',
+        '3min': '3min',
+        '5': '5min',
+        '5min': '5min',
+        '10': '10min',
+        '10min': '10min',
+        '15': '15min',
+        '15min': '15min',
+        '30': '30min',
+        '30min': '30min',
+        '60': '1hr',
+        '1hr': '1hr',
+        '120': '2hr',
+        '2hr': '2hr',
+        '240': '4hr',
+        '4hr': '4hr',
+        'D': '1day',
+        '1day': '1day',
+        'W': '1week',
+        '1week': '1week'
+    };
+    const tf = resolutionToTf[resolution] || currentTimeframe;
+    return fetchTimeframeCandles(ticker, tf, MAX_CANDLES);
 }
 
 async function fetchTimeframeCandles(ticker, timeframe, limit = 360) {
@@ -2196,13 +2185,13 @@ async function fetchTimeframeCandles(ticker, timeframe, limit = 360) {
         : ticker;
 
     // Get table name from timeframe config
-    const tfConfig = getCurrentTimeframeConfig();
+    const tfConfig = TIMEFRAMES.find(tf => tf.value === timeframe) || getCurrentTimeframeConfig();
     const tableName = tfConfig.table;
 
     try {
         const requestedLimit = Number(limit);
         const safeLimit = Number.isFinite(requestedLimit)
-            ? Math.max(1, Math.min(requestedLimit, 500))
+            ? Math.max(1, Math.min(requestedLimit, MAX_CANDLES))
             : 360;
         let rows = null;
         
@@ -2278,17 +2267,20 @@ function mergeCandles(baseCandles, liveCandles, max = MAX_CANDLES) {
     }
 
     merged.sort((a, b) => a.x - b.x);
+    const tfConfig = getCurrentTimeframeConfig();
     return fillMissingMinuteCandles(merged, {
+        stepMs: tfConfig.ms,
         maxOutput: max,
         endAtNow: false,
-        maxGapMs: 2 * CANDLE_MS
+        maxGapMs: 2 * tfConfig.ms
     });
 }
 
 function fillMissingMinuteCandles(candles, options = {}) {
     if (!Array.isArray(candles) || candles.length === 0) return [];
 
-    const stepMs = options.stepMs || CANDLE_MS;
+    const tfConfig = getCurrentTimeframeConfig();
+    const stepMs = options.stepMs || tfConfig.ms;
     const maxGapMs = options.maxGapMs || (2 * stepMs); // smooth only tiny gaps
     const maxOutput = options.maxOutput || MAX_CANDLES;
     const endAtNow = !!options.endAtNow;
@@ -2340,10 +2332,12 @@ function backfillLiveGapForSymbol(stock, now = Date.now()) {
     const last = stock.history[stock.history.length - 1];
     if (!Number.isFinite(last?.x) || !Number.isFinite(last?.c)) return;
 
-    const nowBucket = Math.floor(now / CANDLE_MS) * CANDLE_MS;
+    const tfConfig = getCurrentTimeframeConfig();
+    const candleMs = tfConfig.ms;
+    const nowBucket = Math.floor(now / candleMs) * candleMs;
     const gap = nowBucket - last.x;
-    if (gap >= CANDLE_MS && gap <= 2 * CANDLE_MS) {
-        const ts = last.x + CANDLE_MS;
+    if (gap >= candleMs && gap <= 2 * candleMs) {
+        const ts = last.x + candleMs;
         const close = stock.history[stock.history.length - 1].c;
         stock.history.push({ x: ts, o: close, h: close, l: close, c: close, v: 0 });
     }
@@ -2363,7 +2357,7 @@ ticker.includes("(")
 ? ticker.split("(")[1].replace(")","").trim()
 : ticker;
     const { data, error } = await marketDataClient
-      .from('stock_prices')
+      .from('live_prices')
       .select('price_usd, updated_at')
       .eq('ticker', cleanTicker)
       .single();
@@ -2386,7 +2380,7 @@ async function fetchAllPrices(tickers) {
       t.includes("(") ? t.split("(")[1].replace(")", "").trim() : t
     );
     const { data, error } = await marketDataClient
-      .from('stock_prices')
+      .from('live_prices')
       .select('ticker, price_usd, updated_at')
       .in('ticker', cleanTickers);
     if (error || !data) {
@@ -3274,17 +3268,16 @@ let currentTimeframe = '15sec'; // Default to 15 seconds
 let timeframeDropdownOpen = false;
 let chartViewMode = 'locked'; // 'locked' (Låst) or 'free' (Fri) - default locked
 
-const LIVE_CANDLES=30;
+const LIVE_CANDLES=360;
 
   
 let priceFlashTimeout=null;
 
 const CHART_WINDOW_MS=20*60*1000;
 
-const MAX_CANDLES=400;
+const MAX_CANDLES=360;
 
-const CANDLE_MS=60000;
-const PRICE_UPDATE_MS=2000; // Match server jitter interval (2 seconds)
+const PRICE_UPDATE_MS=1000; // 1 second polling
 
 
   
@@ -3415,7 +3408,7 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
     const aktie = aktier[ticker];
 
     // Fetch candles for the currently selected timeframe
-    const timeframeCandles = await fetchTimeframeCandles(ticker, currentTimeframe, 500);
+    const timeframeCandles = await fetchTimeframeCandles(ticker, currentTimeframe, MAX_CANDLES);
     aktie.history = timeframeCandles;
 
     // Keep latest known live quote when switching ticker (fast execution),
@@ -4395,7 +4388,7 @@ async function updateAllPrices() {
 // Start price updates: immediately and then every 2 seconds (matching server jitter)
 updateAllPrices();
 setInterval(updateAllPrices, PRICE_UPDATE_MS);
-console.log(`[Price Feed] Polling Supabase every ${PRICE_UPDATE_MS}ms for jittered prices`);
+console.log(`[Price Feed] Polling Supabase every ${PRICE_UPDATE_MS}ms`);
 
 
     
