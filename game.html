@@ -1344,7 +1344,7 @@ id="stockList">
         <!-- Timeframe Grid Dropdown -->
         <div class="timeframe-dropdown-wrapper">
             <button class="timeframe-trigger" onclick="toggleTimeframeDropdown()" id="timeframeTrigger">
-                <span id="currentTimeframeLabel">15 s</span>
+                <span id="currentTimeframeLabel">1 m</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
@@ -1656,7 +1656,7 @@ function getSymbolMarketStatus(symbol) {
     if (!normalized) return 'unknown';
     
     // Check if we have any price data yet - if not, show loading for ALL symbols including crypto
-    const hasLoadedPrices = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+    const hasLoadedPrices = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
     if (!hasLoadedPrices) {
         return 'unknown'; // Still loading prices, show loading message for all
     }
@@ -1743,6 +1743,13 @@ function getMarketLoadingMessage() {
     return {
         title: 'Laddar marknadsstatus...',
         detail: 'Hämtar senaste prisdata. Handel aktiveras automatiskt när status är uppdaterad.'
+    };
+}
+
+function getStalePriceMessage() {
+    return {
+        title: 'Priserna är för gamla',
+        detail: 'Vi har inte fått en ny kurs på över 10 sekunder. Handel är tillfälligt pausad tills livepriserna är uppdaterade.'
     };
 }
 
@@ -2471,6 +2478,24 @@ async function syncTradeControlsVisibility(){
     }
     
     if(currentUser && aktivAktie && !isCompetitionEnded()){
+        const currentQuoteTs = Number(aktier[aktivAktie]?.senasteLivePrisTid || 0);
+        const hasQuote = Number.isFinite(currentQuoteTs) && currentQuoteTs > 0;
+        const isStale = hasQuote && (Date.now() - currentQuoteTs > STALE_PRICE_THRESHOLD_MS);
+
+        if (isStale) {
+            if (tradeControls) tradeControls.style.display = 'none';
+            if (marketClosedMessage) {
+                const staleCopy = getStalePriceMessage();
+                marketClosedMessage.style.display = 'block';
+                marketClosedMessage.innerHTML = `
+                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${staleCopy.title}</div>
+                    <div style="font-size: 0.9rem;">${staleCopy.detail}</div>
+                `;
+            }
+            window.tradeLock = true;
+            return 'stale';
+        }
+
         // Fetch market status from dedicated table
         const statusData = await fetchMarketStatus(aktivAktie);
         marketStatus = statusData.status;
@@ -2490,7 +2515,7 @@ async function syncTradeControlsVisibility(){
         } else if (marketStatus === 'unknown') {
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
-                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
                 const copy = !pricesHaveLoaded
                     ? getMarketLoadingMessage()
                     : getMarketUnknownMessage(aktivAktie);
@@ -2510,7 +2535,7 @@ async function syncTradeControlsVisibility(){
             // Any other status (including invalid/random values) - treat as unknown/locked
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
-                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
                 const copy = !pricesHaveLoaded
                     ? getMarketLoadingMessage()
                     : getMarketUnknownMessage(aktivAktie);
@@ -2573,7 +2598,7 @@ async function checkCompetitionStatus() {
             } else if (marketStatus === 'unknown') {
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
-                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90000);
+                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
                 const copy = !pricesHaveLoaded
                     ? getMarketLoadingMessage()
                     : getMarketUnknownMessage(aktivAktie);
@@ -3264,7 +3289,7 @@ const TIMEFRAMES = [
     { value: '1week', label: '1 v', table: 'candles_1week', ms: 604800000 }
 ];
 
-let currentTimeframe = '15sec'; // Default to 15 seconds
+let currentTimeframe = '1min'; // Default to 1 minute
 let timeframeDropdownOpen = false;
 let chartViewMode = 'locked'; // 'locked' (Låst) or 'free' (Fri) - default locked
 
@@ -3278,6 +3303,7 @@ const CHART_WINDOW_MS=20*60*1000;
 const MAX_CANDLES=360;
 
 const PRICE_UPDATE_MS=1000; // 1 second polling
+const STALE_PRICE_THRESHOLD_MS = 10 * 1000;
 
 
   
@@ -4355,7 +4381,7 @@ async function updateAllPrices() {
     if (pricesUpdated) {
         lastPriceUpdate = Date.now();
     }
-    const feedIsFresh = lastPriceUpdate && (Date.now() - lastPriceUpdate < 90 * 1000);
+    const feedIsFresh = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
     if (feedIsFresh !== marketIsOpen) {
         marketIsOpen = feedIsFresh;
         console.log(feedIsFresh
