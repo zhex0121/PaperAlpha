@@ -1360,6 +1360,12 @@ id="stockList">
         </div>
         <button class="chart-close-btn" onclick="showLeagueInfo()" title="Visa leaderboard">✕</button>
     </div>
+    <div id="viewToggleBar" class="view-toggle-bar">
+        <div class="view-toggle-pill">
+            <button id="btnChart" class="toggle-btn" onclick="switchToChart()" title="Diagram">📈</button>
+            <button id="btnLeaderboard" class="toggle-btn active" onclick="switchToLeaderboard()" title="Ledartavla">🏆</button>
+        </div>
+    </div>
 </div>
     
 <!-- League Information View -->
@@ -1840,7 +1846,13 @@ async function showLeagueInfo() {
 }
     
     function syncViewToggleButtons() {
-    // Toggle buttons removed; mode tracked via currentView only
+    const chartBtn = document.getElementById('btnChart');
+    const leaderboardBtn = document.getElementById('btnLeaderboard');
+
+    if (!chartBtn || !leaderboardBtn) return;
+
+    chartBtn.classList.toggle('active', currentView === 'chart');
+    leaderboardBtn.classList.toggle('active', currentView === 'league');
 }
     
 async function showChartView() {
@@ -1871,9 +1883,11 @@ function updateToggleVisibility() {
     const inLeague = !!(currentUser && currentLeagueId && currentLeague);
     const topRow = document.getElementById('viewTopRow');
     const chartModes = document.getElementById('chartModeButtons');
+    const viewToggleBar = document.getElementById('viewToggleBar');
 
-    if (topRow) topRow.style.display = (inLeague && currentView === 'chart') ? 'flex' : 'none';
+    if (topRow) topRow.style.display = inLeague ? 'flex' : 'none';
     if (chartModes) chartModes.style.display = currentView === 'chart' ? 'flex' : 'none';
+    if (viewToggleBar) viewToggleBar.style.display = inLeague ? 'flex' : 'none';
 }
 
 function openPanel() {
@@ -1893,6 +1907,13 @@ function closePanel() {
 function togglePanel() {
     const isOpen = document.getElementById('marketSide').classList.contains('panel-open');
     isOpen ? closePanel() : openPanel();
+}
+
+function handleChartAreaPointerClose(event) {
+    const panel = document.getElementById('marketSide');
+    if (!panel || !panel.classList.contains('panel-open')) return;
+
+    closePanel();
 }
     
 function formatLeagueTimeLeft(endTimeValue) {
@@ -3361,6 +3382,12 @@ symboler.forEach(s => {
         header.style.letterSpacing = "0.22em";
         
         // Make sector names more prominent with specific colors
+        const displayLabel = catName === "Index"
+            ? "INDEX (ETF)"
+            : catName === "Aktier"
+                ? "AKTIER (USA)"
+                : catName;
+
         if (catName === "Krypto") {
             header.style.color = "#f59e0b";
             header.style.background = "linear-gradient(90deg, rgba(245, 158, 11, 0.15), transparent)";
@@ -3373,6 +3400,10 @@ symboler.forEach(s => {
             header.style.color = "#f97316";
             header.style.background = "linear-gradient(90deg, rgba(249, 115, 22, 0.15), transparent)";
             header.style.borderLeft = "3px solid #f97316";
+        } else if (catName === "Aktier") {
+            header.style.color = "#60a5fa";
+            header.style.background = "linear-gradient(90deg, rgba(96, 165, 250, 0.16), transparent)";
+            header.style.borderLeft = "3px solid #60a5fa";
         } else {
             header.style.color = "rgba(255,255,255,0.38)";
             header.style.background = "none";
@@ -3381,7 +3412,7 @@ symboler.forEach(s => {
         
         header.style.borderRadius = "4px";
         header.style.marginBottom = "4px";
-        header.innerText = catName;
+        header.innerText = displayLabel;
         container.appendChild(header);
 
         categories[catName].forEach(s => {
@@ -3395,6 +3426,7 @@ maximumFractionDigits:2
             
             const div = document.createElement('div');
             div.className = `stock-item ${aktivAktie === s ? 'active' : ''}`;
+            div.dataset.ticker = s;
             
             div.onclick = () => väljAktie(s);
 
@@ -3408,10 +3440,28 @@ maximumFractionDigits:2
                     <b>${namn}</b><br>
                     <small style="color:var(--text-dim)">${ticker}</small>
                 </div>
-                <div style="font-weight:bold;">${prisVisa}</div>
+                <div style="font-weight:bold;" data-role="price">${prisVisa}</div>
             `;
             container.appendChild(div);
         });
+    });
+}
+
+function updateStockPricesInList() {
+    const rows = document.querySelectorAll('#stockList .stock-item[data-ticker]');
+    rows.forEach((row) => {
+        const ticker = row.dataset.ticker;
+        if (!ticker || !aktier[ticker]) return;
+        const priceEl = row.querySelector('[data-role="price"]');
+        if (!priceEl) return;
+
+        const price = aktier[ticker].pris;
+        priceEl.innerText = (price === null || price === undefined)
+            ? "..."
+            : Number(price).toLocaleString('sv-SE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
     });
 }
 
@@ -4407,7 +4457,7 @@ async function updateAllPrices() {
     uppdateraPortfölj();
     if (aktivAktie && lastLoggedSymbolMarketStatus) updateMarketStatusIndicator(aktivAktie, lastLoggedSymbolMarketStatus);
     if (chart && aktivAktie) updateChartView();
-    renderStockList(document.getElementById('searchInput').value);
+    updateStockPricesInList();
     await syncTradeControlsVisibility();
 }
 
@@ -4415,6 +4465,12 @@ async function updateAllPrices() {
 updateAllPrices();
 setInterval(updateAllPrices, PRICE_UPDATE_MS);
 console.log(`[Price Feed] Polling Supabase every ${PRICE_UPDATE_MS}ms`);
+
+const chartAreaEl = document.querySelector('#chartView .chart-container');
+if (chartAreaEl) {
+    chartAreaEl.addEventListener('click', handleChartAreaPointerClose);
+    chartAreaEl.addEventListener('touchend', handleChartAreaPointerClose, { passive: true });
+}
 
 
     
