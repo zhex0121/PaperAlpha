@@ -1332,7 +1332,7 @@ async function fetchPriceUsd(symbolLabel) {
 
     try {
         const { data, error } = await marketDataClient
-            .from('stock_prices')
+            .from('live_prices')
             .select('price_usd')
             .eq('ticker', ticker)
             .single();
@@ -1352,7 +1352,7 @@ async function fetchAllPrices(tickers) {
             t.includes("(") ? t.split("(")[1].replace(")", "").trim() : t.trim()
         );
         const { data, error } = await marketDataClient
-            .from('stock_prices')
+            .from('live_prices')
             .select('ticker, price_usd')
             .in('ticker', cleanTickers);
         if (error || !data) {
