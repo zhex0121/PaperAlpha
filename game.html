@@ -1923,6 +1923,7 @@ function handleOutsidePanelPointerClose(event) {
     if (!(target instanceof Element)) return;
 
     if (target.closest('#marketSide')) return;
+    if (target.closest('#panelTab')) return;
     if (target.closest('.top-banner')) return;
     if (target.closest('.trade-side')) return;
 
