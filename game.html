@@ -3824,6 +3824,7 @@ chart.options.plugins.zoom.onZoom = function() {
 };
 chart.options.plugins.zoom.pan.onPanStart = function() {
     if (chartViewMode === 'free') {
+        syncFreeModeZoomLimits();
         markFreeInteraction();
     }
 };
@@ -3834,6 +3835,7 @@ chart.options.plugins.zoom.pan.onPanComplete = function() {
 };
 chart.options.plugins.zoom.zoom.onZoomStart = function() {
     if (chartViewMode === 'free') {
+        syncFreeModeZoomLimits();
         markFreeInteraction();
     }
 };
@@ -4039,22 +4041,57 @@ function applyFreeModeXDefaultBounds() {
     freeAxisSet = true;
 }
 
+function getFreeModeXDomain() {
+    if (!aktivAktie) return null;
+    const history = aktier[aktivAktie]?.history || [];
+    if (!history.length) return null;
+
+    const tfConfig = getCurrentTimeframeConfig();
+    const step = tfConfig.ms;
+    const dataMin = history[0].x;
+    const dataMax = history[history.length - 1].x;
+    const leftPadding = FREE_LEFT_PADDING_CANDLES * step;
+    const rightPadding = FREE_RIGHT_PADDING_CANDLES * step;
+
+    return {
+        step,
+        dataMin,
+        dataMax,
+        domainMin: dataMin - leftPadding,
+        domainMax: dataMax + rightPadding
+    };
+}
+
+function syncFreeModeZoomLimits() {
+    if (!chart || chartViewMode !== 'free') return;
+    const domain = getFreeModeXDomain();
+    if (!domain) return;
+
+    const minRange = FREE_MIN_CANDLES * domain.step;
+    const maxRange = FREE_MAX_CANDLES * domain.step;
+    chart.options.plugins.zoom.limits = {
+        x: {
+            min: domain.domainMin,
+            max: domain.domainMax,
+            minRange,
+            maxRange
+        }
+    };
+}
+
 function clampFreeModeXRange(preferHardStop = false) {
     if (!chart || !aktivAktie) return;
     const history = aktier[aktivAktie].history || [];
     if (!history.length) return;
 
-    const tfConfig = getCurrentTimeframeConfig();
-    const step = tfConfig.ms;
+    const domain = getFreeModeXDomain();
+    if (!domain) return;
+    const step = domain.step;
     const minSpan = FREE_MIN_CANDLES * step;
     const maxSpan = FREE_MAX_CANDLES * step;
 
-    const dataMin = history[0].x;
-    const dataMax = history[history.length - 1].x;
-    const leftPadding = FREE_LEFT_PADDING_CANDLES * step;
-    const rightPadding = FREE_RIGHT_PADDING_CANDLES * step;
-    const domainMin = dataMin - leftPadding;
-    const domainMax = dataMax + rightPadding;
+    const domainMin = domain.domainMin;
+    const domainMax = domain.domainMax;
 
     let xMin = Number(chart.options.scales.x.min);
     let xMax = Number(chart.options.scales.x.max);
@@ -4130,6 +4167,7 @@ function stepFreeModeViewport(ts) {
     if (!freeAxisSet || !Number.isFinite(chart.options.scales.x.min) || !Number.isFinite(chart.options.scales.x.max)) {
         applyFreeModeXDefaultBounds();
     }
+    syncFreeModeZoomLimits();
     clampFreeModeXRange();
 
     const xMin = chart.options.scales.x.min;
@@ -4191,6 +4229,7 @@ function startFreeModeAnimator() {
 
 function recenterFreeMode() {
     if (!chart || !aktivAktie || chartViewMode !== 'free') return;
+    syncFreeModeZoomLimits();
     applyFreeModeXDefaultBounds();
     clampFreeModeXRange();
     resetFreeViewportState();
@@ -4222,9 +4261,13 @@ function setChartMode(mode){
     if (mode === 'free') {
         freeAxisSet = false; // free mode anchors once per entry and then user owns x
         resetFreeViewportState();
+        syncFreeModeZoomLimits();
         applyFreeModeXDefaultBounds();
         startFreeModeAnimator();
     } else {
+        if (chart?.options?.plugins?.zoom) {
+            chart.options.plugins.zoom.limits = undefined;
+        }
         stopFreeModeAnimator();
         resetFreeViewportState();
         freeAxisSet = false;
@@ -4301,6 +4344,7 @@ function updateChartView() {
         if (!freeAxisSet) {
             applyFreeModeXDefaultBounds();
         }
+        syncFreeModeZoomLimits();
 
         // Only allow x-axis panning/zooming; cap zoom-out to 360 candles
         chart.options.plugins.zoom.pan.enabled = true;
