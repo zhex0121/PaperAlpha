@@ -1564,13 +1564,16 @@ const FREE_EPSILON_ABS = 0.01;
 const FREE_INTERACTION_HYSTERESIS_MS = 120;
 const FREE_MAX_CANDLES = 360;
 const FREE_MIN_CANDLES = 2;
-const FREE_BOUNDARY_PADDING_CANDLES = 20;
+const FREE_LEFT_PADDING_CANDLES = 40;
+const FREE_RIGHT_PADDING_CANDLES = 100;
 
 const freeViewportState = {
     yTargetMin: null,
     yTargetMax: null,
     yRenderMin: null,
     yRenderMax: null,
+    lastValidXMin: null,
+    lastValidXMax: null,
     lastInteractionAt: 0,
     lastFrameTs: 0
 };
@@ -1604,7 +1607,7 @@ const chartBoundaryLabelPlugin = {
         ctx.font = '500 12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Starten av peperalpha', px, py);
+        ctx.fillText('Starten av PaperAlpha', px, py);
         ctx.restore();
     }
 };
@@ -3807,7 +3810,7 @@ chart.options.plugins.zoom.onPan = function() {
     }
     if (chartViewMode === 'free') {
         markFreeInteraction();
-        clampFreeModeXRange();
+        clampFreeModeXRange(true);
     }
 };
 chart.options.plugins.zoom.onZoom = function() {
@@ -3816,7 +3819,7 @@ chart.options.plugins.zoom.onZoom = function() {
     }
     if (chartViewMode === 'free') {
         markFreeInteraction();
-        clampFreeModeXRange();
+        clampFreeModeXRange(true);
     }
 };
 chart.options.plugins.zoom.pan.onPanStart = function() {
@@ -3984,6 +3987,8 @@ function resetFreeViewportState() {
     freeViewportState.yTargetMax = null;
     freeViewportState.yRenderMin = null;
     freeViewportState.yRenderMax = null;
+    freeViewportState.lastValidXMin = null;
+    freeViewportState.lastValidXMax = null;
     freeViewportState.lastFrameTs = 0;
     isPanningOrZoomingX = false;
 }
@@ -4034,7 +4039,7 @@ function applyFreeModeXDefaultBounds() {
     freeAxisSet = true;
 }
 
-function clampFreeModeXRange() {
+function clampFreeModeXRange(preferHardStop = false) {
     if (!chart || !aktivAktie) return;
     const history = aktier[aktivAktie].history || [];
     if (!history.length) return;
@@ -4046,9 +4051,10 @@ function clampFreeModeXRange() {
 
     const dataMin = history[0].x;
     const dataMax = history[history.length - 1].x;
-    const boundaryPadding = FREE_BOUNDARY_PADDING_CANDLES * step;
-    const domainMin = dataMin - boundaryPadding;
-    const domainMax = dataMax + boundaryPadding;
+    const leftPadding = FREE_LEFT_PADDING_CANDLES * step;
+    const rightPadding = FREE_RIGHT_PADDING_CANDLES * step;
+    const domainMin = dataMin - leftPadding;
+    const domainMax = dataMax + rightPadding;
 
     let xMin = Number(chart.options.scales.x.min);
     let xMax = Number(chart.options.scales.x.max);
@@ -4076,6 +4082,15 @@ function clampFreeModeXRange() {
         span = minSpan;
     }
 
+    const outOfBounds = xMin < domainMin || xMax > domainMax;
+    if (outOfBounds && preferHardStop &&
+        Number.isFinite(freeViewportState.lastValidXMin) &&
+        Number.isFinite(freeViewportState.lastValidXMax)) {
+        chart.options.scales.x.min = freeViewportState.lastValidXMin;
+        chart.options.scales.x.max = freeViewportState.lastValidXMax;
+        return;
+    }
+
     if (xMin < domainMin) {
         xMax += (domainMin - xMin);
         xMin = domainMin;
@@ -4095,6 +4110,9 @@ function clampFreeModeXRange() {
 
     chart.options.scales.x.min = xMin;
     chart.options.scales.x.max = xMax;
+
+    freeViewportState.lastValidXMin = xMin;
+    freeViewportState.lastValidXMax = xMax;
 }
 
 function stepFreeModeViewport(ts) {
