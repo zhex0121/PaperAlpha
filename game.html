@@ -271,6 +271,26 @@ body::before {
     color: var(--text);
 }
 
+.recenter-btn {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.recenter-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+    background: rgba(41, 98, 255, 0.12);
+}
+
 /* Mobile adjustments */
 @media (max-width: 700px) {
     .timeframe-trigger {
@@ -1358,6 +1378,7 @@ id="stockList">
             <button class="mode-btn" id="lockedBtn" onclick="setChartMode('locked')">Låst</button>
             <button class="mode-btn" id="freeBtn" onclick="setChartMode('free')">Fri</button>
         </div>
+        <button class="recenter-btn" id="recenterBtn" onclick="recenterFreeMode()" title="Centrera till senaste" style="display:none;">Centrera</button>
     </div>
     <div id="viewToggleBar" class="view-toggle-bar">
         <div class="view-toggle-pill">
@@ -1531,6 +1552,25 @@ function formatMoney(number) {
 
 let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
 let freeAxisSet = false;
+let isPanningOrZoomingX = false;
+let freeModeAnimationFrame = null;
+
+const FREE_Y_PADDING_BASE = 0.16;
+const FREE_Y_PADDING_MAX = 0.28;
+const FREE_Y_MIN_SPAN_RATIO = 0.0025;
+const FREE_Y_MIN_SPAN_ABS = 0.05;
+const FREE_EPSILON_RATIO = 0.0002;
+const FREE_EPSILON_ABS = 0.01;
+const FREE_INTERACTION_HYSTERESIS_MS = 120;
+
+const freeViewportState = {
+    yTargetMin: null,
+    yTargetMax: null,
+    yRenderMin: null,
+    yRenderMax: null,
+    lastInteractionAt: 0,
+    lastFrameTs: 0
+};
     
 let marketIsOpen = false; // Track symbol status transitions for log clarity
 let lastPriceUpdate = null; // Track when we last received fresh prices
@@ -3726,10 +3766,36 @@ chart.options.plugins.zoom.onPan = function() {
     if(chartViewMode === 'locked'){
         liveAutoScrollEnabled = false; // user manually moved chart
     }
+    if (chartViewMode === 'free') {
+        markFreeInteraction();
+    }
 };
 chart.options.plugins.zoom.onZoom = function() {
     if(chartViewMode === 'locked'){
         liveAutoScrollEnabled = false; // user manually zoomed
+    }
+    if (chartViewMode === 'free') {
+        markFreeInteraction();
+    }
+};
+chart.options.plugins.zoom.pan.onPanStart = function() {
+    if (chartViewMode === 'free') {
+        markFreeInteraction();
+    }
+};
+chart.options.plugins.zoom.pan.onPanComplete = function() {
+    if (chartViewMode === 'free') {
+        markFreeInteraction();
+    }
+};
+chart.options.plugins.zoom.zoom.onZoomStart = function() {
+    if (chartViewMode === 'free') {
+        markFreeInteraction();
+    }
+};
+chart.options.plugins.zoom.zoom.onZoomComplete = function() {
+    if (chartViewMode === 'free') {
+        markFreeInteraction();
     }
 };
 
@@ -3863,6 +3929,151 @@ function getCurrentTimeframeConfig() {
     return TIMEFRAMES.find(tf => tf.value === currentTimeframe) || TIMEFRAMES[0];
 }
 
+function clampNumber(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+}
+
+function markFreeInteraction() {
+    isPanningOrZoomingX = true;
+    freeViewportState.lastInteractionAt = performance.now();
+}
+
+function resetFreeViewportState() {
+    freeViewportState.yTargetMin = null;
+    freeViewportState.yTargetMax = null;
+    freeViewportState.yRenderMin = null;
+    freeViewportState.yRenderMax = null;
+    freeViewportState.lastFrameTs = 0;
+    isPanningOrZoomingX = false;
+}
+
+function stopFreeModeAnimator() {
+    if (freeModeAnimationFrame !== null) {
+        cancelAnimationFrame(freeModeAnimationFrame);
+        freeModeAnimationFrame = null;
+    }
+}
+
+function computeFreeModeYTarget(visible) {
+    if (!visible.length) return null;
+
+    const highs = visible.map(c => c.h);
+    const lows = visible.map(c => c.l);
+    const max = Math.max(...highs);
+    const min = Math.min(...lows);
+    const rawSpan = Math.max(max - min, 0);
+    const mid = (max + min) / 2;
+    const minSpan = Math.max(Math.abs(mid) * FREE_Y_MIN_SPAN_RATIO, FREE_Y_MIN_SPAN_ABS);
+    const normalizedVol = rawSpan / Math.max(Math.abs(mid), 1);
+    const padRatio = clampNumber(FREE_Y_PADDING_BASE + normalizedVol * 0.4, FREE_Y_PADDING_BASE, FREE_Y_PADDING_MAX);
+    const span = Math.max(rawSpan, minSpan);
+    const margin = span * padRatio;
+
+    return {
+        min: (mid - span / 2) - margin,
+        max: (mid + span / 2) + margin,
+        span,
+        mid
+    };
+}
+
+function applyFreeModeXDefaultBounds() {
+    if (!chart || !aktivAktie) return;
+    const history = aktier[aktivAktie].history || [];
+    if (!history.length) return;
+
+    const tfConfig = getCurrentTimeframeConfig();
+    const newest = history[history.length - 1].x;
+    const FREE_CANDLES = 50;
+    const viewWindow = FREE_CANDLES * tfConfig.ms;
+    const rightPadding = viewWindow * 0.15;
+
+    chart.options.scales.x.min = newest - (viewWindow - rightPadding);
+    chart.options.scales.x.max = newest + rightPadding;
+    freeAxisSet = true;
+}
+
+function stepFreeModeViewport(ts) {
+    if (chartViewMode !== 'free' || !chart || !aktivAktie) {
+        stopFreeModeAnimator();
+        return;
+    }
+
+    const history = aktier[aktivAktie].history || [];
+    if (!history.length) {
+        freeModeAnimationFrame = requestAnimationFrame(stepFreeModeViewport);
+        return;
+    }
+
+    if (!freeAxisSet || !Number.isFinite(chart.options.scales.x.min) || !Number.isFinite(chart.options.scales.x.max)) {
+        applyFreeModeXDefaultBounds();
+    }
+
+    const xMin = chart.options.scales.x.min;
+    const xMax = chart.options.scales.x.max;
+    const visible = history.filter(c => c.x >= xMin && c.x <= xMax);
+    const target = computeFreeModeYTarget(visible);
+    if (!target) {
+        freeModeAnimationFrame = requestAnimationFrame(stepFreeModeViewport);
+        return;
+    }
+
+    freeViewportState.yTargetMin = target.min;
+    freeViewportState.yTargetMax = target.max;
+
+    if (freeViewportState.yRenderMin === null || freeViewportState.yRenderMax === null) {
+        freeViewportState.yRenderMin = target.min;
+        freeViewportState.yRenderMax = target.max;
+    } else {
+        const dt = freeViewportState.lastFrameTs > 0 ? (ts - freeViewportState.lastFrameTs) : 16;
+        const currMid = (freeViewportState.yRenderMin + freeViewportState.yRenderMax) / 2;
+        const currSpan = Math.max(freeViewportState.yRenderMax - freeViewportState.yRenderMin, 1e-9);
+        const targetMid = (target.min + target.max) / 2;
+        const targetSpan = target.max - target.min;
+        const movePct = Math.abs(targetMid - currMid) / Math.max(Math.abs(currMid), 1);
+        const spanPct = Math.abs(targetSpan - currSpan) / currSpan;
+
+        let alpha = clampNumber(dt / 220, 0.06, 0.34);
+        if (movePct > 0.03 || spanPct > 0.03) alpha = Math.max(alpha, 0.42);
+        if (movePct > 0.08 || spanPct > 0.08) alpha = Math.max(alpha, 0.55);
+        if (isPanningOrZoomingX) alpha = Math.min(alpha * 1.15, 0.62);
+
+        freeViewportState.yRenderMin += (target.min - freeViewportState.yRenderMin) * alpha;
+        freeViewportState.yRenderMax += (target.max - freeViewportState.yRenderMax) * alpha;
+    }
+
+    if (isPanningOrZoomingX && ts - freeViewportState.lastInteractionAt > FREE_INTERACTION_HYSTERESIS_MS) {
+        isPanningOrZoomingX = false;
+    }
+
+    const renderMid = (freeViewportState.yRenderMin + freeViewportState.yRenderMax) / 2;
+    const epsilon = Math.max(Math.abs(renderMid) * FREE_EPSILON_RATIO, FREE_EPSILON_ABS);
+    const minChanged = Math.abs((chart.options.scales.y.min ?? 0) - freeViewportState.yRenderMin) > epsilon;
+    const maxChanged = Math.abs((chart.options.scales.y.max ?? 0) - freeViewportState.yRenderMax) > epsilon;
+
+    if (minChanged || maxChanged) {
+        chart.options.scales.y.min = freeViewportState.yRenderMin;
+        chart.options.scales.y.max = freeViewportState.yRenderMax;
+        chart.update('none');
+    }
+
+    freeViewportState.lastFrameTs = ts;
+    freeModeAnimationFrame = requestAnimationFrame(stepFreeModeViewport);
+}
+
+function startFreeModeAnimator() {
+    if (freeModeAnimationFrame !== null) return;
+    freeModeAnimationFrame = requestAnimationFrame(stepFreeModeViewport);
+}
+
+function recenterFreeMode() {
+    if (!chart || !aktivAktie || chartViewMode !== 'free') return;
+    applyFreeModeXDefaultBounds();
+    resetFreeViewportState();
+    markFreeInteraction();
+    updateChartView();
+}
+
 function setChartMode(mode){
     // mode is 'locked' (Låst) or 'free' (Fri)
     chartViewMode = mode;
@@ -3870,6 +4081,7 @@ function setChartMode(mode){
     // Update button styling
     const lockedBtn = document.getElementById('lockedBtn');
     const freeBtn = document.getElementById('freeBtn');
+    const recenterBtn = document.getElementById('recenterBtn');
     
     if (lockedBtn) {
         lockedBtn.classList.toggle('active', mode === 'locked');
@@ -3877,36 +4089,22 @@ function setChartMode(mode){
     if (freeBtn) {
         freeBtn.classList.toggle('active', mode === 'free');
     }
+    if (recenterBtn) {
+        recenterBtn.style.display = mode === 'free' ? 'inline-flex' : 'none';
+    }
 
     liveAutoScrollEnabled = (mode === 'locked');
-    freeAxisSet = false; // reset so free mode re-fits on next entry
 
-    
-    if(mode === 'free' && chart && aktivAktie){
-    const history = aktier[aktivAktie].history;
-    const tfConfig = getCurrentTimeframeConfig();
-
-    if(typeof chart.resetZoom === 'function'){
-        chart.resetZoom();
+    if (mode === 'free') {
+        freeAxisSet = false; // free mode anchors once per entry and then user owns x
+        resetFreeViewportState();
+        applyFreeModeXDefaultBounds();
+        startFreeModeAnimator();
+    } else {
+        stopFreeModeAnimator();
+        resetFreeViewportState();
+        freeAxisSet = false;
     }
-
-    if(history.length){
-        const newest = history[history.length - 1].x;
-        // Locked shows 30 candles — free shows ~50, a subtle "pop out"
-        const LOCKED_CANDLES = 30;
-        const FREE_CANDLES = 50;
-        const viewWindow = FREE_CANDLES * tfConfig.ms;
-        const rightPadding = viewWindow * 0.15;
-
-        chart.options.scales.x.min = newest - (viewWindow - rightPadding);
-        chart.options.scales.x.max = newest + rightPadding;
-        chart.options.scales.y.min = undefined;
-        chart.options.scales.y.max = undefined;
-
-        freeAxisSet = true;
-        chart.update('none');
-    }
-}
 
     updateChartView();
 }
@@ -3968,31 +4166,16 @@ function updateChartView() {
         chart.options.plugins.zoom.pan.enabled = false;
         chart.options.plugins.zoom.zoom.wheel.enabled = false;
         chart.options.plugins.zoom.zoom.pinch.enabled = false;
+        chart.options.plugins.zoom.pan.mode = 'x';
+        chart.options.plugins.zoom.zoom.wheel.mode = 'x';
+        chart.options.plugins.zoom.zoom.pinch.mode = 'x';
+
+        stopFreeModeAnimator();
 
     } else {
-        // FREE MODE — x axis is user-controlled, y axis auto-fits visible candles
+        // FREE MODE — x axis is user-controlled, y axis is continuously auto-scaled by RAF loop
         if (!freeAxisSet) {
-            const newest = history[history.length - 1].x;
-            const FREE_CANDLES = 50;
-            const viewWindow = FREE_CANDLES * tfConfig.ms;
-            const rightPadding = viewWindow * 0.15;
-
-            chart.options.scales.x.min = newest - (viewWindow - rightPadding);
-            chart.options.scales.x.max = newest + rightPadding;
-
-            freeAxisSet = true;
-        }
-
-        // Always auto-fit Y to whatever's visible on X
-        const xMin = chart.options.scales.x.min;
-        const xMax = chart.options.scales.x.max;
-        const visible = history.filter(c => c.x >= xMin && c.x <= xMax);
-        if (visible.length) {
-            const max = Math.max(...visible.map(c => c.h));
-            const min = Math.min(...visible.map(c => c.l));
-            const margin = (max - min) * 0.2;
-            chart.options.scales.y.min = min - margin;
-            chart.options.scales.y.max = max + margin;
+            applyFreeModeXDefaultBounds();
         }
 
         // Only allow x-axis panning/zooming; cap zoom-out to 360 candles
@@ -4011,8 +4194,10 @@ function updateChartView() {
             const half = (MAX_FREE_CANDLES * tfConfig.ms) / 2;
             chart.options.scales.x.min = mid - half;
             chart.options.scales.x.max = mid + half;
+            markFreeInteraction();
         }
 
+        startFreeModeAnimator();
         chart.update('none');
         return; // skip the final update below since we just called it
     }
