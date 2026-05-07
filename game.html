@@ -1914,6 +1914,20 @@ function handleChartAreaPointerClose(event) {
 
     closePanel();
 }
+
+function handleOutsidePanelPointerClose(event) {
+    const panel = document.getElementById('marketSide');
+    if (!panel || !panel.classList.contains('panel-open')) return;
+
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    if (target.closest('#marketSide')) return;
+    if (target.closest('.top-banner')) return;
+    if (target.closest('.trade-side')) return;
+
+    closePanel();
+}
     
 function formatLeagueTimeLeft(endTimeValue) {
     if (!endTimeValue) return '-';
@@ -2498,11 +2512,17 @@ async function syncTradeControlsVisibility(){
     }
     
     if(currentUser && aktivAktie && !isCompetitionEnded()){
+        // Fetch market status first so "closed" status always takes precedence.
+        const statusData = await fetchMarketStatus(aktivAktie);
+        marketStatus = statusData.status;
+        updateMarketStatusIndicator(aktivAktie, marketStatus);
+
         const currentQuoteTs = Number(aktier[aktivAktie]?.senasteLivePrisTid || 0);
         const hasQuote = Number.isFinite(currentQuoteTs) && currentQuoteTs > 0;
         const isStale = hasQuote && (Date.now() - currentQuoteTs > STALE_PRICE_THRESHOLD_MS);
 
-        if (isStale) {
+        // Show stale-price warning only while market itself is open.
+        if (marketStatus === 'open' && isStale) {
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
                 const staleCopy = getStalePriceMessage();
@@ -2515,11 +2535,6 @@ async function syncTradeControlsVisibility(){
             window.tradeLock = true;
             return 'stale';
         }
-
-        // Fetch market status from dedicated table
-        const statusData = await fetchMarketStatus(aktivAktie);
-        marketStatus = statusData.status;
-        updateMarketStatusIndicator(aktivAktie, marketStatus);
         
         if (marketStatus === 'closed') {
             if (tradeControls) tradeControls.style.display = 'none';
@@ -4470,6 +4485,9 @@ if (chartAreaEl) {
     chartAreaEl.addEventListener('click', handleChartAreaPointerClose);
     chartAreaEl.addEventListener('touchend', handleChartAreaPointerClose, { passive: true });
 }
+
+document.addEventListener('click', handleOutsidePanelPointerClose);
+document.addEventListener('touchend', handleOutsidePanelPointerClose, { passive: true });
 
 
     
