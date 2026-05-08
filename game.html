@@ -1378,7 +1378,7 @@ id="stockList">
             <button class="mode-btn" id="lockedBtn" onclick="setChartMode('locked')">Låst</button>
             <button class="mode-btn" id="freeBtn" onclick="setChartMode('free')">Fri</button>
         </div>
-        <button class="recenter-btn" id="recenterBtn" onclick="recenterFreeMode()" title="Centrera till senaste" style="display:none;">Centrera</button>
+        <button class="recenter-btn" id="recenterBtn" onclick="recenterFreeMode()" title="Centrera till senaste" style="display:none;">Senaste pris</button>
     </div>
     <div id="viewToggleBar" class="view-toggle-bar">
         <div class="view-toggle-pill">
@@ -1562,7 +1562,7 @@ const FREE_Y_MIN_SPAN_ABS = 0.05;
 const FREE_EPSILON_RATIO = 0.0002;
 const FREE_EPSILON_ABS = 0.01;
 const FREE_INTERACTION_HYSTERESIS_MS = 120;
-const FREE_MAX_CANDLES = 360;
+const FREE_MAX_CANDLES = 400;
 const FREE_MIN_CANDLES = 2;
 const FREE_LEFT_PADDING_CANDLES = 40;
 const FREE_RIGHT_PADDING_CANDLES = 100;
