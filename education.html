@@ -1,18 +1,12 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16x16.png">
-    <link rel="manifest" href="assets/icons/site.webmanifest">
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PaperAlpha Education</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-
+ 
         :root {
             --bg: #050505;
             --surface: #121212;
@@ -25,13 +19,13 @@
             --glass: rgba(255,255,255,0.05);
             --glass-border: rgba(255,255,255,0.1);
         }
-
+ 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
+ 
         body {
             font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg);
@@ -39,7 +33,7 @@
             min-height: 100vh;
             position: relative;
         }
-
+ 
         body::before {
             content: '';
             position: fixed;
@@ -51,21 +45,23 @@
             z-index: 0;
             pointer-events: none;
         }
-
+ 
         .top-banner {
             height: 64px;
-            position: sticky;
+            position: fixed;
             top: 0;
+            left: 0;
+            right: 0;
             z-index: 100;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
             padding: 0 20px;
             background: var(--glass);
             border-bottom: 1px solid var(--glass-border);
             backdrop-filter: blur(20px);
         }
-
+ 
         .logo-link {
             text-decoration: none;
             font-size: 1.6rem;
@@ -76,192 +72,215 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-
-        .back-link {
-            text-decoration: none;
-            color: var(--text);
-            border: 1px solid var(--glass-border);
-            background: rgba(18, 18, 18, 0.6);
-            border-radius: 999px;
-            padding: 10px 16px;
-            font-size: 0.9rem;
-            transition: all 0.25s ease;
-        }
-
-        .back-link:hover {
-            border-color: var(--accent);
-            transform: translateY(-1px);
-        }
-
+ 
         .container {
             position: relative;
             z-index: 1;
-            width: min(1080px, 100%);
-            margin: 0 auto;
-            padding: 28px 20px 44px;
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            margin-top: 64px;
+            padding-bottom: 40px;
         }
-
-        .hero {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 28px;
-            margin-bottom: 22px;
+ 
+        .hero-section {
+            flex: 0 0 auto;
+            min-height: 45vh;
+            display: flex;
+            align-items: center;
+            padding: 40px 20px;
+            border-bottom: 1px solid var(--glass-border);
         }
-
-        .hero h1 {
-            font-size: clamp(1.8rem, 3vw, 2.5rem);
-            margin-bottom: 12px;
+ 
+        .hero-text {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 800;
             letter-spacing: -0.02em;
+            line-height: 1.1;
             background: linear-gradient(135deg, var(--accent), var(--up));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            max-width: 90%;
         }
-
-        .hero p {
-            color: var(--text-dim);
-            max-width: 72ch;
-            line-height: 1.5;
+ 
+        .lessons-scroll {
+            flex: 1;
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
-
-        .course-grid {
+ 
+        .lesson-item {
             display: grid;
-            gap: 14px;
-        }
-
-        .lesson-card {
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            align-items: center;
+            padding: 24px;
             background: var(--glass);
             border: 1px solid var(--glass-border);
             border-radius: 18px;
-            padding: 20px;
-        }
-
-        .lesson-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 14px;
-            margin-bottom: 12px;
-        }
-
-        .lesson-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        .lesson-tag {
-            font-size: 0.78rem;
-            color: var(--text-dim);
-            border: 1px solid var(--glass-border);
-            border-radius: 999px;
-            padding: 6px 10px;
-            white-space: nowrap;
-        }
-
-        .steps {
-            display: grid;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .step {
-            background: rgba(10, 10, 10, 0.52);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 12px;
-            color: var(--text-dim);
-            line-height: 1.45;
-            font-size: 0.95rem;
-        }
-
-        .quiz-box {
-            border-top: 1px solid var(--glass-border);
-            padding-top: 14px;
-        }
-
-        .quiz-label {
-            font-weight: 600;
-            margin-bottom: 10px;
-            display: block;
-        }
-
-        .quiz-options {
-            display: grid;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .quiz-option {
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            color: var(--text-dim);
-            font-size: 0.93rem;
-        }
-
-        .quiz-option input {
-            margin-top: 2px;
-        }
-
-        .quiz-actions {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .quiz-btn {
-            border: none;
-            border-radius: 10px;
-            background: linear-gradient(135deg, var(--accent), var(--up));
-            color: var(--text);
-            font-weight: 700;
-            letter-spacing: 0.03em;
             cursor: pointer;
-            padding: 10px 14px;
-            transition: all 0.25s ease;
+            transition: all 0.3s ease;
+            max-width: 1080px;
+            margin: 0 auto;
+            width: 100%;
         }
-
-        .quiz-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 8px 18px rgba(41, 98, 255, 0.3);
+ 
+        .lesson-item:hover {
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
         }
-
-        .quiz-result {
-            font-size: 0.9rem;
-            color: var(--text-dim);
-        }
-
-        .quiz-result.ok {
-            color: var(--up);
-        }
-
-        .quiz-result.bad {
-            color: var(--down);
-        }
-
-        .score-panel {
-            margin-top: 20px;
-            background: rgba(18, 18, 18, 0.75);
-            border: 1px solid var(--glass-border);
+ 
+        .video-player-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: rgba(10, 10, 10, 0.8);
             border-radius: 14px;
-            padding: 16px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
         }
-
-        .score-text {
+ 
+        .video-thumbnail {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 14px;
+        }
+ 
+        .play-button {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(41, 98, 255, 0.4);
+            z-index: 10;
+            position: relative;
+        }
+ 
+        .play-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 32px rgba(41, 98, 255, 0.6);
+        }
+ 
+        .play-button::after {
+            content: '';
+            width: 0;
+            height: 0;
+            border-left: 24px solid var(--bg);
+            border-top: 15px solid transparent;
+            border-bottom: 15px solid transparent;
+            margin-left: 4px;
+        }
+ 
+        .lesson-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+ 
+        .lesson-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+ 
+        .lesson-description {
+            font-size: 1rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+ 
+        /* Fullscreen video modal */
+        .video-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 200;
+        }
+ 
+        .video-modal.active {
+            display: flex;
+            flex-direction: column;
+        }
+ 
+        .video-modal-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+ 
+        .video-modal video {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 12px;
+        }
+ 
+        .close-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s ease;
+            color: var(--text);
+            font-size: 1.2rem;
             font-weight: 600;
+            z-index: 10;
         }
-
-        @media (max-width: 700px) {
-            .lesson-head {
-                flex-direction: column;
-                align-items: flex-start;
+ 
+        .close-button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--accent);
+        }
+ 
+        @media (max-width: 768px) {
+            .lesson-item {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+ 
+            .hero-text {
+                font-size: clamp(1.8rem, 4vw, 2.8rem);
+            }
+ 
+            .play-button {
+                width: 60px;
+                height: 60px;
+            }
+ 
+            .play-button::after {
+                border-left: 18px solid var(--bg);
+                border-top: 12px solid transparent;
+                border-bottom: 12px solid transparent;
             }
         }
     </style>
@@ -269,161 +288,103 @@
 <body>
     <header class="top-banner">
         <a href="index.html" class="logo-link">PaperAlpha</a>
-        <a href="index.html" class="back-link">Till startsidan</a>
     </header>
-
+ 
     <main class="container">
-        <section class="hero">
-            <h1>Lär dig investering steg för steg</h1>
-            <p>
-                Korta lessons i bite-size format. Kör dem i ordning, ta quizet i slutet av varje del och
-                kolla din progression. Fokus: aktier, krypto, index och riskhantering.
-            </p>
+        <section class="hero-section">
+            <h1 class="hero-text">Lär dig trading</h1>
         </section>
-
-        <section class="course-grid">
-            <article class="lesson-card" data-lesson-id="stocks">
-                <div class="lesson-head">
-                    <h2 class="lesson-title">1. Grunder i aktier</h2>
-                    <span class="lesson-tag">5 min</span>
+ 
+        <section class="lessons-scroll">
+            <article class="lesson-item" data-video="https://github.com/YOUR-USERNAME/YOUR-REPO/releases/download/videos/stocks.mp4">
+                <div class="video-player-container">
+                    <img class="video-thumbnail" src="" alt="Video thumbnail">
+                    <button class="play-button" aria-label="Play video"></button>
                 </div>
-                <div class="steps">
-                    <div class="step">Steg 1: En aktie betyder att du äger en liten del av ett bolag.</div>
-                    <div class="step">Steg 2: Priset påverkas av utbud/efterfrågan och hur marknaden tror att bolaget kommer prestera.</div>
-                    <div class="step">Steg 3: Nyckeltal som P/E och tillväxt hjälper dig jämföra bolag innan köp.</div>
-                </div>
-                <div class="quiz-box" data-correct="b">
-                    <label class="quiz-label">Quiz: Vad representerar en aktie?</label>
-                    <div class="quiz-options">
-                        <label class="quiz-option"><input type="radio" name="quiz-stocks" value="a"> Ett lån till banken</label>
-                        <label class="quiz-option"><input type="radio" name="quiz-stocks" value="b"> En ägarandel i ett bolag</label>
-                        <label class="quiz-option"><input type="radio" name="quiz-stocks" value="c"> En garanti för vinst</label>
-                    </div>
-                    <div class="quiz-actions">
-                        <button class="quiz-btn" onclick="checkQuiz('stocks')">Kontrollera svar</button>
-                        <span class="quiz-result" id="result-stocks"></span>
-                    </div>
+                <div class="lesson-info">
+                    <h2 class="lesson-title">Aktier</h2>
+                    <p class="lesson-description">Grundläggande kunskaper om aktier.</p>
                 </div>
             </article>
-
-            <article class="lesson-card" data-lesson-id="crypto">
-                <div class="lesson-head">
-                    <h2 class="lesson-title">2. Intro till krypto</h2>
-                    <span class="lesson-tag">6 min</span>
-                </div>
-                <div class="steps">
-                    <div class="step">Steg 1: Krypto är digitala tillgångar som ofta bygger på blockkedjeteknik.</div>
-                    <div class="step">Steg 2: Volatiliteten kan vara högre än för många aktier, så risknivån ökar.</div>
-                    <div class="step">Steg 3: Börja med små positioner och använd tydliga regler för risk.</div>
-                </div>
-                <div class="quiz-box" data-correct="c">
-                    <label class="quiz-label">Quiz: Vilket påstående är mest korrekt om krypto?</label>
-                    <div class="quiz-options">
-                        <label class="quiz-option"><input type="radio" name="quiz-crypto" value="a"> Krypto kan inte falla i värde</label>
-                        <label class="quiz-option"><input type="radio" name="quiz-crypto" value="b"> Krypto är alltid säkrare än indexfonder</label>
-                        <label class="quiz-option"><input type="radio" name="quiz-crypto" value="c"> Krypto kan vara mer volatilt och kräver riskkontroll</label>
-                    </div>
-                    <div class="quiz-actions">
-                        <button class="quiz-btn" onclick="checkQuiz('crypto')">Kontrollera svar</button>
-                        <span class="quiz-result" id="result-crypto"></span>
-                    </div>
-                </div>
-            </article>
-
-            <article class="lesson-card" data-lesson-id="index">
-                <div class="lesson-head">
-                    <h2 class="lesson-title">3. Hur index fungerar</h2>
-                    <span class="lesson-tag">4 min</span>
-                </div>
-                <div class="steps">
-                    <div class="step">Steg 1: Ett index följer utvecklingen för en grupp bolag, t.ex. OMXS30 eller S&P 500.</div>
-                    <div class="step">Steg 2: Indexfonder/ETF:er gör det enkelt att sprida risk över många bolag.</div>
-                    <div class="step">Steg 3: Bred diversifiering minskar risken jämfört med enstaka aktier.</div>
-                </div>
-                <div class="quiz-box" data-correct="a">
-                    <label class="quiz-label">Quiz: Varför väljer många indexfonder?</label>
-                    <div class="quiz-options">
-                        <label class="quiz-option"><input type="radio" name="quiz-index" value="a"> För att få bred exponering och sprida risk</label>
-                        <label class="quiz-option"><input type="radio" name="quiz-index" value="b"> För att garantera högsta möjliga avkastning</label>
-                        <label class="quiz-option"><input type="radio" name="quiz-index" value="c"> För att handla utan avgifter</label>
-                    </div>
-                    <div class="quiz-actions">
-                        <button class="quiz-btn" onclick="checkQuiz('index')">Kontrollera svar</button>
-                        <span class="quiz-result" id="result-index"></span>
-                    </div>
-                </div>
-            </article>
-
-            <article class="lesson-card" data-lesson-id="risk">
-                <div class="lesson-head">
-                    <h2 class="lesson-title">4. Riskhantering</h2>
-                    <span class="lesson-tag">5 min</span>
-                </div>
-                <div class="steps">
-                    <div class="step">Steg 1: Bestäm maxrisk per position innan du köper.</div>
-                    <div class="step">Steg 2: Diversifiera mellan olika tillgångar och sektorer.</div>
-                    <div class="step">Steg 3: Följ en plan i stället för känslor när marknaden rör sig snabbt.</div>
-                </div>
-                <div class="quiz-box" data-correct="b">
-                    <label class="quiz-label">Quiz: Vad är bäst riskpraxis?</label>
-                    <div class="quiz-options">
-                        <label class="quiz-option"><input type="radio" name="quiz-risk" value="a"> Lägg allt i en tillgång som gått upp nyligen</label>
-                        <label class="quiz-option"><input type="radio" name="quiz-risk" value="b"> Sätt riskregler och sprid kapitalet</label>
-                        <label class="quiz-option"><input type="radio" name="quiz-risk" value="c"> Undvik alltid att utvärdera dina resultat</label>
-                    </div>
-                    <div class="quiz-actions">
-                        <button class="quiz-btn" onclick="checkQuiz('risk')">Kontrollera svar</button>
-                        <span class="quiz-result" id="result-risk"></span>
-                    </div>
-                </div>
-            </article>
-        </section>
-
-        <section class="score-panel">
-            <div class="score-text" id="scoreText">Resultat: 0 / 4 rätt</div>
-            <div style="color: var(--text-dim); font-size: 0.9rem;">Tips: Du kan göra quiz om igen när som helst.</div>
         </section>
     </main>
-
+ 
+    <!-- Fullscreen video modal -->
+    <div class="video-modal" id="videoModal">
+        <div class="video-modal-content">
+            <button class="close-button" id="closeButton" aria-label="Close video">✕</button>
+            <video id="videoPlayer" controls>
+                <source src="" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+ 
     <script>
-        const quizState = {
-            stocks: null,
-            crypto: null,
-            index: null,
-            risk: null
-        };
-
-        function checkQuiz(lessonId) {
-            const box = document.querySelector(`.lesson-card[data-lesson-id="${lessonId}"] .quiz-box`);
-            const correct = box.dataset.correct;
-            const selected = document.querySelector(`input[name="quiz-${lessonId}"]:checked`);
-            const resultEl = document.getElementById(`result-${lessonId}`);
-
-            if (!selected) {
-                resultEl.textContent = 'Välj ett svar först.';
-                resultEl.className = 'quiz-result bad';
-                return;
-            }
-
-            const isCorrect = selected.value === correct;
-            quizState[lessonId] = isCorrect;
-
-            if (isCorrect) {
-                resultEl.textContent = 'Rätt! Bra jobbat.';
-                resultEl.className = 'quiz-result ok';
-            } else {
-                resultEl.textContent = 'Inte riktigt. Läs stegen igen och testa igen.';
-                resultEl.className = 'quiz-result bad';
-            }
-
-            updateScore();
+        const videoModal = document.getElementById('videoModal');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const closeButton = document.getElementById('closeButton');
+        const lessonItems = document.querySelectorAll('.lesson-item');
+ 
+        // Extract thumbnail from video and display it
+        function extractThumbnail(videoUrl, thumbnailImg) {
+            const video = document.createElement('video');
+            video.src = videoUrl;
+            video.crossOrigin = 'anonymous';
+            
+            video.addEventListener('loadedmetadata', () => {
+                // Seek to a small time to get the first frame
+                video.currentTime = 0.1;
+            });
+            
+            video.addEventListener('seeked', () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                thumbnailImg.src = canvas.toDataURL();
+            }, { once: true });
         }
-
-        function updateScore() {
-            const total = Object.keys(quizState).length;
-            const correct = Object.values(quizState).filter(Boolean).length;
-            document.getElementById('scoreText').textContent = `Resultat: ${correct} / ${total} rätt`;
-        }
+ 
+        lessonItems.forEach(item => {
+            const playButton = item.querySelector('.play-button');
+            const thumbnailImg = item.querySelector('.video-thumbnail');
+            const videoSrc = item.dataset.video;
+ 
+            // Load thumbnail
+            extractThumbnail(videoSrc, thumbnailImg);
+ 
+            playButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                videoPlayer.src = videoSrc;
+                videoModal.classList.add('active');
+                videoPlayer.play();
+                // Prevent body scroll when modal is open
+                document.body.style.overflow = 'hidden';
+            });
+ 
+            item.addEventListener('click', (e) => {
+                if (e.target !== playButton && !playButton.contains(e.target)) return;
+            });
+        });
+ 
+        closeButton.addEventListener('click', () => {
+            videoModal.classList.remove('active');
+            videoPlayer.pause();
+            videoPlayer.currentTime = 0;
+            document.body.style.overflow = '';
+        });
+ 
+        // Close modal when pressing Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && videoModal.classList.contains('active')) {
+                videoModal.classList.remove('active');
+                videoPlayer.pause();
+                videoPlayer.currentTime = 0;
+                document.body.style.overflow = '';
+            }
+        });
     </script>
 </body>
 </html>
