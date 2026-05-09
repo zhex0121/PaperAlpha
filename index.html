@@ -1475,6 +1475,9 @@ async function getMemberTotalValueSek(member, fxRate) {
         document.getElementById('authEmail').value = '';
         document.getElementById('authPassword').value = '';
         document.getElementById('resetEmail').value = '';
+        // Show the Avbryt button again
+        const cancelButton = document.querySelector('button[onclick="showAuthModal(false)"]');
+        if (cancelButton) cancelButton.style.display = 'block';
     }
 
     function showResetPasswordForm() {
@@ -1483,12 +1486,18 @@ async function getMemberTotalValueSek(member, fxRate) {
         document.getElementById('resetConfirmSection').style.display = 'none';
         document.getElementById('resetError').innerText = '';
         document.getElementById('resetEmail').value = '';
+        // Hide the Avbryt button
+        const cancelButton = document.querySelector('button[onclick="showAuthModal(false)"]');
+        if (cancelButton) cancelButton.style.display = 'none';
     }
 
     function showResetConfirmation() {
         document.getElementById('authFormSection').style.display = 'none';
         document.getElementById('resetPasswordSection').style.display = 'none';
         document.getElementById('resetConfirmSection').style.display = 'block';
+        // Hide the Avbryt button
+        const cancelButton = document.querySelector('button[onclick="showAuthModal(false)"]');
+        if (cancelButton) cancelButton.style.display = 'none';
     }
 
     async function sendPasswordReset() {
