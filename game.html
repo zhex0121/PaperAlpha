@@ -236,40 +236,7 @@ body::before {
     border-color: var(--accent);
 }
 
-/* Chart mode toggle (Låst/Fri) */
-.chart-mode-toggle {
-    display: flex;
-    align-items: center;
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    padding: 3px;
-    gap: 2px;
-}
-
-.mode-btn {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    padding: 6px 14px;
-    border-radius: 16px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-}
-
-.mode-btn.active {
-    background: var(--accent);
-    color: #fff;
-}
-
-.mode-btn:hover:not(.active) {
-    background: rgba(255,255,255,0.1);
-    color: var(--text);
-}
+/* Chart mode toggle removed - always free mode */
 
 .recenter-btn {
     background: var(--glass);
@@ -314,10 +281,7 @@ body::before {
         font-size: 0.8rem;
     }
     
-    .mode-btn {
-        padding: 5px 10px;
-        font-size: 0.75rem;
-    }
+    /* Mode buttons removed */
     
     .chart-mode-buttons {
         gap: 6px;
@@ -1373,11 +1337,7 @@ id="stockList">
                 <!-- 12 buttons in 4×3 grid, populated by JS -->
             </div>
         </div>
-        <!-- Mode Toggle: Låst / Fri -->
-        <div class="chart-mode-toggle">
-            <button class="mode-btn" id="lockedBtn" onclick="setChartMode('locked')">Låst</button>
-            <button class="mode-btn" id="freeBtn" onclick="setChartMode('free')">Fri</button>
-        </div>
+        <!-- Mode toggle removed - defaulting to free mode -->
         <button class="recenter-btn" id="recenterBtn" onclick="recenterFreeMode()" title="Centrera till senaste" style="display:none;">Senaste pris</button>
     </div>
     <div id="viewToggleBar" class="view-toggle-bar">
@@ -1554,6 +1514,7 @@ let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
 let freeAxisSet = false;
 let isPanningOrZoomingX = false;
 let freeModeAnimationFrame = null;
+let lastRecenterTime = 0; // Track when recenter button was last clicked
 
 const FREE_Y_PADDING_BASE = 0.16;
 const FREE_Y_PADDING_MAX = 0.28;
@@ -1607,7 +1568,7 @@ const chartBoundaryLabelPlugin = {
         ctx.font = '500 12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Starten av PaperAlpha', px, py);
+        // ctx.fillText('Starten av PaperAlpha', px, py); // Removed as requested
         ctx.restore();
     }
 };
@@ -3407,7 +3368,7 @@ const TIMEFRAMES = [
 
 let currentTimeframe = '1min'; // Default to 1 minute
 let timeframeDropdownOpen = false;
-let chartViewMode = 'locked'; // 'locked' (Låst) or 'free' (Fri) - default locked
+let chartViewMode = 'free'; // 'locked' (Låst) or 'free' (Fri) - default free
 
 const LIVE_CANDLES=360;
 
@@ -3573,6 +3534,13 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
 
     document.getElementById('activeSymbol').innerText = ticker;
     updateMarketStatusIndicator(ticker, marketStatus);
+
+    // Hide recenter button when switching securities
+    const recenterBtn = document.getElementById('recenterBtn');
+    if (recenterBtn) {
+        recenterBtn.style.display = 'none';
+        lastRecenterTime = performance.now(); // Reset timer to prevent immediate show
+    }
 
     uppdateraAktiv();
 
@@ -3982,6 +3950,17 @@ function clampNumber(v, min, max) {
 function markFreeInteraction() {
     isPanningOrZoomingX = true;
     freeViewportState.lastInteractionAt = performance.now();
+    
+    // Show "Senaste pris" button when user interacts with chart, but only if enough time 
+    // has passed since the last recenter click (to prevent showing during auto-updates)
+    const recenterBtn = document.getElementById('recenterBtn');
+    if (recenterBtn && chartViewMode === 'free') {
+        const timeSinceRecenter = performance.now() - lastRecenterTime;
+        // Only show button if at least 500ms have passed since last recenter
+        if (timeSinceRecenter > 500) {
+            recenterBtn.style.display = 'inline-flex';
+        }
+    }
 }
 
 function resetFreeViewportState() {
@@ -4231,47 +4210,36 @@ function recenterFreeMode() {
     if (!chart || !aktivAktie || chartViewMode !== 'free') return;
     syncFreeModeZoomLimits();
     applyFreeModeXDefaultBounds();
+    
+    // Hide the button after clicking it and record the time
+    const recenterBtn = document.getElementById('recenterBtn');
+    if (recenterBtn) {
+        recenterBtn.style.display = 'none';
+        lastRecenterTime = performance.now(); // Record when button was clicked
+    }
     clampFreeModeXRange();
     resetFreeViewportState();
-    markFreeInteraction();
     updateChartView();
 }
 
 function setChartMode(mode){
-    // mode is 'locked' (Låst) or 'free' (Fri)
-    chartViewMode = mode;
+    // Always free mode now
+    chartViewMode = 'free';
 
-    // Update button styling
-    const lockedBtn = document.getElementById('lockedBtn');
-    const freeBtn = document.getElementById('freeBtn');
+    // Update recenter button visibility - hidden by default, shown on interaction
     const recenterBtn = document.getElementById('recenterBtn');
-    
-    if (lockedBtn) {
-        lockedBtn.classList.toggle('active', mode === 'locked');
-    }
-    if (freeBtn) {
-        freeBtn.classList.toggle('active', mode === 'free');
-    }
     if (recenterBtn) {
-        recenterBtn.style.display = mode === 'free' ? 'inline-flex' : 'none';
+        recenterBtn.style.display = 'none'; // Hidden until user interacts
     }
 
-    liveAutoScrollEnabled = (mode === 'locked');
+    liveAutoScrollEnabled = false; // Always false in free mode
 
-    if (mode === 'free') {
-        freeAxisSet = false; // free mode anchors once per entry and then user owns x
-        resetFreeViewportState();
-        syncFreeModeZoomLimits();
-        applyFreeModeXDefaultBounds();
-        startFreeModeAnimator();
-    } else {
-        if (chart?.options?.plugins?.zoom) {
-            chart.options.plugins.zoom.limits = undefined;
-        }
-        stopFreeModeAnimator();
-        resetFreeViewportState();
-        freeAxisSet = false;
-    }
+    // Initialize free mode
+    freeAxisSet = false;
+    resetFreeViewportState();
+    syncFreeModeZoomLimits();
+    applyFreeModeXDefaultBounds();
+    startFreeModeAnimator();
 
     updateChartView();
 }
@@ -4845,7 +4813,7 @@ if(currentUser) uppdateraPortfölj();
 // 4. Initialize timeframe dropdown and set default locked mode
 renderTimeframeGrid();
 updateTimeframeTriggerLabel();
-setChartMode('locked'); // Default to locked (Låst) mode
+setChartMode('free'); // Default to free mode
 
 // Default to leaderboard/league view on first paint (without auth-dependent routing).
 currentView = 'league';
