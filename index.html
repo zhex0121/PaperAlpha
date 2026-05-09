@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="sv">
 <head>
@@ -199,8 +198,8 @@
     font-size: 0.9rem;
     margin-bottom: 15px;
     white-space: nowrap;
-    overflow: hidden;          /* NEW */
-    text-overflow: ellipsis;   /* NEW */
+    overflow: hidden;
+    text-overflow: ellipsis;
     border-bottom: 1px solid var(--border);
     padding-bottom: 10px;
 }
@@ -399,7 +398,7 @@
             grid-template-columns: 1fr;
             gap: 10px;
             flex: 1;
-            overflow-y: auto; /* NEW */
+            overflow-y: auto;
         }
 
         .action-tile {
@@ -427,8 +426,6 @@
             box-shadow: 0 10px 22px rgba(41, 98, 255, 0.24);
         }
 
-        
-
         .action-title {
             font-size: 1.02rem;
             font-weight: 700;
@@ -441,16 +438,11 @@
             line-height: 1.4;
         }
 
-      
-
-       
-
-        .education-link:hover {
+       .education-link:hover {
             transform: translateY(-2px);
             border-color: var(--up);
             box-shadow: 0 8px 18px rgba(0, 255, 170, 0.2);
         }
-
 
         .competitions-header {
             width: 100%;
@@ -570,9 +562,9 @@
 
         .competition-stats {
     display: flex;
-    gap: 18px;            /* lite mindre gap */
+    gap: 18px;
     align-items: center;
-    flex-wrap: wrap;      /* NY */
+    flex-wrap: wrap;
 }
 
         .competition-stat {
@@ -840,7 +832,7 @@
             color: var(--text-dim);
         }
 
-        #authError {
+        #authError, #resetError {
             margin: 15px 0;
             min-height: 20px;
             text-align: center;
@@ -1088,6 +1080,14 @@
             color: var(--down);
         }
 
+        .reset-info-text {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            margin: 15px 0;
+            text-align: center;
+            line-height: 1.5;
+        }
+
     </style>
 </head>
 <body>
@@ -1109,7 +1109,7 @@
                     <a class="profile-dropdown-btn" href="account.html" style="text-decoration:none; color:inherit;">Hantera konto & integritet</a>
                     <a class="profile-dropdown-btn" href="account.html?section=kontakta" style="text-decoration:none; color:inherit;">Kontakta oss</a>
                     <a class="profile-dropdown-btn" href="https://omg10.com/4/10890553" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">Stöd oss (det är helt gratis)</a>
-                    <button class="login-btn" onclick="showAuthModal(true)">Logga in</button>
+                    <button class="login-btn" onclick="showLoginForm(); showAuthModal(true)">Logga in</button>
                 </div>
             </div>
             <div id="logged-in-view" style="display: none;">
@@ -1153,7 +1153,7 @@
                     <div class="no-competitions">
                         <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Laddar tävlingar...</div>
                         <div id="loginPromptActive" style="display: none;">
-                            <button class="login-button large" onclick="showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att tävla</button>
+                            <button class="login-button large" onclick="showLoginForm(); showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att tävla</button>
                         </div>
                     </div>
                 </div>
@@ -1162,7 +1162,7 @@
                     <div class="no-competitions">
                         <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Laddar tävlingar...</div>
                         <div id="loginPromptFinished" style="display: none;">
-                            <button class="login-button large" onclick="showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att se resultat</button>
+                            <button class="login-button large" onclick="showLoginForm(); showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att se resultat</button>
                         </div>
                     </div>
                 </div>
@@ -1210,18 +1210,80 @@
         </div>
     </div>
 
-    <!-- Auth Modal -->
+    <!-- Auth Modal - IMPROVED WITH PASSWORD RESET -->
     <div id="authModal" class="auth-modal" style="display:none;">
         <div class="auth-card">
             <h3 class="auth-title">PaperAlpha</h3>
-            <input type="email" id="authEmail" placeholder="Email">
-            <input type="password" id="authPassword" placeholder="Lösenord">
-            <div id="authError"></div>
-            <div class="auth-actions">
-                <button class="btn btn-buy" onclick="signIn()">LOGGA IN</button>
-                <button class="btn btn-sell" onclick="signUp()">REGISTRERA</button>
+            
+            <!-- Login/Register Form (shown by default) -->
+            <div id="authFormSection">
+                <input type="email" id="authEmail" placeholder="Email">
+                <input type="password" id="authPassword" placeholder="Lösenord">
+                <div id="authError"></div>
+                
+                <div class="auth-actions">
+                    <button class="btn btn-buy" onclick="signIn()">LOGGA IN</button>
+                    <button class="btn btn-sell" onclick="signUp()">REGISTRERA</button>
+                </div>
+                
+                <button 
+                    onclick="showResetPasswordForm()" 
+                    style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 15px; width:100%; text-align:center; font-size:0.9rem; text-decoration:underline; padding: 8px 0;">
+                    Glömt lösenord?
+                </button>
             </div>
-             <button onclick="showAuthModal(false)" style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 20px; width:100%; text-align:center;">Avbryt</button>
+            
+            <!-- Password Reset Form -->
+            <div id="resetPasswordSection" style="display: none;">
+                <p class="reset-info-text">
+                    Ange din e-postadress.
+                </p>
+                
+                <input 
+                    type="email" 
+                    id="resetEmail" 
+                    placeholder="Din e-postadress"
+                    style="margin-top: 15px;">
+                
+                <div id="resetError"></div>
+                
+                <button 
+                    class="btn btn-buy" 
+                    onclick="sendPasswordReset()" 
+                    style="width: 100%; margin-top: 20px; padding: 14px;">
+                    SKICKA ÅTERSTÄLLNINGSLÄNK
+                </button>
+                
+                <button 
+                    onclick="showLoginForm()" 
+                    style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 15px; width:100%; text-align:center; font-size:0.9rem; text-decoration:underline; padding: 8px 0;">
+                    Tillbaka till inloggning
+                </button>
+            </div>
+            
+            <!-- Confirmation Message -->
+            <div id="resetConfirmSection" style="display: none;">
+                <div style="text-align: center; color: var(--text-dim);">
+                    
+                    <p style="margin-bottom: 20px;">
+                        Vi har skickat en länk för lösenordsåterställning till din e-postadress. Kontrollera din inkorg.
+                    </p>
+                </div>
+                
+                <button 
+                    onclick="showLoginForm()" 
+                    class="btn btn-buy" 
+                    style="width: 100%; margin-top: 20px;">
+                    TILLBAKA
+                </button>
+            </div>
+            
+            <!-- Close Button -->
+            <button 
+                onclick="showAuthModal(false)" 
+                style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 20px; width:100%; text-align:center;">
+                Avbryt
+            </button>
         </div>
     </div>
 
@@ -1311,7 +1373,7 @@ async function getExchangeRate() {
         return cachedFxRate;
     } catch (e) {
         console.error('[Competitions] FX fetch failed:', e);
-        cachedFxRate = 1; // fallback
+        cachedFxRate = 1;
         return cachedFxRate;
     }
 }
@@ -1402,6 +1464,72 @@ async function getMemberTotalValueSek(member, fxRate) {
 
     return balance + holdingsValueSek;
 }
+
+    // ========== PASSWORD RESET FUNCTIONS ==========
+    function showLoginForm() {
+        document.getElementById('authFormSection').style.display = 'block';
+        document.getElementById('resetPasswordSection').style.display = 'none';
+        document.getElementById('resetConfirmSection').style.display = 'none';
+        document.getElementById('authError').innerText = '';
+        document.getElementById('resetError').innerText = '';
+        document.getElementById('authEmail').value = '';
+        document.getElementById('authPassword').value = '';
+        document.getElementById('resetEmail').value = '';
+    }
+
+    function showResetPasswordForm() {
+        document.getElementById('authFormSection').style.display = 'none';
+        document.getElementById('resetPasswordSection').style.display = 'block';
+        document.getElementById('resetConfirmSection').style.display = 'none';
+        document.getElementById('resetError').innerText = '';
+        document.getElementById('resetEmail').value = '';
+    }
+
+    function showResetConfirmation() {
+        document.getElementById('authFormSection').style.display = 'none';
+        document.getElementById('resetPasswordSection').style.display = 'none';
+        document.getElementById('resetConfirmSection').style.display = 'block';
+    }
+
+    async function sendPasswordReset() {
+        const resetError = document.getElementById('resetError');
+        resetError.innerText = '';
+        
+        const email = document.getElementById('resetEmail').value.trim();
+        
+        if (!email) {
+            resetError.innerText = 'Ange din e-postadress.';
+            return;
+        }
+        
+        console.log('[PasswordReset] Requesting reset for:', email);
+        
+        try {
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/auth-reset.html`
+            });
+            
+            if (error) {
+                console.error('[PasswordReset] Error:', error.message);
+                
+                if (error.message.includes('User not found')) {
+                    resetError.innerText = 'E-postadressen är inte registrerad.';
+                } else if (error.message.includes('invalid email')) {
+                    resetError.innerText = 'Ogiltig e-postadress.';
+                } else {
+                    resetError.innerText = 'Kunde inte skicka återställningslänk. Försök igen senare.';
+                }
+                return;
+            }
+            
+            console.log('[PasswordReset] Email sent successfully');
+            showResetConfirmation();
+            
+        } catch (err) {
+            console.error('[PasswordReset] Exception:', err);
+            resetError.innerText = 'Något gick fel. Försök igen senare.';
+        }
+    }
        
     // --- UI Functions ---
     function showAuthModal(show) {
@@ -1415,11 +1543,9 @@ async function getMemberTotalValueSek(member, fxRate) {
         document.getElementById('new-competition-section').style.display = 'none';
         currentUser = user;
         
-        // Hide landing page and show main content
         document.getElementById('landingPage').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
         
-        // Hide login prompts
         document.getElementById('loginPromptActive').style.display = 'none';
         document.getElementById('loginPromptFinished').style.display = 'none';
         
@@ -1436,11 +1562,9 @@ async function getMemberTotalValueSek(member, fxRate) {
         currentUser = null;
         competitionsLoaded = false;
         
-        // Show landing page and hide main content
         document.getElementById('landingPage').style.display = 'flex';
         document.getElementById('mainContent').style.display = 'none';
         
-        // Show login prompts if they exist
         const activePrompt = document.getElementById('loginPromptActive');
         const finishedPrompt = document.getElementById('loginPromptFinished');
         if (activePrompt) activePrompt.style.display = 'block';
@@ -1459,7 +1583,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
             console.error('[Auth] Sign in error:', error.message);
-            // Swedish error messages for common cases
             if (error.message.includes('Invalid login credentials')) {
                 setAuthError('Fel e-post eller lösenord. Försök igen!');
             } else if (error.message.includes('Email not confirmed')) {
@@ -1470,7 +1593,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         } else {
             console.log('[Auth] Sign in successful, closing modal and loading competitions');
             showAuthModal(false);
-            // Immediately load competitions for the newly logged in user
             if (data?.user) {
                 currentUser = data.user;
                 await loadUserCompetitions();
@@ -1487,7 +1609,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         console.log('[Auth] Attempting sign up for:', email);
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
         if (error) {
-            // Swedish error messages for common cases
             if (error.message.includes('User already registered')) {
                 setAuthError('Det finns redan ett konto med den här e-postadressen.');
             } else if (error.message.includes('invalid email')) {
@@ -1518,31 +1639,27 @@ async function getMemberTotalValueSek(member, fxRate) {
         event.preventDefault();
         console.log('[Landing] Starta nu button clicked');
         
-        // Hide landing page and show main content
         document.getElementById('landingPage').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
     }
 
     // --- Event Listeners ---
-    loginButton?.addEventListener('click', () => { setAuthError(''); showAuthModal(true); });
+    loginButton?.addEventListener('click', () => { showLoginForm(); showAuthModal(true); });
     logoutButton.addEventListener('click', handleLogout);
     profileBtn.addEventListener('click', (e) => { e.stopPropagation(); profileDropdown.classList.toggle('show'); profileDropdownLoggedOut.classList.remove('show'); });
     profileBtnLoggedOut.addEventListener('click', (e) => { e.stopPropagation(); profileDropdownLoggedOut.classList.toggle('show'); profileDropdown.classList.remove('show'); });
     document.addEventListener('click', (e) => {
-        // Close tournament dropdown when clicking outside
         const tournamentDropdown = document.getElementById('tournamentDropdown');
         const newCompBtn = document.querySelector('.new-competition-btn');
         if (tournamentDropdown && (!newCompBtn || !newCompBtn.contains(e.target)) && !tournamentDropdown.contains(e.target)) {
             hideTournamentDropdown();
         }
 
-        // Close logged-in profile dropdown when clicking outside
         if (profileBtn && profileDropdown &&
             !profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
             profileDropdown.classList.remove('show');
         }
 
-        // Close logged-out profile dropdown when clicking outside
         if (profileBtnLoggedOut && profileDropdownLoggedOut &&
             !profileBtnLoggedOut.contains(e.target) && !profileDropdownLoggedOut.contains(e.target)) {
             profileDropdownLoggedOut.classList.remove('show');
@@ -1559,7 +1676,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         if (tournaments && tournaments.length > 0) {
             const t = tournaments[0];
             systemTournamentHref = `game.html?league=${t.id}&code=${t.invite_code}`;
-            // Update the anchor's href live so right-click gets the real URL
             const el = document.getElementById('joinTournamentTile');
             if (el) el.href = systemTournamentHref;
         }
@@ -1584,14 +1700,12 @@ async function getMemberTotalValueSek(member, fxRate) {
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
             console.log('[Auth] onAuthStateChange event:', event, '| user:', session?.user?.email ?? 'none');
 
-            // TOKEN_REFRESHED just means the JWT was silently refreshed — UI is already correct
             if (event === 'TOKEN_REFRESHED') {
                 console.log('[Auth] TOKEN_REFRESHED — skipping UI update');
                 return;
             }
 
             if (event === 'SIGNED_IN' && session?.user) {
-                // Only re-run UI+data load if currentUser changed (avoids double-run on page load)
                 if (currentUser?.id === session.user.id && competitionsLoaded) {
                     console.log('[Auth] SIGNED_IN for same user with competitions already loaded — skipping duplicate load');
                     return;
@@ -1603,7 +1717,6 @@ async function getMemberTotalValueSek(member, fxRate) {
             } else if (event === 'SIGNED_OUT') {
                 console.log('[Auth] SIGNED_OUT — resetting UI');
                 showLoggedOutUI();
-                // Reset competition lists to show login prompts
                 const activeEl = document.getElementById('activeCompetitions');
                 const finishedEl = document.getElementById('finishedCompetitions');
                 if (activeEl) {
@@ -1611,7 +1724,7 @@ async function getMemberTotalValueSek(member, fxRate) {
                         <div class="no-competitions">
                             <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga aktiva tävlingar</div>
                             <div id="loginPromptActive" style="display: block;">
-                                <button class="login-button large" onclick="showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att tävla</button>
+                                <button class="login-button large" onclick="showLoginForm(); showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att tävla</button>
                             </div>
                         </div>
                     `;
@@ -1621,7 +1734,7 @@ async function getMemberTotalValueSek(member, fxRate) {
                         <div class="no-competitions">
                             <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga avslutade tävlingar</div>
                             <div id="loginPromptFinished" style="display: block;">
-                                <button class="login-button large" onclick="showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att se resultat</button>
+                                <button class="login-button large" onclick="showLoginForm(); showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att se resultat</button>
                             </div>
                         </div>
                     `;
@@ -1630,7 +1743,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         });
     }
 
-    // Re-sync UI when tab becomes visible again
     document.addEventListener('visibilitychange', async () => {
         if (document.hidden) return;
         console.log('[Tab] Tab became active again');
@@ -1642,11 +1754,9 @@ async function getMemberTotalValueSek(member, fxRate) {
             return;
         }
 
-        // Always re-sync UI in case it got stale
         console.log('[Tab] Session valid on tab return, re-syncing UI for:', session.user.email);
         showLoggedInUI(session.user);
 
-        // Re-load competitions in case data changed while away
         competitionsLoaded = false;
         await loadUserCompetitions();
     });
@@ -1658,7 +1768,6 @@ async function getMemberTotalValueSek(member, fxRate) {
     const modal = params.get('modal');
     const goto = params.get('goto');
     if (goto === 'home') {
-        // Skip landing page regardless of auth state
         document.getElementById('landingPage').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
     }
@@ -1680,7 +1789,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         console.log('[Dropdown] Toggling dropdown, current classes:', dropdown.className);
         dropdown.classList.toggle('show');
         
-        // Close profile dropdown if open
         const profileDropdown = document.getElementById('profileDropdown');
         if (profileDropdown) {
             profileDropdown.classList.remove('show');
@@ -1710,7 +1818,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         console.log('[Tournament] Looking for system tournament...');
         
         try {
-            // Find tournament with creator_id = null and latest start_time
             const { data: tournaments, error } = await supabaseClient
                 .from('leagues')
                 .select('*')
@@ -1729,7 +1836,6 @@ async function getMemberTotalValueSek(member, fxRate) {
             const tournament = tournaments[0];
             console.log('[Tournament] Found tournament:', tournament.name, '| ID:', tournament.id);
 
-            // Check if user is already a member
             const { data: existingMember } = await supabaseClient
                 .from('league_members')
                 .select('*')
@@ -1743,7 +1849,6 @@ async function getMemberTotalValueSek(member, fxRate) {
                 return;
             }
 
-            // Check if tournament is still active
             const now = new Date();
             const endTime = new Date(tournament.end_time);
             if (endTime <= now) {
@@ -1752,7 +1857,6 @@ async function getMemberTotalValueSek(member, fxRate) {
                 return;
             }
 
-            // Join the tournament
             const { error: joinError } = await supabaseClient
                 .from('league_members')
                 .insert({
@@ -1783,7 +1887,7 @@ async function getMemberTotalValueSek(member, fxRate) {
         console.log('[GameModal] showGameModal called, show:', show, 'mode:', mode, '| currentUser:', currentUser?.email ?? 'none');
         if (show && !currentUser) {
             console.warn('[GameModal] No currentUser — showing auth modal instead');
-            setAuthError('Du måste vara inloggad för att starta eller gå med i en tävling.');
+            setAuthError('Du måste vara inloggad för att skapa eller gå med i en tävling.');
             showAuthModal(true);
             return;
         }
@@ -1808,7 +1912,6 @@ async function getMemberTotalValueSek(member, fxRate) {
                 createSection.style.display = 'none';
                 joinSection.style.display = 'block';
             } else {
-                // Default behavior for backwards compatibility
                 modalTitle.textContent = 'Tävling';
                 createSection.style.display = 'block';
                 joinSection.style.display = 'none';
@@ -1819,30 +1922,25 @@ async function getMemberTotalValueSek(member, fxRate) {
 
     function setGameError(msg) { document.getElementById('gameError').innerText = msg || ''; }
 
-    // Function to set current Swedish date and time in the form
     function setCurrentSwedishDateTime() {
         const now = new Date();
-        // Swedish timezone (Europe/Stockholm)
         const swedishTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Stockholm"}));
         
-        // Format date as YYYY-MM-DD
         const year = swedishTime.getFullYear();
         const month = String(swedishTime.getMonth() + 1).padStart(2, '0');
         const day = String(swedishTime.getDate()).padStart(2, '0');
         const dateString = `${year}-${month}-${day}`;
         
-        // Format time as HH:MM
         const hours = String(swedishTime.getHours()).padStart(2, '0');
         const minutes = String(swedishTime.getMinutes()).padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
         
-        // Set the form values
         const endDateInput = document.getElementById('gameEndDate');
         const endTimeInput = document.getElementById('gameEndTime');
         
         if (endDateInput) {
             endDateInput.value = dateString;
-            endDateInput.min = dateString; // Can't select past dates
+            endDateInput.min = dateString;
         }
         if (endTimeInput) {
             endTimeInput.value = timeString;
@@ -1860,11 +1958,9 @@ async function getMemberTotalValueSek(member, fxRate) {
         if (!endDate || !endTime) { setGameError('Välj slutdatum och sluttid.'); return; }
         if (!balance) { setGameError('Ange startkapital.'); return; }
         
-        // Combine date and time and convert to Swedish timezone
         const endDateTime = new Date(`${endDate}T${endTime}:00`);
         const swedishEndTime = new Date(endDateTime.toLocaleString("en-US", {timeZone: "Europe/Stockholm"}));
         
-        // Check if end time is in the future
         const now = new Date();
         const swedishNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Stockholm"}));
         if (swedishEndTime <= swedishNow) {
@@ -1929,7 +2025,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         }
     }
 
-    // --- Competition List ---
     function switchCompetitionTab(tab) {
         const tabs = document.querySelectorAll('.competition-tab');
         const activeList = document.getElementById('activeCompetitions');
@@ -1978,14 +2073,12 @@ async function getMemberTotalValueSek(member, fxRate) {
             const finishedCompetitions = leagues.filter(l => new Date(l.end_time) <= now);
             console.log('[Competitions] Active:', activeCompetitions.length, '| Finished:', finishedCompetitions.length);
 
-            // Batch fetch all members for all leagues at once
             const allLeagueIds = leagues.map(l => l.id);
             const { data: allMembersData } = await supabaseClient
                 .from('league_members')
                 .select('league_id, user_id, balance, portfolio')
                 .in('league_id', allLeagueIds);
 
-            // Collect all unique tickers from all portfolios for batch price fetch
             const allTickers = new Set();
             if (allMembersData) {
                 for (const member of allMembersData) {
@@ -1997,7 +2090,6 @@ async function getMemberTotalValueSek(member, fxRate) {
                 }
             }
 
-            // Fetch FX rate and all prices in parallel
             const [fxRate, priceMap] = await Promise.all([
                 getExchangeRate(),
                 allTickers.size > 0 ? fetchAllPrices(Array.from(allTickers)) : {}
@@ -2005,7 +2097,6 @@ async function getMemberTotalValueSek(member, fxRate) {
 
             console.log('[Competitions] Batch fetched', allTickers.size, 'tickers, FX rate:', fxRate);
 
-            // Group members by league for efficient lookup
             const membersByLeague = {};
             if (allMembersData) {
                 for (const member of allMembersData) {
@@ -2043,7 +2134,6 @@ async function getMemberTotalValueSek(member, fxRate) {
             return { ...league, placement: '-', totalPlayers: allMembers.length, portfolioValue: 0, isProfit: false };
         }
 
-        // Calculate values using pre-fetched price map (no async, instant)
         const allValues = allMembers.map(m => getMemberTotalValueSekWithPrices(m, fxRate, priceMap));
         const userValue = getMemberTotalValueSekWithPrices(memberData, fxRate, priceMap);
 
@@ -2051,7 +2141,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         const placement = sortedValues.indexOf(userValue) + 1;
         const totalPlayers = sortedValues.length;
 
-        // Profit/loss check against starting balance (instant, no extra loading)
         const startingCapital = league.starting_balance || 100000;
         const isProfit = userValue >= startingCapital;
 
