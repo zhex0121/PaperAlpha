@@ -1506,7 +1506,7 @@ async function getMemberTotalValueSek(member, fxRate) {
         
         try {
             const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth-reset.html`
+                redirectTo: `https://zhex0121.github.io/PaperAlpha/authreset.html`
             });
             
             if (error) {
