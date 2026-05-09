@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Återställ lösenord - PaperAlpha</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg: #050505;
+            --surface: #121212;
+            --border: #282828;
+            --accent: #2962ff;
+            --up: #00ffaa;
+            --down: #ff3d71;
+            --text: #ffffff;
+            --text-dim: #b3b3b3;
+            --glass: rgba(255,255,255,0.05);
+            --glass-border: rgba(255,255,255,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(41, 98, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 255, 170, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .reset-card {
+            width: min(450px, 92vw);
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .reset-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--up), var(--accent));
+            animation: shimmer 2s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .reset-title {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            letter-spacing: -0.02em;
+        }
+
+        input {
+            width: 100%;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 14px 16px;
+            color: white;
+            border-radius: 12px;
+            box-sizing: border-box;
+            margin-top: 15px;
+            backdrop-filter: blur(10px);
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        }
+
+        input::placeholder {
+            color: var(--text-dim);
+        }
+
+        .reset-error {
+            margin: 15px 0;
+            min-height: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--down);
+        }
+
+        button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--accent), var(--up));
+            color: var(--text);
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(41, 98, 255, 0.4);
+        }
+
+        .back-link {
+            background: none;
+            color: var(--text-dim);
+            text-decoration: underline;
+            margin-top: 15px;
+            padding: 8px 0;
+        }
+
+        .back-link:hover {
+            color: var(--text);
+            transform: none;
+            box-shadow: none;
+        }
+
+        .info-text {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            margin: 20px 0;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .success-icon {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: var(--up);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="reset-card">
+        <h1 class="reset-title">Återställ lösenord</h1>
+
+        <!-- Loading State -->
+        <div id="loadingState">
+            <div class="info-text">Läser in...</div>
+        </div>
+
+        <!-- Reset Form -->
+        <div id="resetForm" style="display: none;">
+            <p class="info-text">Ange ditt nya lösenord nedan.</p>
+
+            <input 
+                type="password" 
+                id="newPassword" 
+                placeholder="Nytt lösenord (minst 8 tecken)"
+                style="margin-top: 15px;">
+
+            <input 
+                type="password" 
+                id="confirmPassword" 
+                placeholder="Bekräfta lösenord"
+                style="margin-top: 15px;">
+
+            <div class="reset-error" id="resetError"></div>
+
+            <button onclick="submitNewPassword()">UPPDATERA LÖSENORD</button>
+
+            <button class="back-link" onclick="goHome()">Tillbaka till startsidan</button>
+        </div>
+
+        <!-- Success State -->
+        <div id="successState" style="display: none;">
+            <div style="text-align: center;">
+                <div class="success-icon">✓</div>
+                <div class="info-text" style="font-size: 1.1rem; color: var(--up); margin: 15px 0;">
+                    Lösenordet har uppdaterats!
+                </div>
+                <p class="info-text">Du kan nu logga in med ditt nya lösenord.</p>
+            </div>
+            <button onclick="goHome()">GÅ TILL STARTSIDAN</button>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" style="display: none;">
+            <div style="text-align: center;">
+                <div style="font-size: 1.2rem; margin-bottom: 15px; color: var(--down);">⚠</div>
+                <div class="info-text" style="color: var(--down); margin: 15px 0;">
+                    Det gick något fel med lösenordsåterställningen.
+                </div>
+                <p class="info-text" id="errorMessage"></p>
+            </div>
+            <button onclick="goHome()">GÅ TILL STARTSIDAN</button>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jdpwqtoltrkrflopvicr.supabase.co';
+        const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nj6DO8X6r7-Rjw12B24WbA_TbuqR9z_';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+        });
+
+        async function initializeResetPage() {
+            console.log('[PasswordReset] Initializing reset page');
+
+            // Check if we have a session from the reset email link
+            const { data: { session } } = await supabaseClient.auth.getSession();
+
+            if (!session) {
+                console.log('[PasswordReset] No valid session - showing error');
+                showErrorState('Länken för lösenordsåterställning är ogiltig eller har upphört att gälla. Försök igen genom att klicka "Glömt lösenord?" på inloggningssidan.');
+                return;
+            }
+
+            console.log('[PasswordReset] Valid session, showing reset form');
+            showResetForm();
+        }
+
+        function showResetForm() {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('resetForm').style.display = 'block';
+            document.getElementById('successState').style.display = 'none';
+            document.getElementById('errorState').style.display = 'none';
+        }
+
+        function showSuccessState() {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('resetForm').style.display = 'none';
+            document.getElementById('successState').style.display = 'block';
+            document.getElementById('errorState').style.display = 'none';
+        }
+
+        function showErrorState(message) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('resetForm').style.display = 'none';
+            document.getElementById('successState').style.display = 'none';
+            document.getElementById('errorState').style.display = 'block';
+            document.getElementById('errorMessage').innerText = message;
+        }
+
+        async function submitNewPassword() {
+            const resetError = document.getElementById('resetError');
+            resetError.innerText = '';
+
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (!newPassword || !confirmPassword) {
+                resetError.innerText = 'Fyll i båda lösenordsfälten.';
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                resetError.innerText = 'Lösenordet måste vara minst 8 tecken långt.';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                resetError.innerText = 'Lösenorden matchar inte.';
+                return;
+            }
+
+            console.log('[PasswordReset] Updating password');
+
+            try {
+                const { error } = await supabaseClient.auth.updateUser({
+                    password: newPassword
+                });
+
+                if (error) {
+                    console.error('[PasswordReset] Error:', error.message);
+                    resetError.innerText = 'Kunde inte uppdatera lösenordet. Försök igen.';
+                    return;
+                }
+
+                console.log('[PasswordReset] Password updated successfully');
+                showSuccessState();
+
+            } catch (err) {
+                console.error('[PasswordReset] Exception:', err);
+                resetError.innerText = 'Något gick fel. Försök igen senare.';
+            }
+        }
+
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initializeResetPage);
+    </script>
+</body>
+</html>
