@@ -989,16 +989,17 @@
         }
         
         try {
-            // First verify current password by signing in
-            const { error: signInError } = await supabaseClient.auth.signInWithPassword({
-                email: currentUser.email,
-                password: currentPassword
-            });
-            
-            if (signInError) {
-                showMessage('Det nuvarande lösenordet är felaktigt.', 'error', 'password');
-                return;
-            }
+            // Verify current password
+const { data: verifyData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+    email: currentUser.email,
+    password: currentPassword
+});
+
+// If password is wrong
+if (signInError || !verifyData.user) {
+    showMessage('Fel nuvarande lösenord. Försök igen.', 'error', 'password');
+    return;
+}
             
             // Update password
             const { data, error } = await supabaseClient.auth.updateUser({
