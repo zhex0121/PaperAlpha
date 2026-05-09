@@ -677,11 +677,17 @@ transform: translateX(3px);
     top: 50%;
     left: 0;
     transform: translateY(-50%);
-    z-index: 501;
+    z-index: 1001;
     display: flex;
     align-items: center;
-    cursor: pointer;
+    cursor: grab;
     transition: left 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+}
+
+.panel-tab.dragging {
+    cursor: grabbing;
+    transition: none;
 }
 
 .panel-tab.shifted {
@@ -1586,6 +1592,82 @@ let isLoadingProfile = false;
 let appReady = false;
     
 let saldo=undefined;
+
+// Draggable panel tab functionality
+const panelTab = document.getElementById('panelTab');
+let isDragging = false;
+let dragStartY = 0;
+let tabStartTop = 0;
+
+// Mouse events
+panelTab.addEventListener('mousedown', startDrag);
+document.addEventListener('mousemove', drag);
+document.addEventListener('mouseup', endDrag);
+
+// Touch events for mobile
+panelTab.addEventListener('touchstart', startDrag);
+document.addEventListener('touchmove', drag);
+document.addEventListener('touchend', endDrag);
+
+function startDrag(e) {
+    // Only allow dragging, not clicking to toggle panel when dragging starts
+    if (e.type === 'mousedown' && e.button !== 0) return; // Only left mouse button
+    
+    isDragging = true;
+    panelTab.classList.add('dragging');
+    
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+    dragStartY = clientY;
+    
+    // Get current top position
+    const rect = panelTab.getBoundingClientRect();
+    tabStartTop = rect.top + (rect.height / 2); // Center position
+    
+    e.preventDefault();
+}
+
+function drag(e) {
+    if (!isDragging) return;
+    
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+    const deltaY = clientY - dragStartY;
+    
+    let newTop = tabStartTop + deltaY;
+    
+    // Get button height for boundary calculation
+    const tabHeight = panelTab.offsetHeight;
+    
+    // Constrain to screen bounds - keep entire button visible
+    const minTop = tabHeight / 2; // Top edge of button at top of screen
+    const maxTop = window.innerHeight - (tabHeight / 2); // Bottom edge of button at bottom of screen
+    
+    newTop = Math.max(minTop, Math.min(maxTop, newTop));
+    
+    // Apply new position
+    panelTab.style.top = newTop + 'px';
+    panelTab.style.transform = 'translateY(-50%)';
+    
+    e.preventDefault();
+}
+
+function endDrag(e) {
+    if (!isDragging) return;
+    
+    isDragging = false;
+    panelTab.classList.remove('dragging');
+    
+    // Check if this was just a click (no significant movement)
+    const clientY = e.type.includes('touch') ? e.changedTouches[0].clientY : e.clientY;
+    const movement = Math.abs(clientY - dragStartY);
+    
+    // If movement is small, treat as click and toggle panel
+    if (movement < 5) {
+        setTimeout(() => togglePanel(), 10);
+    }
+}
+
+// Modify the existing onclick to prevent conflicts
+panelTab.onclick = null;
 
 let previousPortValue = null; 
     
