@@ -643,13 +643,69 @@
     <div id="authModal" class="auth-modal" style="display:none;">
         <div class="auth-card">
             <h3 class="auth-title">PaperAlpha</h3>
-            <input type="email" id="authEmail" placeholder="Email">
-            <input type="password" id="authPassword" placeholder="Lösenord">
-            <div id="authError"></div>
-            <div class="auth-actions">
-                <button class="btn btn-buy" onclick="signIn()">LOGGA IN</button>
-                <button class="btn btn-sell" onclick="signUp()">REGISTRERA</button>
+            
+            <!-- Login/Register Form (shown by default) -->
+            <div id="authFormSection">
+                <input type="email" id="authEmail" placeholder="Email">
+                <input type="password" id="authPassword" placeholder="Lösenord">
+                <div id="authError"></div>
+                
+                <div class="auth-actions">
+                    <button class="btn btn-buy" onclick="signIn()">LOGGA IN</button>
+                    <button class="btn btn-sell" onclick="signUp()">REGISTRERA</button>
+                </div>
+                
+                <button 
+                    onclick="showResetPasswordForm()" 
+                    style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 15px; width:100%; text-align:center; font-size:0.9rem; text-decoration:underline; padding: 8px 0;">
+                    Glömt lösenord?
+                </button>
             </div>
+            
+            <!-- Password Reset Form -->
+            <div id="resetPasswordSection" style="display: none;">
+                <p class="reset-info-text">
+                    Ange din e-postadress.
+                </p>
+                
+                <input 
+                    type="email" 
+                    id="resetEmail" 
+                    placeholder="Din e-postadress"
+                    style="margin-top: 15px;">
+                
+                <div id="resetError"></div>
+                
+                <button 
+                    class="btn btn-buy" 
+                    onclick="sendPasswordReset()" 
+                    style="width: 100%; margin-top: 20px; padding: 14px;">
+                    SKICKA ÅTERSTÄLLNINGSLÄNK
+                </button>
+                
+                <button 
+                    onclick="showLoginForm()" 
+                    style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 15px; width:100%; text-align:center; font-size:0.9rem; text-decoration:underline; padding: 8px 0;">
+                    Tillbaka till inloggning
+                </button>
+            </div>
+            
+            <!-- Confirmation Message -->
+            <div id="resetConfirmSection" style="display: none;">
+                <div style="text-align: center; color: var(--text-dim);">
+                    
+                    <p style="margin-bottom: 20px;">
+                        Återställningslänk har skickats! <br>Kontrollera din inkorg.
+                    </p>
+                    
+                    <button 
+                        onclick="showLoginForm()" 
+                        style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.9rem; text-decoration:underline; padding: 8px 0;">
+                        Tillbaka till inloggning
+                    </button>
+                </div>
+            </div>
+            
              <button onclick="showAuthModal(false)" style="background:none; border:none; color:var(--text-dim); cursor:pointer; margin-top: 20px; width:100%; text-align:center;">Avbryt</button>
         </div>
     </div>
@@ -730,12 +786,20 @@
             color: var(--text-dim);
         }
 
-        #authError {
+        #authError, #resetError {
             margin: 15px 0;
             min-height: 20px;
             text-align: center;
             font-size: 0.85rem;
             color: var(--down);
+        }
+
+        .reset-info-text {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            margin: 15px 0;
+            text-align: center;
+            line-height: 1.5;
         }
 
         .auth-actions {
@@ -1214,6 +1278,81 @@ if (signInError || !verifyData.user) {
     }
 
     function setAuthError(msg) { authError.innerText = msg || ''; }
+
+    // ========== PASSWORD RESET FUNCTIONS ==========
+    function showLoginForm() {
+        document.getElementById('authFormSection').style.display = 'block';
+        document.getElementById('resetPasswordSection').style.display = 'none';
+        document.getElementById('resetConfirmSection').style.display = 'none';
+        document.getElementById('authError').innerText = '';
+        document.getElementById('resetError').innerText = '';
+        document.getElementById('authEmail').value = '';
+        document.getElementById('authPassword').value = '';
+        document.getElementById('resetEmail').value = '';
+        // Show the Avbryt button again
+        const cancelButton = document.querySelector('button[onclick="showAuthModal(false)"]');
+        if (cancelButton) cancelButton.style.display = 'block';
+    }
+
+    function showResetPasswordForm() {
+        document.getElementById('authFormSection').style.display = 'none';
+        document.getElementById('resetPasswordSection').style.display = 'block';
+        document.getElementById('resetConfirmSection').style.display = 'none';
+        document.getElementById('resetError').innerText = '';
+        document.getElementById('resetEmail').value = '';
+        // Hide the Avbryt button
+        const cancelButton = document.querySelector('button[onclick="showAuthModal(false)"]');
+        if (cancelButton) cancelButton.style.display = 'none';
+    }
+
+    function showResetConfirmation() {
+        document.getElementById('authFormSection').style.display = 'none';
+        document.getElementById('resetPasswordSection').style.display = 'none';
+        document.getElementById('resetConfirmSection').style.display = 'block';
+        // Hide the Avbryt button
+        const cancelButton = document.querySelector('button[onclick="showAuthModal(false)"]');
+        if (cancelButton) cancelButton.style.display = 'none';
+    }
+
+    async function sendPasswordReset() {
+        const resetError = document.getElementById('resetError');
+        resetError.innerText = '';
+        
+        const email = document.getElementById('resetEmail').value.trim();
+        
+        if (!email) {
+            resetError.innerText = 'Ange din e-postadress.';
+            return;
+        }
+        
+        console.log('[PasswordReset] Requesting reset for:', email);
+        
+        try {
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                redirectTo: `https://zhex0121.github.io/PaperAlpha/authreset.html`
+            });
+            
+            if (error) {
+                console.error('[PasswordReset] Error:', error.message);
+                
+                if (error.message.includes('User not found')) {
+                    resetError.innerText = 'E-postadressen är inte registrerad.';
+                } else if (error.message.includes('invalid email')) {
+                    resetError.innerText = 'Ogiltig e-postadress.';
+                } else {
+                    resetError.innerText = 'Kunde inte skicka återställningslänk. Försök igen senare.';
+                }
+                return;
+            }
+            
+            console.log('[PasswordReset] Email sent successfully');
+            showResetConfirmation();
+            
+        } catch (err) {
+            console.error('[PasswordReset] Exception:', err);
+            resetError.innerText = 'Något gick fel. Försök igen senare.';
+        }
+    }
 
     // --- Event Listeners ---
     logoutButton.addEventListener('click', handleLogout);
