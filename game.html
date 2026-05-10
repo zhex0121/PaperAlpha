@@ -1330,7 +1330,7 @@ id="stockList">
 <div class="main-content">
 
     <div id="viewTopRow" class="view-top-row" style="display:none;">
-    <div id="chartModeButtons" class="chart-mode-buttons">
+    <div id="chartModeButtons" class="chart-mode-buttons" style="display:none;">
         <!-- Timeframe Grid Dropdown -->
         <div class="timeframe-dropdown-wrapper">
             <button class="timeframe-trigger" onclick="toggleTimeframeDropdown()" id="timeframeTrigger">
@@ -1371,7 +1371,10 @@ id="stockList">
     <div style="flex-shrink: 0;">
         <h2 id="activeSymbolWrap" style="display:flex; align-items:center; gap:8px; margin: 0;">
             <span id="activeSymbol">Laddar marknadsdata...</span>
-            <span id="marketStatusDot" title="Marknadsstatus okänd" style="width:9px; height:9px; border-radius:50%; background:#666; display:inline-block; flex-shrink:0;"></span>
+            <div id="marketStatusWrapper" style="display:none; position:relative;">
+                <span id="marketStatusDot" title="Marknadsstatus okänd" style="width:9px; height:9px; border-radius:50%; background:#666; display:inline-block; flex-shrink:0; cursor:pointer;"></span>
+                <div id="marketStatusTooltip" style="position:absolute; top:-30px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--glass-border); border-radius:6px; padding:4px 8px; font-size:0.75rem; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity 0.2s ease; z-index:1000;"></div>
+            </div>
         </h2>
         <h1 id="activePrice">Hämtar priser...</h1>
     </div>
@@ -1883,18 +1886,55 @@ function getStalePriceMessage() {
 
 function updateMarketStatusIndicator(symbol, status) {
     const dot = document.getElementById('marketStatusDot');
-    if (!dot) return;
+    const wrapper = document.getElementById('marketStatusWrapper');
+    const tooltip = document.getElementById('marketStatusTooltip');
+    
+    if (!dot || !wrapper || !tooltip) return;
+    
     const marketStatus = status || (symbol ? getSymbolMarketStatus(symbol) : 'unknown');
+    
     if (marketStatus === 'open') {
         dot.style.background = 'var(--up)';
         dot.title = 'Marknaden är öppen';
+        tooltip.textContent = 'Marknaden är öppen';
     } else if (marketStatus === 'closed') {
         dot.style.background = 'var(--down)';
         dot.title = 'Marknaden är stängd';
+        tooltip.textContent = 'Marknaden är stängd';
     } else {
         dot.style.background = '#666';
         dot.title = 'Marknadsstatus okänd';
+        tooltip.textContent = 'Marknadsstatus okänd';
     }
+}
+
+// Add tooltip event listeners
+function setupMarketStatusTooltip() {
+    const dot = document.getElementById('marketStatusDot');
+    const tooltip = document.getElementById('marketStatusTooltip');
+    
+    if (!dot || !tooltip) return;
+    
+    // Show tooltip on hover
+    dot.addEventListener('mouseenter', () => {
+        tooltip.style.opacity = '1';
+    });
+    
+    dot.addEventListener('mouseleave', () => {
+        tooltip.style.opacity = '0';
+    });
+    
+    // Show/hide tooltip on click
+    dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = tooltip.style.opacity === '1';
+        tooltip.style.opacity = isVisible ? '0' : '1';
+    });
+    
+    // Hide tooltip when clicking elsewhere
+    document.addEventListener('click', () => {
+        tooltip.style.opacity = '0';
+    });
 }
 
 async function fetchExchangeRate() {
@@ -2006,9 +2046,14 @@ function updateToggleVisibility() {
     const topRow = document.getElementById('viewTopRow');
     const chartModes = document.getElementById('chartModeButtons');
     const viewToggleBar = document.getElementById('viewToggleBar');
-
     if (topRow) topRow.style.display = inLeague ? 'flex' : 'none';
-    if (chartModes) chartModes.style.display = currentView === 'chart' ? 'flex' : 'none';
+    const marketStatusWrapper = document.getElementById('marketStatusWrapper');
+
+    // Only show top row and chart controls when a security is selected
+    const hasSecuritySelected = !!aktivAktie;
+    
+    
+    if (chartModes) chartModes.style.display = (currentView === 'chart' && hasSecuritySelected) ? 'flex' : 'none';
     if (viewToggleBar) viewToggleBar.style.display = inLeague ? 'flex' : 'none';
 }
 
@@ -3611,6 +3656,18 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
     // Keep chart view visible immediately on selection/startup
     if (switchToChartView) showChartView();
 
+    // Show market status indicator and timeframe button when security is selected
+    const marketStatusWrapper = document.getElementById('marketStatusWrapper');
+    const chartModeButtons = document.getElementById('chartModeButtons');
+    
+    if (marketStatusWrapper) {
+        marketStatusWrapper.style.display = 'inline-block';
+    }
+    
+    if (chartModeButtons) {
+        chartModeButtons.style.display = 'flex';
+    }
+
     // Use the async function to check market status
     const marketStatus = await syncTradeControlsVisibility();
 
@@ -3655,7 +3712,7 @@ const symbolEl=document.getElementById('activeSymbol');
 
 // If no stock selected, show appropriate message based on whether prices have loaded
 if(!aktivAktie){
-    symbolEl.innerText = 'Välj ett värdepapper från listan';
+    symbolEl.innerText = 'Välj ett värdepapper';
     priceEl.innerText = '';
     return;
 }
@@ -4963,6 +5020,9 @@ updateInGameTopInfo = function() {
     origUpdateInGameTopInfo.apply(this, arguments);
     setTimeout(adjustBannerOffset, 50);
 };
+
+// Initialize market status tooltip
+setupMarketStatusTooltip();
 
 </script>
 </body>
