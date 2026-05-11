@@ -4290,8 +4290,10 @@ chart.options.plugins.zoom.onPan = function() {
         liveAutoScrollEnabled = false; // user manually moved chart
     }
     if (chartViewMode === 'free') {
+        markFreeInteraction();
         clampFreeModeXRange(true);
         updateYAxisToFitVisible();
+        chart.update('none');
     }
 };
 chart.options.plugins.zoom.onZoom = function() {
@@ -4299,8 +4301,10 @@ chart.options.plugins.zoom.onZoom = function() {
         liveAutoScrollEnabled = false; // user manually zoomed
     }
     if (chartViewMode === 'free') {
+        markFreeInteraction();
         clampFreeModeXRange(true);
         updateYAxisToFitVisible();
+        chart.update('none');
     }
 };
 chart.options.plugins.zoom.pan.onPanStart = function() {
@@ -4313,6 +4317,7 @@ chart.options.plugins.zoom.pan.onPanComplete = function() {
     if (chartViewMode === 'free') {
         markFreeInteraction();
         updateYAxisToFitVisible();
+        chart.update('none');
     }
 };
 chart.options.plugins.zoom.zoom.onZoomStart = function() {
@@ -4325,6 +4330,7 @@ chart.options.plugins.zoom.zoom.onZoomComplete = function() {
     if (chartViewMode === 'free') {
         markFreeInteraction();
         updateYAxisToFitVisible();
+        chart.update('none');
     }
 };
 
@@ -4532,7 +4538,6 @@ function updateYAxisToFitVisible() {
     if (target) {
         chart.options.scales.y.min = target.min;
         chart.options.scales.y.max = target.max;
-        chart.update('none');
     }
 }
 
