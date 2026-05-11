@@ -4532,6 +4532,7 @@ function updateYAxisToFitVisible() {
     if (target) {
         chart.options.scales.y.min = target.min;
         chart.options.scales.y.max = target.max;
+        chart.update('none');
     }
 }
 
