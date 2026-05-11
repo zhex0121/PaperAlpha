@@ -1639,6 +1639,73 @@ const chartBoundaryLabelPlugin = {
         ctx.restore();
     }
 };
+
+// Market closure lines plugin - draws vertical lines at market closure gaps
+const marketClosureLinesPlugin = {
+    id: 'marketClosureLines',
+    beforeDatasetsDraw(chartInstance) {
+        const tfConfig = getCurrentTimeframeConfig();
+        const isHighTf = tfConfig.ms > 300000; // Only for 5min+ timeframes
+        if (!isHighTf) return;
+
+        const data = chartInstance.data?.datasets?.[0]?.data;
+        if (!data || data.length < 2) return;
+
+        const xScale = chartInstance.scales?.x;
+        if (!xScale) return;
+
+        const ctx = chartInstance.ctx;
+        const chartArea = chartInstance.chartArea;
+
+        ctx.save();
+
+        for (let i = 1; i < data.length; i++) {
+            const prevCandle = data[i - 1];
+            const currCandle = data[i];
+
+            if (!prevCandle._ts || !currCandle._ts) continue;
+
+            const gapMs = currCandle._ts - prevCandle._ts;
+            const minGapMs = 2 * tfConfig.ms; // At least 2 candle intervals to be considered a gap
+
+            if (gapMs > minGapMs) {
+                // Determine gap type
+                const isWeekendOrHoliday = gapMs >= 24 * 60 * 60 * 1000; // >= 24 hours
+
+                const x = xScale.getPixelForValue(currCandle.x);
+                if (!Number.isFinite(x)) continue;
+
+                // Only draw if within chart area (with some padding)
+                if (x < chartArea.left - 10 || x > chartArea.right + 10) continue;
+
+                // Draw vertical line
+                ctx.beginPath();
+                ctx.moveTo(x, chartArea.top);
+                ctx.lineTo(x, chartArea.bottom);
+
+                if (isWeekendOrHoliday) {
+                    // Weekend/holiday - more pronounced
+                    ctx.strokeStyle = 'rgba(150, 150, 150, 0.35)';
+                    ctx.lineWidth = 2;
+                } else {
+                    // Overnight gap - subtle
+                    ctx.strokeStyle = 'rgba(150, 150, 150, 0.15)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]); // Dashed line for overnight
+                }
+
+                ctx.stroke();
+
+                // Reset dash for next line
+                if (!isWeekendOrHoliday) {
+                    ctx.setLineDash([]);
+                }
+            }
+        }
+
+        ctx.restore();
+    }
+};
     
 let marketIsOpen = false; // Track symbol status transitions for log clarity
 let lastPriceUpdate = null; // Track when we last received fresh prices
@@ -4057,7 +4124,7 @@ chart=new Chart(ctx,{
 
 type:'candlestick',
 
-plugins:[chartBoundaryLabelPlugin],
+plugins:[chartBoundaryLabelPlugin, marketClosureLinesPlugin],
 
 data:{
 
@@ -4099,7 +4166,7 @@ title:function(ctx) {
     if (typeof ts === 'number' && ts > 1000000000000) {
         const d = new Date(ts);
         const tfConfig = getCurrentTimeframeConfig();
-        if (tfConfig.ms >= 3600000) {
+        if (tfConfig.ms > 300000) {
             return d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' });
         } else {
             return d.toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -4160,16 +4227,21 @@ maxTicksLimit:6,
 autoSkipPadding:26,
 callback:function(value){
 const tfConfig = getCurrentTimeframeConfig();
-const isHighTf = tfConfig.ms >= 3600000; // 1 hour or higher
+const isHighTf = tfConfig.ms > 300000; // 5 min or higher
 
 if (isHighTf && chart?.data?.datasets[0]?.data) {
-    // For higher TFs, value is an index - look up the timestamp
+    // For higher TFs with linear axis, value might be a float index
+    // Find nearest integer index
     const data = chart.data.datasets[0].data;
-    const candle = data[value];
-    if (candle && candle._ts) {
-        const d = new Date(candle._ts);
-        return d.toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' });
+    const index = Math.round(value);
+    if (index >= 0 && index < data.length) {
+        const candle = data[index];
+        if (candle && candle._ts) {
+            const d = new Date(candle._ts);
+            return d.toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' });
+        }
     }
+    return '';
 }
 
 // For lower TFs or fallback, value is a timestamp
@@ -4426,7 +4498,7 @@ function computeFreeModeYTarget(visible) {
 function applyFreeModeXDefaultBounds() {
     if (!chart || !aktivAktie) return;
     const tfConfig = getCurrentTimeframeConfig();
-    const isHighTf = tfConfig.ms >= 3600000;
+    const isHighTf = tfConfig.ms > 300000;
     const currentData = chart?.data?.datasets?.[0]?.data || [];
     const history = aktier[aktivAktie].history || [];
     const data = currentData.length ? currentData : history;
@@ -4445,7 +4517,7 @@ function applyFreeModeXDefaultBounds() {
 function getFreeModeXDomain() {
     if (!aktivAktie) return null;
     const tfConfig = getCurrentTimeframeConfig();
-    const isHighTf = tfConfig.ms >= 3600000;
+    const isHighTf = tfConfig.ms > 300000;
     const currentData = chart?.data?.datasets?.[0]?.data || [];
     const history = aktier[aktivAktie]?.history || [];
     const data = currentData.length ? currentData : history;
@@ -4562,8 +4634,15 @@ function stepFreeModeViewport(ts) {
         return;
     }
 
+    const tfConfig = getCurrentTimeframeConfig();
+    const isHighTf = tfConfig.ms > 300000;
+
+    // Use chart data for higher TFs (index-based), raw history for lower TFs
+    const currentData = chart?.data?.datasets?.[0]?.data || [];
     const history = aktier[aktivAktie].history || [];
-    if (!history.length) {
+    const data = (isHighTf && currentData.length) ? currentData : history;
+
+    if (!data.length) {
         freeModeAnimationFrame = requestAnimationFrame(stepFreeModeViewport);
         return;
     }
@@ -4576,7 +4655,7 @@ function stepFreeModeViewport(ts) {
 
     const xMin = chart.options.scales.x.min;
     const xMax = chart.options.scales.x.max;
-    const visible = history.filter(c => c.x >= xMin && c.x <= xMax);
+    const visible = data.filter(c => c.x >= xMin && c.x <= xMax);
     const target = computeFreeModeYTarget(visible);
     if (!target) {
         freeModeAnimationFrame = requestAnimationFrame(stepFreeModeViewport);
@@ -4677,7 +4756,7 @@ function updateChartView() {
     if (!history || history.length === 0) return;
 
     const tfConfig = getCurrentTimeframeConfig();
-    const isHighTf = tfConfig.ms >= 3600000; // 1 hour or higher
+    const isHighTf = tfConfig.ms > 300000; // 5 min or higher
 
     // Transform data for higher timeframes to remove market-closed gaps
     if (isHighTf) {
