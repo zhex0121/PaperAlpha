@@ -141,6 +141,26 @@
              box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
         }
 
+        .login-button-large {
+             background: none;
+             border: 1px solid var(--accent);
+             color: var(--text);
+             font-size: 1.1rem;
+             font-weight: 600;
+             cursor: pointer;
+             padding: 16px 24px;
+             border-radius: 25px;
+             transition: all 0.3s ease;
+             backdrop-filter: blur(10px);
+             letter-spacing: 0.5px;
+             width: 100%;
+        }
+
+        .login-button-large:hover {
+             background: var(--accent);
+             transform: translateY(-1px);
+             box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+        }
 
         .profile-btn {
             width: 42px;
@@ -1151,18 +1171,18 @@
 
                 <div id="activeCompetitions" class="competitions-list">
                     <div class="no-competitions">
-                        <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Laddar tävlingar...</div>
-                        <div id="loginPromptActive" style="display: none;">
-                            <button class="login-button large" onclick="showLoginForm(); showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att tävla</button>
+                        <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga aktiva tävlingar</div>
+                        <div id="loginPromptActive">
+                            <button class="login-button-large" onclick="showLoginForm(); showAuthModal(true)">Logga in för att tävla</button>
                         </div>
                     </div>
                 </div>
 
                 <div id="finishedCompetitions" class="competitions-list" style="display: none;">
                     <div class="no-competitions">
-                        <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Laddar tävlingar...</div>
-                        <div id="loginPromptFinished" style="display: none;">
-                            <button class="login-button large" onclick="showLoginForm(); showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att se resultat</button>
+                        <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga avslutade tävlingar</div>
+                        <div id="loginPromptFinished">
+                            <button class="login-button-large" onclick="showLoginForm(); showAuthModal(true)">Logga in för att se resultat</button>
                         </div>
                     </div>
                 </div>
@@ -1555,9 +1575,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         document.getElementById('landingPage').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
         
-        document.getElementById('loginPromptActive').style.display = 'none';
-        document.getElementById('loginPromptFinished').style.display = 'none';
-        
         console.log('[UI] currentUser set to:', currentUser?.email, '| new-competition-section visible');
     }
 
@@ -1573,11 +1590,6 @@ async function getMemberTotalValueSek(member, fxRate) {
         
         document.getElementById('landingPage').style.display = 'flex';
         document.getElementById('mainContent').style.display = 'none';
-        
-        const activePrompt = document.getElementById('loginPromptActive');
-        const finishedPrompt = document.getElementById('loginPromptFinished');
-        if (activePrompt) activePrompt.style.display = 'block';
-        if (finishedPrompt) finishedPrompt.style.display = 'block';
         
         console.log('[UI] currentUser cleared');
     }
@@ -1732,8 +1744,8 @@ async function getMemberTotalValueSek(member, fxRate) {
                     activeEl.innerHTML = `
                         <div class="no-competitions">
                             <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga aktiva tävlingar</div>
-                            <div id="loginPromptActive" style="display: block;">
-                                <button class="login-button large" onclick="showLoginForm(); showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att tävla</button>
+                            <div id="loginPromptActive">
+                                <button class="login-button-large" onclick="showLoginForm(); showAuthModal(true)">Logga in för att tävla</button>
                             </div>
                         </div>
                     `;
@@ -1742,8 +1754,8 @@ async function getMemberTotalValueSek(member, fxRate) {
                     finishedEl.innerHTML = `
                         <div class="no-competitions">
                             <div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Inga avslutade tävlingar</div>
-                            <div id="loginPromptFinished" style="display: block;">
-                                <button class="login-button large" onclick="showLoginForm(); showAuthModal(true)" style="width: 100%; padding: 16px 24px; font-size: 1.1rem; font-weight: 600;">Logga in för att se resultat</button>
+                            <div id="loginPromptFinished">
+                                <button class="login-button-large" onclick="showLoginForm(); showAuthModal(true)">Logga in för att se resultat</button>
                             </div>
                         </div>
                     `;
