@@ -4091,7 +4091,22 @@ displayColors:false,
 intersect:true,
 mode:'nearest',
 callbacks:{
-title:()=>'',
+title:function(ctx) {
+    const r = ctx[0]?.raw || ctx[0]?.parsed;
+    if (!r) return '';
+    // For higher TFs, use stored timestamp; for lower TFs, use x value directly
+    const ts = r._ts || r.x;
+    if (typeof ts === 'number' && ts > 1000000000000) {
+        const d = new Date(ts);
+        const tfConfig = getCurrentTimeframeConfig();
+        if (tfConfig.ms >= 3600000) {
+            return d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' });
+        } else {
+            return d.toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+    }
+    return '';
+},
 label:function(ctx){
 
 const r=ctx.raw||ctx.parsed;
@@ -4144,17 +4159,22 @@ autoSkip:true,
 maxTicksLimit:6,
 autoSkipPadding:26,
 callback:function(value){
+const tfConfig = getCurrentTimeframeConfig();
+const isHighTf = tfConfig.ms >= 3600000; // 1 hour or higher
 
-const d=new Date(value);
+if (isHighTf && chart?.data?.datasets[0]?.data) {
+    // For higher TFs, value is an index - look up the timestamp
+    const data = chart.data.datasets[0].data;
+    const candle = data[value];
+    if (candle && candle._ts) {
+        const d = new Date(candle._ts);
+        return d.toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' });
+    }
+}
 
-const label=d.toLocaleTimeString('sv-SE',{
-hour:'2-digit',
-minute:'2-digit',
-hour12:false
-});
-
-return label;
-
+// For lower TFs or fallback, value is a timestamp
+const d = new Date(value);
+return d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 }
 },
@@ -4405,13 +4425,16 @@ function computeFreeModeYTarget(visible) {
 
 function applyFreeModeXDefaultBounds() {
     if (!chart || !aktivAktie) return;
-    const history = aktier[aktivAktie].history || [];
-    if (!history.length) return;
-
     const tfConfig = getCurrentTimeframeConfig();
-    const newest = history[history.length - 1].x;
+    const isHighTf = tfConfig.ms >= 3600000;
+    const currentData = chart?.data?.datasets?.[0]?.data || [];
+    const history = aktier[aktivAktie].history || [];
+    const data = currentData.length ? currentData : history;
+    if (!data.length) return;
+
+    const newest = isHighTf ? data.length - 1 : data[data.length - 1].x;
     const FREE_CANDLES = 50;
-    const viewWindow = FREE_CANDLES * tfConfig.ms;
+    const viewWindow = isHighTf ? FREE_CANDLES : FREE_CANDLES * tfConfig.ms;
     const rightPadding = viewWindow * 0.15;
 
     chart.options.scales.x.min = newest - (viewWindow - rightPadding);
@@ -4421,13 +4444,16 @@ function applyFreeModeXDefaultBounds() {
 
 function getFreeModeXDomain() {
     if (!aktivAktie) return null;
-    const history = aktier[aktivAktie]?.history || [];
-    if (!history.length) return null;
-
     const tfConfig = getCurrentTimeframeConfig();
-    const step = tfConfig.ms;
-    const dataMin = history[0].x;
-    const dataMax = history[history.length - 1].x;
+    const isHighTf = tfConfig.ms >= 3600000;
+    const currentData = chart?.data?.datasets?.[0]?.data || [];
+    const history = aktier[aktivAktie]?.history || [];
+    const data = currentData.length ? currentData : history;
+    if (!data.length) return null;
+
+    const step = isHighTf ? 1 : tfConfig.ms;
+    const dataMin = isHighTf ? 0 : data[0].x;
+    const dataMax = isHighTf ? data.length - 1 : data[data.length - 1].x;
     const leftPadding = FREE_LEFT_PADDING_CANDLES * step;
     const rightPadding = FREE_RIGHT_PADDING_CANDLES * step;
 
@@ -4650,39 +4676,69 @@ function updateChartView() {
     const history = aktier[aktivAktie].history;
     if (!history || history.length === 0) return;
 
-    chart.data.datasets[0].data = history;
-
-    const first = history[0].x;
-    const last = history[history.length - 1].x;
-    const range = last - first;
-
-    // Set time unit based on current timeframe and data range
     const tfConfig = getCurrentTimeframeConfig();
-    if (tfConfig.ms >= 86400000) {
-        // Daily timeframe
-        chart.options.scales.x.time.unit = 'day';
-    } else if (tfConfig.ms >= 3600000) {
-        // Hourly timeframes
-        chart.options.scales.x.time.unit = range > 24 * 60 * 60 * 1000 ? 'day' : 'hour';
-    } else if (tfConfig.ms >= 600000) {
-        // 10min+ timeframes
-        chart.options.scales.x.time.unit = range > 24 * 60 * 60 * 1000 ? 'hour' : 'minute';
+    const isHighTf = tfConfig.ms >= 3600000; // 1 hour or higher
+
+    // Transform data for higher timeframes to remove market-closed gaps
+    if (isHighTf) {
+        // Convert to index-based data with stored timestamps
+        chart.data.datasets[0].data = history.map((candle, index) => ({
+            x: index,
+            o: candle.o,
+            h: candle.h,
+            l: candle.l,
+            c: candle.c,
+            _ts: candle.x // Store original timestamp
+        }));
+
+        // Switch to linear axis (not time-based) to remove gaps
+        chart.options.scales.x.type = 'linear';
+        chart.options.scales.x.time = undefined; // Remove time configuration
+        chart.options.scales.x.ticks.stepSize = 1;
+
+        // Custom tooltip format for index-based data
+        chart.options.scales.x.time = {
+            tooltipFormat: 'dd/MM HH:mm',
+            displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'dd MMM' }
+        };
     } else {
-        // Sub-10min timeframes
-        chart.options.scales.x.time.unit = 'minute';
+        // Use original timestamp-based data for lower TFs
+        chart.data.datasets[0].data = history;
+
+        // Restore time-based axis
+        chart.options.scales.x.type = 'time';
+        chart.options.scales.x.ticks.stepSize = undefined;
+
+        const first = history[0].x;
+        const last = history[history.length - 1].x;
+        const range = last - first;
+
+        // Set time unit based on current timeframe and data range
+        if (tfConfig.ms >= 600000) {
+            // 10min+ timeframes
+            chart.options.scales.x.time.unit = range > 24 * 60 * 60 * 1000 ? 'hour' : 'minute';
+        } else {
+            // Sub-10min timeframes
+            chart.options.scales.x.time.unit = 'minute';
+        }
     }
 
     if (chartViewMode === 'locked') {
-        const newest = last;
+        const currentData = chart.data.datasets[0].data;
+        const lastCandle = currentData[currentData.length - 1];
+        const newest = isHighTf ? lastCandle.x : lastCandle.x;
+        const firstCandle = currentData[0];
+        const first = isHighTf ? 0 : firstCandle.x;
+
         const TARGET_CANDLES = 30;
-        const viewWindow = TARGET_CANDLES * tfConfig.ms;
+        const viewWindow = isHighTf ? TARGET_CANDLES : TARGET_CANDLES * tfConfig.ms;
         const rightPadding = viewWindow * 0.33;
 
         if (liveAutoScrollEnabled) {
             chart.options.scales.x.min = newest - (viewWindow - rightPadding);
             chart.options.scales.x.max = newest + rightPadding;
 
-            const visible = history.filter(c => c.x >= chart.options.scales.x.min);
+            const visible = currentData.filter(c => c.x >= chart.options.scales.x.min);
 
             if (visible.length) {
                 const highs = visible.map(c => c.h);
@@ -4702,7 +4758,7 @@ function updateChartView() {
         chart.options.plugins.zoom.zoom.pinch.enabled = false;
         chart.options.plugins.zoom.pan.mode = 'x';
         chart.options.plugins.zoom.zoom.wheel.mode = 'x';
-        chart.options.plugins.zoom.zoom.pinch.mode = 'x';
+        chart.options.plugins.zoom.pinch.mode = 'x';
 
         stopFreeModeAnimator();
 
