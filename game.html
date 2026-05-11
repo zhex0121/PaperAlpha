@@ -1252,6 +1252,53 @@ margin-top:0;
         padding: 0.7rem 0.8rem !important;
     }
 }
+
+/* Pending Trades Section Styling */
+#pendingTradesSection {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#pendingTradesList > div {
+    position: relative;
+    overflow: hidden;
+}
+
+#pendingTradesList > div::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(41, 98, 255, 0.1), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.pending-trade-item {
+    transition: all 0.2s ease;
+}
+
+.pending-trade-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(41, 98, 255, 0.15);
+}
+
     /* Give main content a bit more top breathing room on mobile */
     .main-content {
         padding-top: 20px;
@@ -1463,6 +1510,13 @@ SÄLJ
     <div style="font-size: 0.9rem;">Handel är endast möjlig under öppna marknadstider</div>
 </div>
 
+<div id="pendingTradesSection" style="display: none; margin-top: 20px;">
+    <div style="border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom: 15px;">
+        <h4 style="margin: 0; font-size: 0.85rem; letter-spacing: 1px; color: var(--accent);">PÅGÅENDE HANDEL</h4>
+    </div>
+    <div id="pendingTradesList" style="font-size: 0.85rem;"></div>
+</div>
+
 <div style="border-bottom:1px solid var(--border); padding-bottom:5px; margin-top: 20px;">
     <h4 style="margin: 0; font-size: 0.85rem; letter-spacing: 1px;">PORTFÖLJ</h4>
 </div>
@@ -1498,6 +1552,10 @@ SÄLJ
 <script>
 
 window.tradeLock = false;
+
+// Pending trades system
+let pendingTrades = []; // Array of pending trades waiting for fresh prices
+const PENDING_PRICE_THRESHOLD_MS = 16 * 1000; // 16 seconds threshold for pending trades
 
 const symboler = [
     "S&P 500 (SPY)", "Nasdaq 100 (QQQ)", "Dow Jones (DIA)",
@@ -1587,6 +1645,222 @@ let lastPriceUpdate = null; // Track when we last received fresh prices
 let lastLoggedSymbolMarketStatus = null;
   
 let aktivAktie=null;
+
+// Pending trades management functions
+function savePendingTradesToStorage() {
+    try {
+        localStorage.setItem('paperAlpha_pendingTrades', JSON.stringify(pendingTrades));
+    } catch (error) {
+        console.error('[Pending Trades] Failed to save to localStorage:', error);
+    }
+}
+
+function loadPendingTradesFromStorage() {
+    try {
+        const saved = localStorage.getItem('paperAlpha_pendingTrades');
+        if (saved) {
+            const loaded = JSON.parse(saved);
+            // Only restore trades for current user
+            pendingTrades = loaded.filter(trade => trade.userId === currentUser?.id);
+            console.log(`[Pending Trades] Loaded ${pendingTrades.length} trades from storage`);
+            
+            // Apply share reservations for sell orders
+            pendingTrades.forEach(trade => {
+                if (trade.type === 'sälj' && trade.userId === currentUser?.id) {
+                    if (!portfölj[trade.symbol]) {
+                        portfölj[trade.symbol] = {
+                            antal: 0,
+                            totaltInköp: 0
+                        };
+                    }
+                    
+                    // Reserve the shares by reducing available amount
+                    portfölj[trade.symbol].antal = Number((portfölj[trade.symbol].antal - trade.amount).toFixed(6));
+                    
+                    // Remove security from portfolio if amount reaches 0
+                    if (portfölj[trade.symbol].antal <= 0) {
+                        delete portfölj[trade.symbol];
+                        console.log(`[Pending Trades] Removed ${trade.symbol} from portfolio as amount reached 0`);
+                    } else {
+                        console.log(`[Pending Trades] Reserved ${trade.amount} st ${trade.symbol} from restored sell order. Available: ${portfölj[trade.symbol].antal} st`);
+                    }
+                }
+            });
+            
+            // Update displays after applying reservations
+            updatePendingTradesDisplay();
+            uppdateraPortfölj();
+        }
+    } catch (error) {
+        console.error('[Pending Trades] Failed to load from localStorage:', error);
+        pendingTrades = [];
+    }
+}
+
+function addPendingTrade(symbol, type, amount, userId) {
+    const pendingTrade = {
+        id: Date.now() + Math.random(), // Unique ID
+        symbol: symbol,
+        type: type, // 'köp' or 'sälj'
+        amount: amount,
+        userId: userId,
+        createdAt: Date.now()
+    };
+    
+    // For sell orders, immediately reserve shares to prevent over-selling
+    if (type === 'sälj' && userId === currentUser?.id) {
+        if (!portfölj[symbol]) {
+            portfölj[symbol] = {
+                antal: 0,
+                totaltInköp: 0
+            };
+        }
+        
+        // Reserve the shares by reducing available amount
+        portfölj[symbol].antal = Number((portfölj[symbol].antal - amount).toFixed(6));
+        
+        console.log(`[Pending Trade] Reserved ${amount} st ${symbol} for sell order. Available: ${portfölj[symbol].antal} st`);
+        
+        // Remove security from portfolio if amount reaches 0
+        if (portfölj[symbol].antal <= 0) {
+            delete portfölj[symbol];
+            console.log(`[Pending Trade] Removed ${symbol} from portfolio as amount reached 0`);
+        }
+        
+        // Update portfolio display immediately to show reserved shares
+        uppdateraPortfölj();
+        
+        // Immediately save to Supabase so shares are removed from database
+        sparaPortföljTillSupabase().then(() => {
+            console.log(`[Pending Trade] Saved reduced portfolio to Supabase for sell order`);
+        }).catch(err => {
+            console.error(`[Pending Trade] Failed to save to Supabase:`, err);
+        });
+    }
+    
+    pendingTrades.push(pendingTrade);
+    savePendingTradesToStorage();
+    updatePendingTradesDisplay();
+    console.log(`[Pending Trade] Added ${type} ${amount} st ${symbol}`);
+}
+
+function executePendingTrades(symbol, newPrice) {
+    const tradesToExecute = pendingTrades.filter(trade => trade.symbol === symbol);
+    
+    if (tradesToExecute.length > 0) {
+        console.log(`[Pending Trade] Executing ${tradesToExecute.length} trades for ${symbol} at price ${newPrice}`);
+        
+        tradesToExecute.forEach(trade => {
+            // Execute the trade with the new price
+            executeTradeWithPrice(trade.type, trade.symbol, trade.amount, newPrice, trade.userId);
+        });
+        
+        // Remove executed trades from pending list
+        pendingTrades = pendingTrades.filter(trade => trade.symbol !== symbol);
+        savePendingTradesToStorage();
+        updatePendingTradesDisplay();
+    }
+}
+
+function executeTradeWithPrice(type, symbol, amount, price, userId) {
+    // Only execute if this is the current user's trade
+    if (userId !== currentUser?.id) return;
+    
+    const kostnadUSD = price * amount;
+    const kostnad = kostnadUSD * currentExchangeRate;
+    
+    try {
+        if (type === 'köp') {
+            if (saldo >= kostnad) {
+                saldo -= kostnad;
+                
+                if (!portfölj[symbol]) {
+                    portfölj[symbol] = {
+                        antal: 0,
+                        totaltInköp: 0
+                    };
+                }
+                
+                portfölj[symbol].antal = Number((portfölj[symbol].antal + amount).toPrecision(12));
+                portfölj[symbol].totaltInköp += kostnad;
+                
+                console.log(`[Pending Trade] Köpte ${amount} st ${symbol} för ${kostnadUSD} USD (nytt pris)`);
+                
+                // Notify user that pending trade executed
+                document.getElementById('tradeError').innerHTML = `<div style="color:var(--up);font-weight:400;font-size:0.8rem;">Genomförde köp: ${amount} st ${symbol} för ${kostnadUSD.toFixed(2)} USD</div>`;
+                setTimeout(() => rensaTradeFel(), 6000);
+            } else {
+                // Not enough money - notify user
+                const affordableAmount = Math.floor((saldo / kostnad * amount) * 10000) / 10000;
+                const isExpensive = price * currentExchangeRate > saldo;
+                
+                const info = isExpensive
+                    ? `Köp misslyckades: Du har inte råd med ${amount} st. Du kan köpa andelar av ett värdepapper — testa t.ex. <b style="color:var(--up);cursor:pointer;" onclick="document.getElementById('tradeAmount').value='${affordableAmount.toFixed(4).replace('.',',')}';rensaTradeFel();">${affordableAmount.toFixed(4).replace('.',',')} st</b> för ditt hela saldo.`
+                    : "Köp misslyckades: Du har inte råd. Testa ett mindre antal.";
+                
+                document.getElementById('tradeError').innerHTML = `<div style="color:var(--down);font-weight:400;font-size:0.8rem;">${info}</div>`;
+                setTimeout(() => rensaTradeFel(), 6000);
+            }
+        } else if (type === 'sälj') {
+            // For sell orders, shares were already reserved and possibly removed when added to pending list
+            // So we just need to add the money - the portfolio is already updated in Supabase
+            saldo += kostnad;
+            
+            console.log(`[Pending Trade] Sålde ${amount} st ${symbol} för ${kostnadUSD} USD (nytt pris) - shares were already reserved and removed from portfolio`);
+            
+            // Notify user that pending trade executed
+            document.getElementById('tradeError').innerHTML = `<div style="color:var(--up);font-weight:400;font-size:0.8rem;">Genomförde sälj: ${amount} st ${symbol} för ${kostnadUSD.toFixed(2)} USD</div>`;
+            setTimeout(() => rensaTradeFel(), 6000);
+        }
+        
+        // Update UI after executing pending trade
+        uppdateraPortfölj();
+        sparaPortföljTillSupabase();
+        
+    } catch (error) {
+        console.error('[Pending Trade] Error executing trade:', error);
+    }
+}
+
+function updatePendingTradesDisplay() {
+    const section = document.getElementById('pendingTradesSection');
+    const list = document.getElementById('pendingTradesList');
+    
+    if (pendingTrades.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    section.style.display = 'block';
+    
+    // Group by symbol for cleaner display
+    const groupedTrades = {};
+    pendingTrades.forEach(trade => {
+        if (!groupedTrades[trade.symbol]) {
+            groupedTrades[trade.symbol] = [];
+        }
+        groupedTrades[trade.symbol].push(trade);
+    });
+    
+    let html = '';
+    for (const [symbol, trades] of Object.entries(groupedTrades)) {
+        const totalBuy = trades.filter(t => t.type === 'köp').reduce((sum, t) => sum + t.amount, 0);
+        const totalSell = trades.filter(t => t.type === 'sälj').reduce((sum, t) => sum + t.amount, 0);
+        
+        html += `
+            <div class="pending-trade-item" style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+                <div style="font-weight: 600; color: var(--text); margin-bottom: 4px;">${symbol}</div>
+                <div style="color: var(--text-dim); font-size: 0.8rem;">
+                    ${totalBuy > 0 ? `<div style="color: var(--up);">Köper: ${totalBuy} st</div>` : ''}
+                    ${totalSell > 0 ? `<div style="color: var(--down);">Säljer: ${totalSell} st</div>` : ''}
+                    <div style="margin-top: 4px; font-style: italic;">Väntar på färsk pris...</div>
+                </div>
+            </div>
+        `;
+    }
+    
+    list.innerHTML = html;
+}
 
 let hydrated = false;
 
@@ -2686,24 +2960,7 @@ async function syncTradeControlsVisibility(){
         marketStatus = statusData.status;
         updateMarketStatusIndicator(aktivAktie, marketStatus);
 
-        const currentQuoteTs = Number(aktier[aktivAktie]?.senasteLivePrisTid || 0);
-        const hasQuote = Number.isFinite(currentQuoteTs) && currentQuoteTs > 0;
-        const isStale = hasQuote && (Date.now() - currentQuoteTs > STALE_PRICE_THRESHOLD_MS);
-
-        // Show stale-price warning only while market itself is open.
-        if (marketStatus === 'open' && isStale) {
-            if (tradeControls) tradeControls.style.display = 'none';
-            if (marketClosedMessage) {
-                const staleCopy = getStalePriceMessage();
-                marketClosedMessage.style.display = 'block';
-                marketClosedMessage.innerHTML = `
-                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${staleCopy.title}</div>
-                    <div style="font-size: 0.9rem;">${staleCopy.detail}</div>
-                `;
-            }
-            window.tradeLock = true;
-            return 'stale';
-        }
+        // Removed stale price check - trades are now handled by pending trades system
         
         if (marketStatus === 'closed') {
             if (tradeControls) tradeControls.style.display = 'none';
@@ -2719,7 +2976,7 @@ async function syncTradeControlsVisibility(){
         } else if (marketStatus === 'unknown') {
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
-                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
+                const pricesHaveLoaded = lastPriceUpdate !== null;
                 const copy = !pricesHaveLoaded
                     ? getMarketLoadingMessage()
                     : getMarketUnknownMessage(aktivAktie);
@@ -2739,7 +2996,7 @@ async function syncTradeControlsVisibility(){
             // Any other status (including invalid/random values) - treat as unknown/locked
             if (tradeControls) tradeControls.style.display = 'none';
             if (marketClosedMessage) {
-                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
+                const pricesHaveLoaded = lastPriceUpdate !== null;
                 const copy = !pricesHaveLoaded
                     ? getMarketLoadingMessage()
                     : getMarketUnknownMessage(aktivAktie);
@@ -2912,7 +3169,10 @@ async function showLoggedInUI() {
     updateInGameTopInfo();
     
     await syncTradeControlsVisibility();
-
+    
+    // Load pending trades from localStorage
+    loadPendingTradesFromStorage();
+    
     updateToggleVisibility();
 }
 
@@ -3745,7 +4005,7 @@ function visaTradeFel(info = ""){
     document.getElementById('tradeError').innerHTML =
         info ? `<div style="color:white;font-weight:400;font-size:0.8rem;">${info}</div>` : '';
     clearTimeout(window.tradeErrorTimeout);
-    window.tradeErrorTimeout = setTimeout(() => rensaTradeFel(), 10000);
+    window.tradeErrorTimeout = setTimeout(() => rensaTradeFel(), 6000);
 }
 
 
@@ -4543,7 +4803,6 @@ try{
     const pris = valdAktie.pris;
     const harLivePris = Number.isFinite(pris) && valdAktie.senasteLivePrisTid !== null;
 
-   
 if(!harLivePris || pris <= 0){
     visaTradeFel("Priserna laddar fortfarande. Vänta ett ögonblick och försök igen.");
     return;
@@ -4551,6 +4810,40 @@ if(!harLivePris || pris <= 0){
 
     const kostnadUSD=pris*antal;
     const kostnad=kostnadUSD*currentExchangeRate;
+
+    // Check sellable/buyable amount FIRST (before price age check)
+    if(typ==='sälj'){
+        if(!portfölj[aktivAktie] || portfölj[aktivAktie].antal + 0.0000001 < antal){
+            visaTradeFel("Du äger inte tillräckligt många. Kontrollera ditt innehav i portföljen.");
+            return;
+        }
+    }
+
+    // Check if price is older than 16 seconds AFTER amount validation
+    const priceAge = Date.now() - valdAktie.senasteLivePrisTid;
+    const isPriceStale = priceAge > PENDING_PRICE_THRESHOLD_MS;
+
+    if (isPriceStale) {
+        // Add to pending trades instead of executing immediately
+        addPendingTrade(aktivAktie, typ, antal, currentUser.id);
+        visaTradeFel(`Din ${typ === 'köp' ? 'köp' : 'sälj'}order på ${antal} st ${aktivAktie} har lagts till i väntelistan och genomförs så snart ett färsk pris finns tillgängligt.`);
+        return;
+    }
+
+    // For buying, check money availability AFTER price age check (since we need fresh price)
+    if(typ==='köp'){
+        if(saldo < kostnad){
+            const affordableAmount = Math.floor((saldo / kostnad * antal) * 10000) / 10000;
+            const isExpensive = pris * currentExchangeRate > saldo;
+            
+            const info = isExpensive
+                ? `Du har inte råd med ${antal} st. Du kan köpa andelar av ett värdepapper — testa t.ex. <b style="color:var(--up);cursor:pointer;" onclick="document.getElementById('tradeAmount').value='${affordableAmount.toFixed(4).replace('.',',')}';rensaTradeFel();">${affordableAmount.toFixed(4).replace('.',',')} st</b> för ditt hela saldo.`
+                : "Du har inte råd. Testa ett mindre antal.";
+            
+            visaTradeFel(info);
+            return;
+        }
+    }
 
     try {
         console.log("Trade attempt:", {
@@ -4562,8 +4855,8 @@ if(!harLivePris || pris <= 0){
     fx: currentExchangeRate
 });
         if(typ==='köp'){
-            if(saldo>=kostnad){
-                saldo-=kostnad;
+            // Money check already done above
+            saldo-=kostnad
 
                 if(!portfölj[aktivAktie]){
                     portfölj[aktivAktie]={
@@ -4578,41 +4871,22 @@ Number((portfölj[aktivAktie].antal+antal).toPrecision(12));
                 rensaTradeFel();
                 
                 console.log(`Köpte ${antal} st ${aktivAktie} för ${kostnadUSD} USD`);
-            } else {
-const affordableAmount = Math.floor((saldo / kostnad * antal) * 10000) / 10000;
-    const isExpensive = pris * currentExchangeRate > saldo;
-    
-    const info = isExpensive
-        ? `Du har inte råd med ${antal} st. Du kan köpa andelar av ett värdepapper — testa t.ex. <b style="color:var(--up);cursor:pointer;" onclick="document.getElementById('tradeAmount').value='${affordableAmount.toFixed(4).replace('.',',')}';rensaTradeFel();">${affordableAmount.toFixed(4).replace('.',',')} st</b> för ditt hela saldo.`
-        : "Du har inte råd. Testa ett mindre antal.";
-    
-    visaTradeFel(info);
-    return;
-}
-
-        }
+            }
 
         if(typ==='sälj'){
-            if(
-                portfölj[aktivAktie] &&
-portfölj[aktivAktie].antal+0.0000001>=antal
-            ){
-                const snitt=portfölj[aktivAktie].totaltInköp/portfölj[aktivAktie].antal;
-                saldo+=kostnad;
-                portfölj[aktivAktie].antal=
+            // Sell validation already done above
+            const snitt=portfölj[aktivAktie].totaltInköp/portfölj[aktivAktie].antal;
+            saldo+=kostnad;
+            portfölj[aktivAktie].antal=
 Number((portfölj[aktivAktie].antal-antal).toFixed(6));
-                portfölj[aktivAktie].totaltInköp-=snitt*antal;
+            portfölj[aktivAktie].totaltInköp-=snitt*antal;
 
-                if(portfölj[aktivAktie].antal===0){
-                    delete portfölj[aktivAktie];
-                }
-                rensaTradeFel();
-                
-                console.log(`Sålde ${antal} st ${aktivAktie} för ${kostnadUSD} USD`);
-            } else {
-                visaTradeFel("Du äger inte tillräckligt många. Kontrollera ditt innehav i portföljen.");
-    return;
+            if(portfölj[aktivAktie].antal===0){
+                delete portfölj[aktivAktie];
             }
+            rensaTradeFel();
+            
+            console.log(`Sålde ${antal} st ${aktivAktie} för ${kostnadUSD} USD`);
         }
 
 previousPortValue = null; // No flash on trade
@@ -4628,7 +4902,7 @@ previousPortValue = null; // No flash on trade
 console.log("Transaction saved successfully!");
          
             document.getElementById('tradeError').innerHTML = '<div style="color:var(--up);font-weight:400;font-size:0.8rem;">Sparat!</div>';
-            setTimeout(() => rensaTradeFel(), 1500);
+            setTimeout(() => rensaTradeFel(), 6000);
         } catch (saveError) {
             console.error("Failed to save transaction:", saveError);
             document.getElementById('tradeError').innerText = "Kunde inte spara till molnet!";
@@ -4649,7 +4923,7 @@ console.log("Transaction saved successfully!");
         document.getElementById('tradeError').innerText =
 "Transaktion misslyckades!";
 
-setTimeout(rensaTradeFel,2000);
+setTimeout(rensaTradeFel, 6000);
     }
 }
 finally{
@@ -4721,8 +4995,17 @@ container.innerHTML = "";
 const portfolioItems = [];
 for(let s in portfölj){
   const antal = portfölj[s].antal;
-  const snitt = fxReady ? (portfölj[s].totaltInköp / antal) / currentExchangeRate : null;
   const pris = aktier[s].pris;
+  
+  // Check if there are any pending trades for this symbol
+  const hasPendingTrades = pendingTrades.some(trade => trade.symbol === s && trade.userId === currentUser?.id);
+  
+  // Skip showing securities with 0 shares and no pending trades to avoid infinite average price
+  if (antal === 0 && !hasPendingTrades) {
+    continue;
+  }
+  
+  const snitt = fxReady ? (portfölj[s].totaltInköp / antal) / currentExchangeRate : null;
   
   let värde = null;
   let resultat = null;
@@ -4867,6 +5150,9 @@ async function updateAllPrices() {
 
         aktie.pris = nyttPris;
         aktie.senasteLivePrisTid = quoteTs;
+        
+        // Execute any pending trades for this symbol since we now have a fresh price
+        executePendingTrades(s, nyttPris);
         
         if (s === aktivAktie) {
             if (nyttPris > gammaltPris) aktivRiktning = 'up';
