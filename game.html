@@ -1648,6 +1648,12 @@ const marketClosureLinesPlugin = {
         const isHighTf = tfConfig.ms > 300000; // Only for 5min+ timeframes
         if (!isHighTf) return;
 
+        // Skip all lines for 1-week timeframe
+        if (tfConfig.ms >= 604800000) return;
+
+        // Skip overnight lines for 1-day timeframe (daily candles span full days)
+        const isDailyTf = tfConfig.ms >= 86400000;
+
         const data = chartInstance.data?.datasets?.[0]?.data;
         if (!data || data.length < 2) return;
 
@@ -1672,7 +1678,12 @@ const marketClosureLinesPlugin = {
                 // Determine gap type
                 const isWeekendOrHoliday = gapMs >= 24 * 60 * 60 * 1000; // >= 24 hours
 
-                const x = xScale.getPixelForValue(currCandle.x);
+                // Skip overnight lines for daily timeframe
+                if (isDailyTf && !isWeekendOrHoliday) continue;
+
+                // Draw line at midpoint between candles
+                const midX = (prevCandle.x + currCandle.x) / 2;
+                const x = xScale.getPixelForValue(midX);
                 if (!Number.isFinite(x)) continue;
 
                 // Only draw if within chart area (with some padding)
@@ -1684,22 +1695,16 @@ const marketClosureLinesPlugin = {
                 ctx.lineTo(x, chartArea.bottom);
 
                 if (isWeekendOrHoliday) {
-                    // Weekend/holiday - more pronounced
-                    ctx.strokeStyle = 'rgba(150, 150, 150, 0.35)';
-                    ctx.lineWidth = 2;
+                    // Weekend/holiday - neon green, more pronounced
+                    ctx.strokeStyle = 'rgba(0, 255, 170, 0.5)';
+                    ctx.lineWidth = 3;
                 } else {
-                    // Overnight gap - subtle
-                    ctx.strokeStyle = 'rgba(150, 150, 150, 0.15)';
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([3, 3]); // Dashed line for overnight
+                    // Overnight gap - blue, solid
+                    ctx.strokeStyle = 'rgba(41, 98, 255, 0.5)';
+                    ctx.lineWidth = 2;
                 }
 
                 ctx.stroke();
-
-                // Reset dash for next line
-                if (!isWeekendOrHoliday) {
-                    ctx.setLineDash([]);
-                }
             }
         }
 
@@ -3823,6 +3828,7 @@ const TIMEFRAMES = [
 let currentTimeframe = '1min'; // Default to 1 minute
 let timeframeDropdownOpen = false;
 let chartViewMode = 'free'; // 'locked' (Låst) or 'free' (Fri) - default free
+let lastDataTransformState = null; // Tracks if data is transformed for current timeframe
 
 const LIVE_CANDLES=360;
 
@@ -4025,6 +4031,9 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
         aktie.chartSessionStart = aktie.history[0].x;
     }
 
+    // Reset data transform state so new stock gets properly transformed
+    lastDataTransformState = null;
+
     // Render chart & UI
     initChart();
     renderStockList(document.getElementById('searchInput').value);
@@ -4225,14 +4234,13 @@ maxRotation:0,
 autoSkip:true,
 maxTicksLimit:6,
 autoSkipPadding:26,
+sampleSize: 10,
 callback:function(value){
 const tfConfig = getCurrentTimeframeConfig();
 const isHighTf = tfConfig.ms > 300000; // 5 min or higher
 
-if (isHighTf && chart?.data?.datasets[0]?.data) {
-    // For higher TFs with linear axis, value might be a float index
-    // Find nearest integer index
-    const data = chart.data.datasets[0].data;
+if (isHighTf && this.chart && this.chart.data && this.chart.data.datasets[0] && this.chart.data.datasets[0].data) {
+    const data = this.chart.data.datasets[0].data;
     const index = Math.round(value);
     if (index >= 0 && index < data.length) {
         const candle = data[index];
@@ -4758,47 +4766,56 @@ function updateChartView() {
     const tfConfig = getCurrentTimeframeConfig();
     const isHighTf = tfConfig.ms > 300000; // 5 min or higher
 
+    // Check if we need to transform data (only on timeframe change)
+    const needsTransform = lastDataTransformState !== currentTimeframe;
+
     // Transform data for higher timeframes to remove market-closed gaps
     if (isHighTf) {
-        // Convert to index-based data with stored timestamps
-        chart.data.datasets[0].data = history.map((candle, index) => ({
-            x: index,
-            o: candle.o,
-            h: candle.h,
-            l: candle.l,
-            c: candle.c,
-            _ts: candle.x // Store original timestamp
-        }));
+        if (needsTransform) {
+            // Convert to index-based data with stored timestamps
+            chart.data.datasets[0].data = history.map((candle, index) => ({
+                x: index,
+                o: candle.o,
+                h: candle.h,
+                l: candle.l,
+                c: candle.c,
+                _ts: candle.x // Store original timestamp
+            }));
+            lastDataTransformState = currentTimeframe;
 
-        // Switch to linear axis (not time-based) to remove gaps
-        chart.options.scales.x.type = 'linear';
-        chart.options.scales.x.time = undefined; // Remove time configuration
-        chart.options.scales.x.ticks.stepSize = 1;
+            // Switch to linear axis (not time-based) to remove gaps
+            chart.options.scales.x.type = 'linear';
+            chart.options.scales.x.time = undefined; // Remove time configuration
+            chart.options.scales.x.ticks.stepSize = 1;
 
-        // Custom tooltip format for index-based data
-        chart.options.scales.x.time = {
-            tooltipFormat: 'dd/MM HH:mm',
-            displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'dd MMM' }
-        };
+            // Custom tooltip format for index-based data
+            chart.options.scales.x.time = {
+                tooltipFormat: 'dd/MM HH:mm',
+                displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'dd MMM' }
+            };
+        }
     } else {
-        // Use original timestamp-based data for lower TFs
-        chart.data.datasets[0].data = history;
+        if (needsTransform) {
+            // Use original timestamp-based data for lower TFs
+            chart.data.datasets[0].data = history;
+            lastDataTransformState = currentTimeframe;
 
-        // Restore time-based axis
-        chart.options.scales.x.type = 'time';
-        chart.options.scales.x.ticks.stepSize = undefined;
+            // Restore time-based axis
+            chart.options.scales.x.type = 'time';
+            chart.options.scales.x.ticks.stepSize = undefined;
 
-        const first = history[0].x;
-        const last = history[history.length - 1].x;
-        const range = last - first;
+            const first = history[0].x;
+            const last = history[history.length - 1].x;
+            const range = last - first;
 
-        // Set time unit based on current timeframe and data range
-        if (tfConfig.ms >= 600000) {
-            // 10min+ timeframes
-            chart.options.scales.x.time.unit = range > 24 * 60 * 60 * 1000 ? 'hour' : 'minute';
-        } else {
-            // Sub-10min timeframes
-            chart.options.scales.x.time.unit = 'minute';
+            // Set time unit based on current timeframe and data range
+            if (tfConfig.ms >= 600000) {
+                // 10min+ timeframes
+                chart.options.scales.x.time.unit = range > 24 * 60 * 60 * 1000 ? 'hour' : 'minute';
+            } else {
+                // Sub-10min timeframes
+                chart.options.scales.x.time.unit = 'minute';
+            }
         }
     }
 
