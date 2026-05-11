@@ -245,7 +245,7 @@
         const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nj6DO8X6r7-Rjw12B24WbA_TbuqR9z_';
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+            auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: true }
         });
 
         async function initializeResetPage() {
@@ -319,11 +319,16 @@
     console.error('[PasswordReset] Error:', error.message);
     
     // Check if the error is about using the same password
-    if (error.message && error.message.toLowerCase().includes('same')) {
-        resetError.innerText = 'Du måste välja ett nytt lösenord som är olika från ditt gamla lösenord.';
-    } else {
-        resetError.innerText = 'Kunde inte uppdatera lösenordet. Försök igen.';
-    }
+    if (
+    error.message &&
+    error.message.toLowerCase().includes('different from the old password')
+) {
+    resetError.innerText =
+        'Du måste välja ett nytt lösenord som är olika från ditt gamla lösenord.';
+} else {
+    resetError.innerText =
+        'Kunde inte uppdatera lösenordet. Försök igen.';
+}
     return;
 }
 
