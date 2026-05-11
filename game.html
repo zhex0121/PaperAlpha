@@ -4158,8 +4158,7 @@ responsive:true,
 maintainAspectRatio:false,
 
 animation:{
-    duration: 200,
-    easing: 'easeOutQuad'
+    duration: 0
 },
 transitions:{
     zoom:{
@@ -4291,8 +4290,8 @@ chart.options.plugins.zoom.onPan = function() {
         liveAutoScrollEnabled = false; // user manually moved chart
     }
     if (chartViewMode === 'free') {
-        markFreeInteraction();
         clampFreeModeXRange(true);
+        updateYAxisToFitVisible();
     }
 };
 chart.options.plugins.zoom.onZoom = function() {
@@ -4300,8 +4299,8 @@ chart.options.plugins.zoom.onZoom = function() {
         liveAutoScrollEnabled = false; // user manually zoomed
     }
     if (chartViewMode === 'free') {
-        markFreeInteraction();
         clampFreeModeXRange(true);
+        updateYAxisToFitVisible();
     }
 };
 chart.options.plugins.zoom.pan.onPanStart = function() {
