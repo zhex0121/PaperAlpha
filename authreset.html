@@ -1,11 +1,6 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-<link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16x16.png">
-<link rel="manifest" href="assets/icons/site.webmanifest">
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Återställ lösenord - PaperAlpha</title>
@@ -317,10 +312,16 @@
                 });
 
                 if (error) {
-                    console.error('[PasswordReset] Error:', error.message);
-                    resetError.innerText = 'Kunde inte uppdatera lösenordet. Försök igen.';
-                    return;
-                }
+    console.error('[PasswordReset] Error:', error.message);
+    
+    // Check if the error is about using the same password
+    if (error.message && error.message.toLowerCase().includes('same')) {
+        resetError.innerText = 'Du måste välja ett nytt lösenord som är olika från ditt gamla lösenord.';
+    } else {
+        resetError.innerText = 'Kunde inte uppdatera lösenordet. Försök igen.';
+    }
+    return;
+}
 
                 console.log('[PasswordReset] Password updated successfully');
                 showSuccessState();
