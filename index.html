@@ -1983,6 +1983,10 @@ async function getMemberTotalValueSek(member, fxRate) {
         if (!endDate || !endTime) { setGameError('Välj slutdatum och sluttid.'); return; }
         if (!balance) { setGameError('Ange startkapital.'); return; }
         
+        const balanceNum = parseFloat(balance);
+        if (balanceNum < 1000) { setGameError('Startkapitalet måste vara minst 1 000 kr.'); return; }
+        if (balanceNum > 1000000) { setGameError('Startkapitalet får inte överstiga 1 000 000 kr.'); return; }
+        
         const endDateTime = new Date(`${endDate}T${endTime}:00`);
         const swedishEndTime = new Date(endDateTime.toLocaleString("en-US", {timeZone: "Europe/Stockholm"}));
         
