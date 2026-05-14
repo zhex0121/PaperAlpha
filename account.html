@@ -881,7 +881,7 @@
     const authError = document.getElementById('authError');
 
     let currentUser = null;
-
+    let currentUsernameCache = null;
     // --- Section Switching ---
     function showSection(sectionName) {
         // Hide all sections
@@ -906,31 +906,40 @@
 
     // --- Username Management ---
     async function loadCurrentUsername() {
-        if (!currentUser) return;
-        
-        try {
-            const { data, error } = await supabaseClient
-                .from('profiles')
-                .select('username')
-                .eq('user_id', currentUser.id)
-                .single();
-            
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error loading username:', error);
-                return;
-            }
-            
-            const currentUsernameEl = document.getElementById('current-username');
-            
-            if (data?.username) {
-                currentUsernameEl.textContent = data.username;
-            } else {
-                currentUsernameEl.textContent = currentUser.email.split('@')[0];
-            }
-        } catch (error) {
-            console.error('Error loading username:', error);
-        }
+    if (!currentUser) return;
+    
+    // Return cached value if available
+    if (currentUsernameCache) {
+        const currentUsernameEl = document.getElementById('current-username');
+        currentUsernameEl.textContent = currentUsernameCache;
+        return currentUsernameCache;
     }
+    
+    try {
+        const { data, error } = await supabaseClient
+            .from('profiles')
+            .select('username')
+            .eq('user_id', currentUser.id)
+            .single();
+        
+        if (error && error.code !== 'PGRST116') {
+            console.error('Error loading username:', error);
+            return;
+        }
+        
+        const username = data?.username || currentUser.email.split('@')[0];
+        
+        // Cache the username
+        currentUsernameCache = username;
+        
+        const currentUsernameEl = document.getElementById('current-username');
+        currentUsernameEl.textContent = username;
+        
+        return username;
+    } catch (error) {
+        console.error('Error loading username:', error);
+    }
+}
 
     async function updateUsername() {
         if (!currentUser) {
@@ -1102,30 +1111,32 @@ if (signInError || !verifyData.user) {
     }
 
     async function confirmDeleteAccount() {
-        if (!currentUser) {
-            showDeleteError('Du måste vara inloggad för att radera ditt konto.');
-            return;
-        }
+    if (!currentUser) {
+        showDeleteError('Du måste vara inloggad för att radera ditt konto.');
+        return;
+    }
 
-        const enteredUsername = document.getElementById('deleteUsernameInput').value.trim();
-        const deleteErrorEl = document.getElementById('deleteError');
+    const enteredUsername = document.getElementById('deleteUsernameInput').value.trim();
+    const deleteErrorEl = document.getElementById('deleteError');
 
-        // Get current username from the database or use email prefix as fallback
-        let currentUsername = currentUser.email.split('@')[0];
+    // Use cached username (or fetch if not cached)
+    let currentUsername = currentUser.email.split('@')[0];
+    if (currentUsernameCache) {
+        currentUsername = currentUsernameCache;  // ✅ Use cache - NO QUERY!
+    } else {
+        // Only fetch if not cached (rare case)
         try {
             const { data: profileData } = await supabaseClient
                 .from('profiles')
                 .select('username')
                 .eq('user_id', currentUser.id)
                 .single();
-            
-            if (profileData?.username) {
-                currentUsername = profileData.username;
-            }
+            currentUsername = profileData?.username || currentUsername;
+            currentUsernameCache = currentUsername;  // Cache it
         } catch (error) {
             console.error('Error fetching username:', error);
         }
-
+    }
         // Validate username match
         if (enteredUsername !== currentUsername) {
             showDeleteError('Användarnamnet stämmer inte överens. Försök igen.');
@@ -1271,11 +1282,11 @@ if (signInError || !verifyData.user) {
     }
 
     async function handleLogout() {
-        console.log('[Auth] Logging out');
-        await supabaseClient.auth.signOut();
-        // Redirect to landing page after logout
-        window.location.href = 'index.html';
-    }
+    console.log('[Auth] Logging out');
+    currentUsernameCache = null;  // Clear cache
+    await supabaseClient.auth.signOut();
+    window.location.href = 'index.html';
+}
 
     function setAuthError(msg) { authError.innerText = msg || ''; }
 
