@@ -1714,6 +1714,12 @@ const marketClosureLinesPlugin = {
     
 let marketIsOpen = false; // Track symbol status transitions for log clarity
 let lastPriceUpdate = null; // Track when we last received fresh prices
+let allMarketStatuses = {};
+const MARKET_STATUS_UPDATE_INTERVAL = 10 * 60 * 1000; 
+let marketStatusCache = {}; // {symbol: {status: 'open'|'closed', updatedAt: timestamp}}
+const MARKET_STATUS_CACHE_TTL_MS = 10 * 60 * 1000;
+let pricePollingEnabled = true; // Master switch for ALL price polling
+let lastMarketStatusCheck = 0;
 let lastLoggedSymbolMarketStatus = null;
   
 let aktivAktie=null;
@@ -2128,26 +2134,39 @@ function normalizeSymbolForStatus(symbol) {
     }
     return symbol.trim();
 }
+async function preloadAllMarketStatuses() {
+    try {
+        const { data } = await marketDataClient
+            .from('market_status')
+            .select('sector, status, updated_at');
+
+        if (data) {
+            data.forEach(row => {
+                allMarketStatuses[row.sector] = {
+                    status: row.status,
+                    updatedAt: Date.now()
+                };
+            });
+        }
+        // Crypto always open
+        allMarketStatuses['CRYPTO'] = { status: 'open', updatedAt: Date.now() };
+        console.log('[MarketStatus] Cached all sectors:', Object.keys(allMarketStatuses));
+        
+        // After status loads, re-sync trade controls and price polling
+        if (aktivAktie) await syncTradeControlsVisibility();
+        uppdateraPortfölj();
+    } catch (e) {
+        console.warn('[MarketStatus] Preload failed:', e);
+    }
+}
 
 // Function to get market status from cache or determine sector
 function getSymbolMarketStatus(symbol) {
     const normalized = normalizeSymbolForStatus(symbol);
-    if (!normalized) return 'loading';
-    
-    // Crypto is ALWAYS open 24/7
-    if (normalized.startsWith('BINANCE:')) {
-        return 'open';
-    }
-    
-    // Stocks/ETFs: Check if we have fresh prices (market must be open to get live data)
-    const hasFreshPrices = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
-    if (hasFreshPrices) {
-        return 'open';
-    }
-    
-    // No fresh prices = market closed or loading
-    const hasAnyPrices = lastPriceUpdate !== null;
-    return hasAnyPrices ? 'closed' : 'loading';
+    const sector = getSymbolSector(normalized);
+    const cached = allMarketStatuses[sector];
+    if (cached) return cached.status;
+    return 'unknown'; // not yet loaded
 }
 
 // Function to get sector info
@@ -2337,6 +2356,8 @@ function getCachedExchangeRate() {
         return null;
     }
 }
+
+
 
 function saveExchangeRateToCache(rate) {
     try {
@@ -2994,27 +3015,7 @@ async function fetchAllPrices(tickers) {
   }
 }
 
-async function fetchMarketStatus(symbol) {
-  try {
-    const normalized = normalizeSymbolForStatus(symbol);
-    const sector = getSymbolSector(normalized);
-    
-    const { data, error } = await marketDataClient
-      .from('market_status')
-      .select('status, updated_at')
-      .eq('sector', sector)
-      .single();
-    
-    if (error || !data) {
-      return { status: 'unknown', sector };
-    }
-    
-    return { status: data.status || 'unknown', sector, updatedAt: data.updated_at };
-  } catch (err) {
-    console.error("Market status fetch error for", symbol, err);
-    return { status: 'unknown', sector: getSymbolSector(symbol) };
-  }
-}
+
     
 
 function showAuthModal(show){
@@ -3050,27 +3051,23 @@ function showLoggedOutUI() {
     updateToggleVisibility();
 }
 
-async function syncTradeControlsVisibility(){
+async function syncTradeControlsVisibility() {
     const tradeControls = document.getElementById('tradeControls');
     const marketClosedMessage = document.getElementById('marketClosedMessage');
     let marketStatus = 'unknown';
 
-    // Fetch market status for the tooltip regardless of current view
-    if(currentUser && aktivAktie && !isCompetitionEnded()){
-        // Fetch market status first so "closed" status always takes precedence.
-        const statusData = await fetchMarketStatus(aktivAktie);
-        marketStatus = statusData.status;
+    if (currentUser && aktivAktie && !isCompetitionEnded()) {
+        // READ ONLY from cache — never fetch
+        marketStatus = getSymbolMarketStatus(aktivAktie);
         updateMarketStatusIndicator(aktivAktie, marketStatus);
     }
 
-    // Never show trade UI or market messages when leaderboard is active
     if (currentView === 'league') {
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         return marketStatus;
     }
 
-    // Handle trade controls visibility based on market status (only when not in league view)
     if (marketStatus === 'closed') {
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) {
@@ -3085,10 +3082,7 @@ async function syncTradeControlsVisibility(){
     } else if (marketStatus === 'unknown') {
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) {
-            const pricesHaveLoaded = lastPriceUpdate !== null;
-            const copy = !pricesHaveLoaded
-                ? getMarketLoadingMessage()
-                : getMarketUnknownMessage(aktivAktie);
+            const copy = getMarketLoadingMessage();
             marketClosedMessage.style.display = 'block';
             marketClosedMessage.innerHTML = `
                 <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
@@ -3097,18 +3091,13 @@ async function syncTradeControlsVisibility(){
         }
         window.tradeLock = true;
     } else if (marketStatus === 'open') {
-        // Market is explicitly open - show controls and unlock trade
         if (tradeControls) tradeControls.style.display = 'block';
         if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         window.tradeLock = false;
     } else {
-        // Any other status (including invalid/random values) - treat as unknown/locked
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) {
-            const pricesHaveLoaded = lastPriceUpdate !== null;
-            const copy = !pricesHaveLoaded
-                ? getMarketLoadingMessage()
-                : getMarketUnknownMessage(aktivAktie);
+            const copy = getMarketLoadingMessage();
             marketClosedMessage.style.display = 'block';
             marketClosedMessage.innerHTML = `
                 <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
@@ -3118,13 +3107,12 @@ async function syncTradeControlsVisibility(){
         window.tradeLock = true;
     }
 
-    // Handle case where user is not logged in or no stock selected
     if (!currentUser || !aktivAktie || isCompetitionEnded()) {
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         window.tradeLock = true;
     }
-    
+
     return marketStatus;
 }
 
@@ -4000,7 +3988,6 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
 
     // Use the async function to check market status
     const marketStatus = await syncTradeControlsVisibility();
-
     document.getElementById('activeSymbol').innerText = ticker;
     updateMarketStatusIndicator(ticker, marketStatus);
 
@@ -5179,6 +5166,37 @@ document.getElementById('searchInput').value
 
 /* Live pris */
 initSupabaseAuth();
+async function hydrateInitialPrices() {
+    console.log('[Init] Starting initial price hydration...');
+    
+    // Fetch prices for ALL tickers once
+    const allTickers = Object.keys(aktier);
+    const allPrices = await fetchAllPrices(allTickers);
+    
+    let loadedCount = 0;
+    
+    for (const s of allTickers) {
+        const aktie = aktier[s];
+        const cleanTicker = s.includes("(") ? s.split("(")[1].replace(")", "").trim() : s;
+        const quote = allPrices[cleanTicker];
+        
+        if (quote) {
+            aktie.pris = quote.price;
+            aktie.senasteLivePrisTid = quote.timestamp;
+            loadedCount++;
+        }
+    }
+    
+    console.log(`[Init] Loaded ${loadedCount}/${allTickers.length} prices`);
+    
+    // Update UI after initial load
+    uppdateraPortfölj();
+    updateStockPricesInList();
+    
+    return loadedCount > 0;
+}
+preloadAllMarketStatuses();
+setInterval(preloadAllMarketStatuses, MARKET_STATUS_UPDATE_INTERVAL);
 initMarketStatusTooltip();
 window.debugData = () => {
     console.log("=== DEBUG INFO ===");
@@ -5192,70 +5210,52 @@ window.debugData = () => {
 async function updateAllPrices() {
     let aktivRiktning = null;
     let pricesUpdated = false;
-    
-    // Hämta alla priser i en bulk-query för bättre prestanda
+
+    // ✅ ONLY fetch prices for tickers with OPEN markets (using cached status)
     const allTickers = Object.keys(aktier);
-    const allPrices = await fetchAllPrices(allTickers);
+    const openTickers = allTickers.filter(s => {
+        const status = getSymbolMarketStatus(s);
+        return status === 'open';  // ✅ Only these get fetched
+    });
+
+    if (openTickers.length === 0) {
+        console.log('[Polling] All markets closed, skipping price fetch');
+        return; // Skip entire fetch if no open markets
+    }
+
+    console.log(`[Polling] Fetching prices for ${openTickers.length}/${allTickers.length} open tickers`);
     
-    // Processa alla priser
-    for (const s of allTickers) {
+    const allPrices = await fetchAllPrices(openTickers);
+
+    for (const s of openTickers) {
         const aktie = aktier[s];
         const gammaltPris = aktie.pris;
         const cleanTicker = s.includes("(") ? s.split("(")[1].replace(")", "").trim() : s;
         const quote = allPrices[cleanTicker];
-        
-        if (!quote) {
-            console.warn("Ingen prisdata för", s);
-            continue;
-        }
-        
+
+        if (!quote) continue;
+
         const nyttPris = quote.price;
         const quoteTs = quote.timestamp;
-        
-        // Get current timeframe configuration
+
         const tfConfig = getCurrentTimeframeConfig();
         const candleMs = tfConfig.ms;
-        
-        // Calculate candle timestamp based on current timeframe
         const candleTs = Math.floor(quoteTs / candleMs) * candleMs;
         const prevQuoteTs = Number(aktie.senasteLivePrisTid || 0);
-        if (quoteTs <= prevQuoteTs) {
-            continue; // stale cached quote: do not mutate candles
-        }
-        
-        // Debug: Log price changes (throttled to avoid console spam)
-        if (Math.abs(nyttPris - gammaltPris) > 0.0001 && s === aktivAktie) {
-            console.log(`[Price] ${s}: ${gammaltPris.toFixed(4)} → ${nyttPris.toFixed(4)} (Δ${(nyttPris-gammaltPris).toFixed(4)})`);
-        }
-        
-        pricesUpdated = true; // Mark that we received at least one price
-        
-        // Första riktiga priset → skapa första candle
-        if (aktie.history.length === 0) {
-            aktie.pris = nyttPris;
-            aktie.senasteLivePrisTid = quoteTs;
-            aktie.history.push({
-                x: candleTs,
-                o: nyttPris,
-                h: nyttPris,
-                l: nyttPris,
-                c: nyttPris
-            });
-            continue;
-        }
 
+        if (quoteTs <= prevQuoteTs) continue;
+
+        pricesUpdated = true;
         aktie.pris = nyttPris;
         aktie.senasteLivePrisTid = quoteTs;
-        
-        // Execute any pending trades for this symbol since we now have a fresh price
+
         executePendingTrades(s, nyttPris);
-        
+
         if (s === aktivAktie) {
             if (nyttPris > gammaltPris) aktivRiktning = 'up';
             else if (nyttPris < gammaltPris) aktivRiktning = 'down';
         }
 
-        // Uppdatera candlestick (samma logik som innan men med riktigt pris)
         let nu = candleTs;
         let senasteCandle = aktie.history[aktie.history.length - 1];
         if (senasteCandle && nu - senasteCandle.x < candleMs) {
@@ -5274,17 +5274,7 @@ async function updateAllPrices() {
         }
     }
 
-    // Keep feed freshness log separate from exchange open/closed status
-    if (pricesUpdated) {
-        lastPriceUpdate = Date.now();
-    }
-    const feedIsFresh = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
-    if (feedIsFresh !== marketIsOpen) {
-        marketIsOpen = feedIsFresh;
-        console.log(feedIsFresh
-            ? "Livefeed aktiv - vi tar emot färska priser"
-            : "Livefeed inaktiv - väntar på nya priser");
-    }
+    if (pricesUpdated) lastPriceUpdate = Date.now();
 
     uppdateraAktiv(aktivRiktning);
     uppdateraPortfölj();
@@ -5295,8 +5285,31 @@ async function updateAllPrices() {
 }
 
 // Start price updates: immediately and then every 2 seconds (matching server jitter)
-updateAllPrices();
-setInterval(updateAllPrices, PRICE_UPDATE_MS);
+(async () => {
+    // Wait for market status to be cached
+    await new Promise(resolve => {
+        const checkStatus = () => {
+            if (Object.keys(allMarketStatuses).length > 0) {
+                resolve();
+            } else {
+                setTimeout(checkStatus, 100);
+            }
+        };
+        checkStatus();
+    });
+    
+    console.log('[Init] Market status cached, starting price hydration...');
+    await hydrateInitialPrices();
+    
+    // Now start smart polling (only open markets)
+    setInterval(async () => {
+        await updateAllPrices();  // ✅ Respects market status
+    }, PRICE_UPDATE_MS);
+})();
+
+console.log(`[Price Feed] Smart polling enabled - only open markets will be fetched`);
+
+setInterval(async () => { await preloadAllMarketStatuses(); }, MARKET_STATUS_UPDATE_INTERVAL);
 console.log(`[Price Feed] Polling Supabase every ${PRICE_UPDATE_MS}ms`);
 
 const chartAreaEl = document.querySelector('#chartView .chart-container');
