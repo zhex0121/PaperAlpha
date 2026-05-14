@@ -1419,8 +1419,8 @@ id="stockList">
         <h2 id="activeSymbolWrap" style="display:flex; align-items:center; gap:8px; margin: 0;">
             <span id="activeSymbol">Laddar marknadsdata...</span>
             <div id="marketStatusWrapper" style="display:none; position:relative;">
-                <span id="marketStatusDot" title="Marknadsstatus okänd" style="width:9px; height:9px; border-radius:50%; background:#666; display:inline-block; flex-shrink:0; cursor:pointer;"></span>
-                <div id="marketStatusTooltip" style="position:absolute; top:-30px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--glass-border); border-radius:6px; padding:4px 8px; font-size:0.75rem; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity 0.2s ease; z-index:1000;"></div>
+                <span id="marketStatusDot" style="width:9px; height:9px; border-radius:50%; background:#666; display:inline-block; flex-shrink:0; cursor:pointer;"></span>
+                <div id="marketStatusTooltip" style="position:absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; background:var(--surface); border:1px solid var(--glass-border); border-radius:6px; padding:6px 10px; font-size:0.75rem; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity 0.1s ease, transform 0.1s ease; z-index:1000; min-width: 130px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);"></div>
             </div>
         </h2>
         <h1 id="activePrice">Hämtar priser...</h1>
@@ -2117,6 +2117,8 @@ function laddaFrånLokalt() {
 }
 
 let currentExchangeRate = null; // null = not yet fetched
+const FX_CACHE_KEY = 'paperalpha_fx_rate';
+const FX_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 let fxReady = false;
 
 function normalizeSymbolForStatus(symbol) {
@@ -2130,20 +2132,22 @@ function normalizeSymbolForStatus(symbol) {
 // Function to get market status from cache or determine sector
 function getSymbolMarketStatus(symbol) {
     const normalized = normalizeSymbolForStatus(symbol);
-    if (!normalized) return 'unknown';
+    if (!normalized) return 'loading';
     
-    // Check if we have any price data yet - if not, show loading for ALL symbols including crypto
-    const hasLoadedPrices = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
-    if (!hasLoadedPrices) {
-        return 'unknown'; // Still loading prices, show loading message for all
-    }
-    
-    // Default behavior based on symbol - NO API CALLS
+    // Crypto is ALWAYS open 24/7
     if (normalized.startsWith('BINANCE:')) {
-        return 'open'; // Crypto is always open (once prices loaded)
-    } else {
-        return 'unknown'; // Require fresh status for non-crypto
+        return 'open';
     }
+    
+    // Stocks/ETFs: Check if we have fresh prices (market must be open to get live data)
+    const hasFreshPrices = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
+    if (hasFreshPrices) {
+        return 'open';
+    }
+    
+    // No fresh prices = market closed or loading
+    const hasAnyPrices = lastPriceUpdate !== null;
+    return hasAnyPrices ? 'closed' : 'loading';
 }
 
 // Function to get sector info
@@ -2237,83 +2241,113 @@ function updateMarketStatusIndicator(symbol, status) {
     
     if (!dot || !wrapper || !tooltip) return;
     
-    const marketStatus = status || (symbol ? getSymbolMarketStatus(symbol) : 'unknown');
+    wrapper.style.display = 'inline-block';
+    
+    const marketStatus = status || (symbol ? getSymbolMarketStatus(symbol) : 'loading');
     
     if (marketStatus === 'open') {
         dot.style.background = 'var(--up)';
-        dot.title = 'Marknaden är öppen';
-        tooltip.textContent = 'Marknaden är öppen';
+        tooltip.innerHTML = 'Marknaden är <strong>öppen</strong>';
     } else if (marketStatus === 'closed') {
         dot.style.background = 'var(--down)';
-        dot.title = 'Marknaden är stängd';
-        tooltip.textContent = 'Marknaden är stängd';
-    } else {
+        tooltip.innerHTML = 'Marknaden är <strong>stängd</strong>';
+    } else { // 'loading'
         dot.style.background = '#666';
-        dot.title = 'Marknadsstatus okänd';
-        tooltip.textContent = 'Marknadsstatus okänd';
+        tooltip.innerHTML = 'Laddar marknadsstatus...';
     }
 }
 
-// Add tooltip event listeners
-function setupMarketStatusTooltip() {
-    const dot = document.getElementById('marketStatusDot');
-    const tooltip = document.getElementById('marketStatusTooltip');
-    
-    if (!dot || !tooltip) return;
-    
-    // Show tooltip on hover
-    dot.addEventListener('mouseenter', () => {
-        tooltip.style.opacity = '1';
-    });
-    
-    dot.addEventListener('mouseleave', () => {
-        tooltip.style.opacity = '0';
-    });
-    
-    // Show/hide tooltip on click
-    dot.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isVisible = tooltip.style.opacity === '1';
-        tooltip.style.opacity = isVisible ? '0' : '1';
-    });
-    
-    // Hide tooltip when clicking elsewhere
-    document.addEventListener('click', () => {
-        tooltip.style.opacity = '0';
-    });
-}
+
 
 async function fetchExchangeRate() {
     try {
+        // FIRST: Check localStorage cache
+        const cachedRate = getCachedExchangeRate();
+        if (cachedRate) {
+            const oldRate = currentExchangeRate;
+            currentExchangeRate = cachedRate;
+            fxReady = true;
+            
+            if (oldRate !== currentExchangeRate) {
+                console.log(`[FX] ✅ Loaded from cache: ${currentExchangeRate} (${Math.round((Date.now() - JSON.parse(localStorage.getItem(FX_CACHE_KEY) || '{}').timestamp || 0) / 3600000)}h old)`);
+                if (currentUser) uppdateraPortfölj();
+                if (aktivAktie) uppdateraAktiv();
+            }
+            return;
+        }
+        
+        // SECOND: Fetch from Supabase only if no valid cache
         const { data, error } = await marketDataClient
             .from('fx_rates')
             .select('rate, updated_at')
             .eq('pair', 'USDSEK')
             .single();
+            
         if (!error && data?.rate) {
-             const oldRate = currentExchangeRate;
+            const oldRate = currentExchangeRate;
             currentExchangeRate = Number(data.rate);
             fxReady = true;
-            console.log("FX laddad:", currentExchangeRate);
-             if (oldRate !== currentExchangeRate) {
-                console.log(`Exchange rate updated: ${oldRate} → ${currentExchangeRate}`);
-                
-                // Recalculate and update display
-                if (currentUser) {
-                    uppdateraPortfölj();
-                }
-                
-                // If a stock is selected, update price display
-                if (aktivAktie) {
-                    uppdateraAktiv();
-                }
+            
+            // Save to localStorage cache
+            saveExchangeRateToCache(currentExchangeRate);
+            
+            console.log(`[FX] ✅ Fetched from Supabase: ${currentExchangeRate}`);
+            
+            if (oldRate !== currentExchangeRate) {
+                if (currentUser) uppdateraPortfölj();
+                if (aktivAktie) uppdateraAktiv();
             }
+        } else {
+            // No data in Supabase either - use fallback rate
+            console.warn('[FX] No rate in Supabase, using fallback 10.65');
+            currentExchangeRate = 10.65;
+            fxReady = true;
+            saveExchangeRateToCache(currentExchangeRate);
         }
     } catch (err) {
         console.error("Failed to fetch exchange rate:", err);
+        
+        // On error, try to use cached rate even if expired
+        const cachedRate = getCachedExchangeRate();
+        if (cachedRate) {
+            currentExchangeRate = cachedRate;
+            fxReady = true;
+            console.log('[FX] Using expired cache due to fetch error');
+        } else {
+            // Last resort fallback
+            currentExchangeRate = 10.65;
+            fxReady = true;
+            console.log('[FX] Using fallback rate due to error');
+        }
+    }
+}
+function getCachedExchangeRate() {
+    try {
+        const cached = localStorage.getItem(FX_CACHE_KEY);
+        if (!cached) return null;
+        
+        const { rate, timestamp } = JSON.parse(cached);
+        const ageMs = Date.now() - timestamp;
+        
+        if (ageMs < FX_CACHE_TTL_MS && Number.isFinite(rate) && rate > 0) {
+            return rate;
+        }
+        return null;
+    } catch (e) {
+        return null;
     }
 }
 
+function saveExchangeRateToCache(rate) {
+    try {
+        localStorage.setItem(FX_CACHE_KEY, JSON.stringify({
+            rate: rate,
+            timestamp: Date.now()
+        }));
+    } catch (e) {
+        console.warn('[FX] Failed to save to localStorage:', e);
+    }
+}
 let currentUser=null;
 
 let authReady=false;
@@ -3019,68 +3053,71 @@ async function syncTradeControlsVisibility(){
     const marketClosedMessage = document.getElementById('marketClosedMessage');
     let marketStatus = 'unknown';
 
+    // Fetch market status for the tooltip regardless of current view
+    if(currentUser && aktivAktie && !isCompetitionEnded()){
+        // Fetch market status first so "closed" status always takes precedence.
+        const statusData = await fetchMarketStatus(aktivAktie);
+        marketStatus = statusData.status;
+        updateMarketStatusIndicator(aktivAktie, marketStatus);
+    }
+
     // Never show trade UI or market messages when leaderboard is active
     if (currentView === 'league') {
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         return marketStatus;
     }
-    
-    if(currentUser && aktivAktie && !isCompetitionEnded()){
-        // Fetch market status first so "closed" status always takes precedence.
-        const statusData = await fetchMarketStatus(aktivAktie);
-        marketStatus = statusData.status;
-        updateMarketStatusIndicator(aktivAktie, marketStatus);
 
-        // Removed stale price check - trades are now handled by pending trades system
-        
-        if (marketStatus === 'closed') {
-            if (tradeControls) tradeControls.style.display = 'none';
-            if (marketClosedMessage) {
-                const closedCopy = getMarketClosedMessage(aktivAktie);
-                marketClosedMessage.style.display = 'block';
-                marketClosedMessage.innerHTML = `
-                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
-                    <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
-                `;
-            }
-            window.tradeLock = true;
-        } else if (marketStatus === 'unknown') {
-            if (tradeControls) tradeControls.style.display = 'none';
-            if (marketClosedMessage) {
-                const pricesHaveLoaded = lastPriceUpdate !== null;
-                const copy = !pricesHaveLoaded
-                    ? getMarketLoadingMessage()
-                    : getMarketUnknownMessage(aktivAktie);
-                marketClosedMessage.style.display = 'block';
-                marketClosedMessage.innerHTML = `
-                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
-                    <div style="font-size: 0.9rem;">${copy.detail}</div>
-                `;
-            }
-            window.tradeLock = true;
-        } else if (marketStatus === 'open') {
-            // Market is explicitly open - show controls and unlock trade
-            if (tradeControls) tradeControls.style.display = 'block';
-            if (marketClosedMessage) marketClosedMessage.style.display = 'none';
-            window.tradeLock = false;
-        } else {
-            // Any other status (including invalid/random values) - treat as unknown/locked
-            if (tradeControls) tradeControls.style.display = 'none';
-            if (marketClosedMessage) {
-                const pricesHaveLoaded = lastPriceUpdate !== null;
-                const copy = !pricesHaveLoaded
-                    ? getMarketLoadingMessage()
-                    : getMarketUnknownMessage(aktivAktie);
-                marketClosedMessage.style.display = 'block';
-                marketClosedMessage.innerHTML = `
-                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
-                    <div style="font-size: 0.9rem;">${copy.detail}</div>
-                `;
-            }
-            window.tradeLock = true;
+    // Handle trade controls visibility based on market status (only when not in league view)
+    if (marketStatus === 'closed') {
+        if (tradeControls) tradeControls.style.display = 'none';
+        if (marketClosedMessage) {
+            const closedCopy = getMarketClosedMessage(aktivAktie);
+            marketClosedMessage.style.display = 'block';
+            marketClosedMessage.innerHTML = `
+                <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
+                <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
+            `;
         }
+        window.tradeLock = true;
+    } else if (marketStatus === 'unknown') {
+        if (tradeControls) tradeControls.style.display = 'none';
+        if (marketClosedMessage) {
+            const pricesHaveLoaded = lastPriceUpdate !== null;
+            const copy = !pricesHaveLoaded
+                ? getMarketLoadingMessage()
+                : getMarketUnknownMessage(aktivAktie);
+            marketClosedMessage.style.display = 'block';
+            marketClosedMessage.innerHTML = `
+                <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
+                <div style="font-size: 0.9rem;">${copy.detail}</div>
+            `;
+        }
+        window.tradeLock = true;
+    } else if (marketStatus === 'open') {
+        // Market is explicitly open - show controls and unlock trade
+        if (tradeControls) tradeControls.style.display = 'block';
+        if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+        window.tradeLock = false;
     } else {
+        // Any other status (including invalid/random values) - treat as unknown/locked
+        if (tradeControls) tradeControls.style.display = 'none';
+        if (marketClosedMessage) {
+            const pricesHaveLoaded = lastPriceUpdate !== null;
+            const copy = !pricesHaveLoaded
+                ? getMarketLoadingMessage()
+                : getMarketUnknownMessage(aktivAktie);
+            marketClosedMessage.style.display = 'block';
+            marketClosedMessage.innerHTML = `
+                <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
+                <div style="font-size: 0.9rem;">${copy.detail}</div>
+            `;
+        }
+        window.tradeLock = true;
+    }
+
+    // Handle case where user is not logged in or no stock selected
+    if (!currentUser || !aktivAktie || isCompetitionEnded()) {
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         window.tradeLock = true;
@@ -3110,48 +3147,7 @@ async function checkCompetitionStatus() {
     } else {
         // Hide ended message
         if (endedMessage) endedMessage.style.display = 'none';
-        
-        // Check market status based on selected symbol
-        if (aktivAktie) {
-            const statusData = await fetchMarketStatus(aktivAktie);
-            const marketStatus = statusData.status;
-            updateMarketStatusIndicator(aktivAktie, marketStatus);
-            
-            if (marketStatus === 'closed') {
-                if (tradeControls) tradeControls.style.display = 'none';
-                if (marketClosedMessage) {
-                    const closedCopy = getMarketClosedMessage(aktivAktie);
-                    marketClosedMessage.style.display = 'block';
-                    marketClosedMessage.innerHTML = `
-                        <div style="font-size: 1.1rem; margin-bottom: 10px;">${closedCopy.title}</div>
-                        <div style="font-size: 0.9rem;">${closedCopy.detail}</div>
-                    `;
-                }
-                window.tradeLock = true;
-            } else if (marketStatus === 'unknown') {
-            if (tradeControls) tradeControls.style.display = 'none';
-            if (marketClosedMessage) {
-                const pricesHaveLoaded = lastPriceUpdate && (Date.now() - lastPriceUpdate < STALE_PRICE_THRESHOLD_MS);
-                const copy = !pricesHaveLoaded
-                    ? getMarketLoadingMessage()
-                    : getMarketUnknownMessage(aktivAktie);
-                marketClosedMessage.style.display = 'block';
-                marketClosedMessage.innerHTML = `
-                    <div style="font-size: 1.1rem; margin-bottom: 10px;">${copy.title}</div>
-                    <div style="font-size: 0.9rem;">${copy.detail}</div>
-                `;
-            }
-            window.tradeLock = true;
-        } else {
-                if (marketClosedMessage) marketClosedMessage.style.display = 'none';
-                window.tradeLock = false;
-            }
-        } else {
-            // No symbol selected, hide market closed message
-            if (marketClosedMessage) marketClosedMessage.style.display = 'none';
-            updateMarketStatusIndicator(null);
-            window.tradeLock = false;
-        }
+        // Market status and trading controls visibility is handled by syncTradeControlsVisibility()
     }
 }
     
@@ -3733,7 +3729,6 @@ async function initSupabaseAuth() {
 
 fetchExchangeRate();
 
-setInterval(fetchExchangeRate, 12 * 60 * 60 * 1000);
 
 // Detect league parameters from URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -4864,17 +4859,7 @@ if (isCompetitionEnded()) {
     return;
 }
 
-// Check if market is open for this specific symbol
-const statusData = await fetchMarketStatus(aktivAktie);
-const marketStatus = statusData.status;
-
-if (marketStatus === 'closed') {
-    const closedCopy = getMarketClosedMessage(aktivAktie);
-    visaTradeFel(`${closedCopy.title}. ${closedCopy.detail}`);
-    return;
-}
-
-if (marketStatus !== 'open' || window.tradeLock) {
+if (window.tradeLock) {
     await syncTradeControlsVisibility();
     return;
 }
@@ -5192,6 +5177,7 @@ document.getElementById('searchInput').value
 
 /* Live pris */
 initSupabaseAuth();
+initMarketStatusTooltip();
 window.debugData = () => {
     console.log("=== DEBUG INFO ===");
     console.log("Current user:", currentUser);
@@ -5298,26 +5284,12 @@ async function updateAllPrices() {
             : "Livefeed inaktiv - väntar på nya priser");
     }
 
-    // Exchange open/closed transitions should come from Supabase market_status
-    if (aktivAktie) {
-        const statusData = await fetchMarketStatus(aktivAktie);
-        const symbolStatus = statusData.status;
-        if (symbolStatus !== lastLoggedSymbolMarketStatus) {
-            lastLoggedSymbolMarketStatus = symbolStatus;
-            console.log(symbolStatus === 'open'
-                ? "Marknaden öppnade (status från Supabase)"
-                : symbolStatus === 'closed'
-                    ? "Marknaden stängde (status från Supabase)"
-                    : `Marknadsstatus: ${symbolStatus}`);
-        }
-    }
-
     uppdateraAktiv(aktivRiktning);
     uppdateraPortfölj();
-    if (aktivAktie && lastLoggedSymbolMarketStatus) updateMarketStatusIndicator(aktivAktie, lastLoggedSymbolMarketStatus);
     if (chart && aktivAktie) updateChartView();
     updateStockPricesInList();
-    await syncTradeControlsVisibility();
+    const marketStatus = await syncTradeControlsVisibility();
+    if (aktivAktie && marketStatus) updateMarketStatusIndicator(aktivAktie, marketStatus);
 }
 
 // Start price updates: immediately and then every 2 seconds (matching server jitter)
@@ -5415,8 +5387,78 @@ updateInGameTopInfo = function() {
     setTimeout(adjustBannerOffset, 50);
 };
 
-// Initialize market status tooltip
-setupMarketStatusTooltip();
+function initMarketStatusTooltip() {
+    const dot = document.getElementById('marketStatusDot');
+    const tooltip = document.getElementById('marketStatusTooltip');
+    
+    if (!dot || !tooltip) return;
+    
+    // ULTRA-FAST: CSS hover handles most interactions
+    dot.style.cssText = `
+        width: 9px; height: 9px; border-radius: 50%; 
+        background: #666; display: inline-block; flex-shrink: 0; 
+        cursor: pointer; transition: background 0.2s ease, transform 0.1s ease;
+    `;
+    
+    // Make tooltip clickable + FAST show/hide
+    tooltip.style.cssText += `
+        pointer-events: auto !important;
+        transition: opacity 0.08s ease, transform 0.08s ease !important;
+    `;
+    
+    let isTooltipVisible = false;
+    
+    // CLICK/TAP HANDLER - toggle tooltip
+    const toggleTooltip = (show) => {
+        if (show === undefined) show = !isTooltipVisible;
+        
+        if (show) {
+            tooltip.style.opacity = '1';
+            tooltip.style.transform = 'translateX(-50%) translateY(0)';
+            isTooltipVisible = true;
+            dot.style.transform = 'scale(1.2)';
+        } else {
+            tooltip.style.opacity = '0';
+            tooltip.style.transform = 'translateX(-50%) translateY(-4px)';
+            isTooltipVisible = false;
+            dot.style.transform = 'scale(1)';
+        }
+    };
+    
+    // Mouse events
+    dot.addEventListener('mouseenter', () => toggleTooltip(true));
+    dot.addEventListener('mouseleave', () => toggleTooltip(false));
+    tooltip.addEventListener('mouseenter', () => toggleTooltip(true));
+    
+    // CLICK/TAP events (mobile + desktop)
+    dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleTooltip();
+    });
+    
+    tooltip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleTooltip(true); // Keep open when clicking tooltip
+    });
+    
+    // Hide when clicking elsewhere
+    document.addEventListener('click', (e) => {
+        if (!dot.contains(e.target) && !tooltip.contains(e.target)) {
+            toggleTooltip(false);
+        }
+    });
+    
+    // Touch events for mobile
+    dot.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        toggleTooltip(true);
+    }, { passive: true });
+    
+    console.log('✅ Market status tooltip initialized (clickable + ultra-fast)');
+}
+
+// Initialize immediately
+initMarketStatusTooltip();
 
 </script>
 </body>
