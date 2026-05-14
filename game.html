@@ -195,7 +195,7 @@ body::before {
     top: calc(100% + 8px);
     left: 0;
     display: none;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 4px;
     background: var(--surface);
     border: 1px solid var(--glass-border);
@@ -273,7 +273,7 @@ body::before {
         max-width: calc(100vw - 16px);
         padding: 10px;
         gap: 6px;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(2, 1fr);
     }
     
     .timeframe-grid-btn {
@@ -2764,30 +2764,15 @@ function updateViewBasedOnAuth() {
 
 async function fetchHistory(ticker, resolution='D') {
     const resolutionToTf = {
-        '15sec': '15sec',
-        '1': '1min',
-        '1min': '1min',
-        '3': '3min',
-        '3min': '3min',
-        '5': '5min',
-        '5min': '5min',
-        '10': '10min',
-        '10min': '10min',
-        '15': '15min',
-        '15min': '15min',
-        '30': '30min',
-        '30min': '30min',
-        '60': '1hr',
-        '1hr': '1hr',
-        '120': '2hr',
-        '2hr': '2hr',
-        '240': '4hr',
-        '4hr': '4hr',
-        'D': '1day',
-        '1day': '1day',
-        'W': '1week',
-        '1week': '1week'
-    };
+    '1': '1min',
+    '1min': '1min',
+    '5': '5min',
+    '5min': '5min',
+    '60': '1hr',
+    '1hr': '1hr',
+    'D': '1day',
+    '1day': '1day'
+};
     const tf = resolutionToTf[resolution] || currentTimeframe;
     return fetchTimeframeCandles(ticker, tf, MAX_CANDLES);
 }
@@ -2798,8 +2783,12 @@ async function fetchTimeframeCandles(ticker, timeframe, limit = 360) {
         : ticker;
 
     // Get table name from timeframe config
-    const tfConfig = TIMEFRAMES.find(tf => tf.value === timeframe) || getCurrentTimeframeConfig();
-    const tableName = tfConfig.table;
+    const tfConfig = TIMEFRAMES.find(tf => tf.value === timeframe);
+if (!tfConfig) {
+    console.warn(`Invalid timeframe: ${timeframe}`);
+    return [];
+}
+const tableName = tfConfig.table;
 
     try {
         const requestedLimit = Number(limit);
@@ -3793,21 +3782,12 @@ let initialLoad = true;
 // Timeframe configuration: flat array of 12 timeframes (4×3 grid)
 // Ordered: Row 1 (15s-5m), Row 2 (10m-1h), Row 3 (2h-1w)
 const TIMEFRAMES = [
-    // Row 1: Short intervals
-    { value: '15sec', label: '15 s', table: 'candles_15sec', ms: 15000 },
+    // Row 1
     { value: '1min', label: '1 m', table: 'candles_1min', ms: 60000 },
-    { value: '3min', label: '3 m', table: 'candles_3min', ms: 180000 },
     { value: '5min', label: '5 m', table: 'candles_5min', ms: 300000 },
-    // Row 2: Medium intervals
-    { value: '10min', label: '10 m', table: 'candles_10min', ms: 600000 },
-    { value: '15min', label: '15 m', table: 'candles_15min', ms: 900000 },
-    { value: '30min', label: '30 m', table: 'candles_30min', ms: 1800000 },
+    // Row 2  
     { value: '1hr', label: '1 h', table: 'candles_1hr', ms: 3600000 },
-    // Row 3: Long intervals
-    { value: '2hr', label: '2 h', table: 'candles_2hr', ms: 7200000 },
-    { value: '4hr', label: '4 h', table: 'candles_4hr', ms: 14400000 },
-    { value: '1day', label: '1 d', table: 'candles_1day', ms: 86400000 },
-    { value: '1week', label: '1 v', table: 'candles_1week', ms: 604800000 }
+    { value: '1day', label: '1 d', table: 'candles_1day', ms: 86400000 }
 ];
 
 let currentTimeframe = '1min'; // Default to 1 minute
