@@ -2792,9 +2792,8 @@ const tableName = tfConfig.table;
 
     try {
         const requestedLimit = Number(limit);
-        const safeLimit = Number.isFinite(requestedLimit)
-            ? Math.max(1, Math.min(requestedLimit, MAX_CANDLES))
-            : 360;
+        const safeLimit = limit || TIMEFRAME_CANDLE_LIMITS[timeframe] || 24;
+            
         let rows = null;
         
         // Try using the Supabase client first
@@ -3795,14 +3794,19 @@ let timeframeDropdownOpen = false;
 let chartViewMode = 'free'; // 'locked' (Låst) or 'free' (Fri) - default free
 let lastDataTransformState = null; // Tracks if data is transformed for current timeframe
 
-const LIVE_CANDLES=360;
+const TIMEFRAME_CANDLE_LIMITS = {
+    '1min': 24,
+    '5min': 24,
+    '1hr': 20,
+    '1day': 30
+};
 
   
 let priceFlashTimeout=null;
 
 const CHART_WINDOW_MS=20*60*1000;
 
-const MAX_CANDLES=360;
+
 
 const PRICE_UPDATE_MS=1000; // 1 second polling
 const STALE_PRICE_THRESHOLD_MS = 10 * 1000;
@@ -3983,7 +3987,7 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
     const aktie = aktier[ticker];
 
     // Fetch candles for the currently selected timeframe
-    const timeframeCandles = await fetchTimeframeCandles(ticker, currentTimeframe, MAX_CANDLES);
+    const timeframeCandles = await fetchTimeframeCandles(ticker, currentTimeframe);
     aktie.history = timeframeCandles;
 
     // Keep latest known live quote when switching ticker (fast execution),
@@ -5250,7 +5254,9 @@ async function updateAllPrices() {
                 l: Math.min(senasteCandle ? senasteCandle.c : nyttPris, nyttPris),
                 c: nyttPris
             });
-            if (aktie.history.length > MAX_CANDLES) aktie.history.shift();
+            if (aktie.history.length > TIMEFRAME_CANDLE_LIMITS[currentTimeframe]) {
+                aktie.history.shift();
+            }
         }
     }
 
