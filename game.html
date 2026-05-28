@@ -3803,6 +3803,36 @@ const CHART_WINDOW_MS=20*60*1000;
 
 
 const PRICE_UPDATE_MS=1000; // 1 second polling
+
+// Browser-session candle cache — accumulates candles, never evicts during session
+// This lets users scroll back to candles older than Supabase's pruning window
+const MAX_CANDLES = 120; // hard cap per symbol+TF in session cache
+const candleCache = {}; // key: "symbol|tf" → Map<bucketTs, candle>
+
+function getCandleCacheKey(symbol, tf) {
+    return symbol + '|' + tf;
+}
+
+function mergeCandleIntoCache(symbol, tf, candles) {
+    const key = getCandleCacheKey(symbol, tf);
+    if (!candleCache[key]) candleCache[key] = new Map();
+    for (const c of candles) {
+        if (Number.isFinite(c.x)) candleCache[key].set(c.x, c);
+    }
+    // Trim to MAX_CANDLES (keep newest)
+    if (candleCache[key].size > MAX_CANDLES) {
+        const sorted = Array.from(candleCache[key].keys()).sort((a, b) => a - b);
+        const toRemove = sorted.slice(0, sorted.length - MAX_CANDLES);
+        for (const ts of toRemove) candleCache[key].delete(ts);
+    }
+}
+
+function getCachedCandles(symbol, tf) {
+    const key = getCandleCacheKey(symbol, tf);
+    if (!candleCache[key]) return [];
+    return Array.from(candleCache[key].values()).sort((a, b) => a.x - b.x);
+}
+
 const STALE_PRICE_THRESHOLD_MS = 10 * 1000;
 
 
@@ -3982,7 +4012,9 @@ async function väljAktie(ticker, { switchToChartView = true } = {}){
 
     // Fetch candles for the currently selected timeframe
     const timeframeCandles = await fetchTimeframeCandles(ticker, currentTimeframe);
-    aktie.history = timeframeCandles;
+    mergeCandleIntoCache(ticker, currentTimeframe, timeframeCandles);
+    aktie.history = getCachedCandles(ticker, currentTimeframe);
+
 
     // Keep latest known live quote when switching ticker (fast execution),
     // but never fallback to DB historical close as tradable price.
@@ -5234,23 +5266,16 @@ async function updateAllPrices() {
             else if (nyttPris < gammaltPris) aktivRiktning = 'down';
         }
 
-        let nu = candleTs;
-        let senasteCandle = aktie.history[aktie.history.length - 1];
-        if (senasteCandle && nu - senasteCandle.x < candleMs) {
-            senasteCandle.c = nyttPris;
-            senasteCandle.h = Math.max(senasteCandle.h, nyttPris);
-            senasteCandle.l = Math.min(senasteCandle.l, nyttPris);
-        } else {
-            aktie.history.push({
-                x: nu,
-                o: senasteCandle ? senasteCandle.c : nyttPris,
-                h: Math.max(senasteCandle ? senasteCandle.c : nyttPris, nyttPris),
-                l: Math.min(senasteCandle ? senasteCandle.c : nyttPris, nyttPris),
-                c: nyttPris
-            });
-            if (aktie.history.length > TIMEFRAME_CANDLE_LIMITS[currentTimeframe]) {
-                aktie.history.shift();
+        if (aktie.history.length > 0) {
+            const last = aktie.history[aktie.history.length - 1];
+            if (candleTs === last.x) {
+                // Same candle bucket — update in place and sync cache
+                last.c = nyttPris;
+                last.h = Math.max(last.h, nyttPris);
+                last.l = Math.min(last.l, nyttPris);
+                mergeCandleIntoCache(s, currentTimeframe, [last]);
             }
+            // If candleTs > last.x, a new candle started — the refresh loop will fetch it
         }
     }
 
@@ -5264,7 +5289,7 @@ async function updateAllPrices() {
     if (aktivAktie && marketStatus) updateMarketStatusIndicator(aktivAktie, marketStatus);
 }
 
-// Start price updates: immediately and then every 2 seconds (matching server jitter)
+// Start price updates: immediately and then every second (matching server jitter)
 (async () => {
     // Wait for market status to be cached
     await new Promise(resolve => {
@@ -5288,6 +5313,32 @@ async function updateAllPrices() {
 })();
 
 console.log(`[Price Feed] Smart polling enabled - only open markets will be fetched`);
+
+// Candle refresh loops — fetch real OHLC data from Supabase candle tables
+// This handles new candles appearing and keeps the chart accurate
+async function refreshCandlesForActive() {
+    if (!aktivAktie) return;
+    const tf = currentTimeframe;
+    try {
+        const candles = await fetchTimeframeCandles(aktivAktie, tf);
+        if (!candles.length) return;
+        mergeCandleIntoCache(aktivAktie, tf, candles);
+        aktier[aktivAktie].history = getCachedCandles(aktivAktie, tf);
+        if (chart && currentView === 'chart') updateChartView();
+    } catch (e) {
+        console.warn('[CandleRefresh] Failed:', e);
+    }
+}
+
+// 1-minute candle refresh: every 1 second (matches server write frequency)
+setInterval(() => {
+    if (currentTimeframe === '1min') refreshCandlesForActive();
+}, 1000);
+
+// 1-day candle refresh: every 30 seconds (daily candles change slowly)
+setInterval(() => {
+    if (currentTimeframe === '1day') refreshCandlesForActive();
+}, 30000);
 
 setInterval(async () => { await preloadAllMarketStatuses(); }, MARKET_STATUS_UPDATE_INTERVAL);
 console.log(`[Price Feed] Polling Supabase every ${PRICE_UPDATE_MS}ms`);
