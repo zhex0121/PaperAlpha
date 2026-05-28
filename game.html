@@ -1590,7 +1590,7 @@ const FREE_Y_MIN_SPAN_ABS = 0.0001;
 const FREE_EPSILON_RATIO = 0.0002;
 const FREE_EPSILON_ABS = 0.01;
 const FREE_INTERACTION_HYSTERESIS_MS = 120;
-const FREE_MAX_CANDLES = 400;
+const FREE_MAX_CANDLES = 60;
 const FREE_MIN_CANDLES = 2;
 const FREE_LEFT_PADDING_CANDLES = 40;
 const FREE_RIGHT_PADDING_CANDLES = 100;
@@ -3790,10 +3790,9 @@ let chartViewMode = 'free'; // 'locked' (Låst) or 'free' (Fri) - default free
 let lastDataTransformState = null; // Tracks if data is transformed for current timeframe
 
 const TIMEFRAME_CANDLE_LIMITS = {
-    '1min': 24,
-    '5min': 24,
-    '1hr': 20,
-    '1day': 30
+    '1min': 60,
+    
+    '1day': 40
 };
 
   
