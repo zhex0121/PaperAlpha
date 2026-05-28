@@ -3778,14 +3778,9 @@ let initialLoad = true;
 }
     
 
-// Timeframe configuration: flat array of 12 timeframes (4×3 grid)
-// Ordered: Row 1 (15s-5m), Row 2 (10m-1h), Row 3 (2h-1w)
+// Timeframe configuration: only 1 minute and 1 day options are available
 const TIMEFRAMES = [
-    // Row 1
     { value: '1min', label: '1 m', table: 'candles_1min', ms: 60000 },
-    { value: '5min', label: '5 m', table: 'candles_5min', ms: 300000 },
-    // Row 2  
-    { value: '1hr', label: '1 h', table: 'candles_1hr', ms: 3600000 },
     { value: '1day', label: '1 d', table: 'candles_1day', ms: 86400000 }
 ];
 
