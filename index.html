@@ -1569,18 +1569,29 @@ async function getMemberTotalValueSek(member, fxRate) {
         authModal.style.display = show ? 'flex' : 'none';
     }
 
-    function showLoggedInUI(user) {
-        console.log('[UI] showLoggedInUI called for:', user.email);
-        loggedOutView.style.display = 'none';
-        loggedInView.style.display = 'flex';
-        document.getElementById('new-competition-section').style.display = 'none';
-        currentUser = user;
-        
-        document.getElementById('landingPage').style.display = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-        
-        console.log('[UI] currentUser set to:', currentUser?.email, '| new-competition-section visible');
+function showLoggedInUI(user) {
+    console.log('[UI] showLoggedInUI called for:', user.email);
+    loggedOutView.style.display = 'none';
+    loggedInView.style.display = 'flex';
+    document.getElementById('new-competition-section').style.display = 'none';
+    currentUser = user;
+    
+    document.getElementById('landingPage').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+
+    // Show loading placeholders while competitions are being fetched.
+    // This replaces the "Inga tävlingar" and login‑prompt placeholders with a simple loading text.
+    const activeComp = document.getElementById('activeCompetitions');
+    const finishedComp = document.getElementById('finishedCompetitions');
+    if (activeComp) {
+        activeComp.innerHTML = '<div class="no-competitions"><div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Laddar...</div></div>';
     }
+    if (finishedComp) {
+        finishedComp.innerHTML = '<div class="no-competitions"><div style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 600;">Laddar...</div></div>';
+    }
+
+    console.log('[UI] currentUser set to:', currentUser?.email, '| new-competition-section visible');
+}
 
     function showLoggedOutUI() {
         console.log('[UI] showLoggedOutUI called');
