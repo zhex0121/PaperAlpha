@@ -4312,11 +4312,6 @@ grace:'5%'
 });
 
 chart.options.plugins.zoom.onPan = function() {
-    console.debug('[zoom] onPan', {
-        mode: chartViewMode,
-        xMin: chart.options.scales.x.min,
-        xMax: chart.options.scales.x.max
-    });
     if(chartViewMode === 'locked'){
         liveAutoScrollEnabled = false; // user manually moved chart
     }
@@ -4325,18 +4320,11 @@ chart.options.plugins.zoom.onPan = function() {
         clampFreeModeXRange(true);
         if (!shouldSkipYRefitAtMaxZoomOut()) {
             updateYAxisToFitVisible();
-        } else {
-            console.debug('[zoom] skipping y refit at max zoom-out');
         }
         chart.update('none');
     }
 };
 chart.options.plugins.zoom.onZoom = function() {
-    console.debug('[zoom] onZoom', {
-        mode: chartViewMode,
-        xMin: chart.options.scales.x.min,
-        xMax: chart.options.scales.x.max
-    });
     if(chartViewMode === 'locked'){
         liveAutoScrollEnabled = false; // user manually zoomed
     }
@@ -4345,58 +4333,36 @@ chart.options.plugins.zoom.onZoom = function() {
         clampFreeModeXRange(true);
         if (!shouldSkipYRefitAtMaxZoomOut()) {
             updateYAxisToFitVisible();
-        } else {
-            console.debug('[zoom] skipping y refit at max zoom-out');
         }
         chart.update('none');
     }
 };
 chart.options.plugins.zoom.pan.onPanStart = function() {
     if (chartViewMode === 'free') {
-        console.debug('[zoom] onPanStart', {
-            xMin: chart.options.scales.x.min,
-            xMax: chart.options.scales.x.max
-        });
         syncFreeModeZoomLimits();
         markFreeInteraction();
     }
 };
 chart.options.plugins.zoom.pan.onPanComplete = function() {
     if (chartViewMode === 'free') {
-        console.debug('[zoom] onPanComplete', {
-            xMin: chart.options.scales.x.min,
-            xMax: chart.options.scales.x.max
-        });
         markFreeInteraction();
         if (!shouldSkipYRefitAtMaxZoomOut()) {
             updateYAxisToFitVisible();
-        } else {
-            console.debug('[zoom] skipping y refit at max zoom-out');
         }
         chart.update('none');
     }
 };
 chart.options.plugins.zoom.zoom.onZoomStart = function() {
     if (chartViewMode === 'free') {
-        console.debug('[zoom] onZoomStart', {
-            xMin: chart.options.scales.x.min,
-            xMax: chart.options.scales.x.max
-        });
         syncFreeModeZoomLimits();
         markFreeInteraction();
     }
 };
 chart.options.plugins.zoom.zoom.onZoomComplete = function() {
     if (chartViewMode === 'free') {
-        console.debug('[zoom] onZoomComplete', {
-            xMin: chart.options.scales.x.min,
-            xMax: chart.options.scales.x.max
-        });
         markFreeInteraction();
         if (!shouldSkipYRefitAtMaxZoomOut()) {
             updateYAxisToFitVisible();
-        } else {
-            console.debug('[zoom] skipping y refit at max zoom-out');
         }
         chart.update('none');
     }
@@ -4668,13 +4634,6 @@ function syncFreeModeZoomLimits() {
             minRange
         }
     };
-    console.debug('[zoom] syncFreeModeZoomLimits', {
-        minRange,
-        domainMin: domain.domainMin,
-        domainMax: domain.domainMax,
-        xMin: chart.options.scales.x.min,
-        xMax: chart.options.scales.x.max
-    });
 }
 
 function clampFreeModeXRange(preferHardStop = false) {
@@ -4698,10 +4657,6 @@ function clampFreeModeXRange(preferHardStop = false) {
     let xMin = Number(chart.options.scales.x.min);
     let xMax = Number(chart.options.scales.x.max);
     if (!Number.isFinite(xMin) || !Number.isFinite(xMax)) {
-        console.debug('[zoom] clampFreeModeXRange invalid bounds', {
-            xMin: chart.options.scales.x.min,
-            xMax: chart.options.scales.x.max
-        });
         applyFreeModeXDefaultBounds();
         return;
     }
@@ -4713,25 +4668,7 @@ function clampFreeModeXRange(preferHardStop = false) {
     }
 
     let span = xMax - xMin;
-    console.debug('[zoom] clampFreeModeXRange entry', {
-        preferHardStop,
-        xMin,
-        xMax,
-        span,
-        minSpan,
-        maxSpan,
-        domainMin,
-        domainMax,
-        lastValidXMin: freeViewportState.lastValidXMin,
-        lastValidXMax: freeViewportState.lastValidXMax
-    });
     if (span > maxSpan) {
-        console.debug('[zoom] clampFreeModeXRange hit maxSpan, hard stop', {
-            currentMin: xMin,
-            currentMax: xMax,
-            currentSpan: span,
-            maxSpan
-        });
         chart.options.scales.x.min = xMin;
         chart.options.scales.x.max = xMax;
         freeViewportState.lastValidXMin = xMin;
@@ -4739,7 +4676,6 @@ function clampFreeModeXRange(preferHardStop = false) {
         return;
     } else if (span < minSpan) {
         const mid = (xMin + xMax) / 2;
-        console.debug('[zoom] clampFreeModeXRange hit minSpan', { mid });
         xMin = mid - (minSpan / 2);
         xMax = mid + (minSpan / 2);
         span = minSpan;
@@ -4781,7 +4717,6 @@ function clampFreeModeXRange(preferHardStop = false) {
         ) {
             chart.options.scales.x.min = freeViewportState.lastValidXMin;
             chart.options.scales.x.max = freeViewportState.lastValidXMax;
-            console.debug('[zoom] hard stop at chart edge, keeping last valid viewport');
             return;
         }
     }
@@ -4789,13 +4724,6 @@ function clampFreeModeXRange(preferHardStop = false) {
     freeViewportState.lastValidXMin = xMin;
     freeViewportState.lastValidXMax = xMax;
     freeViewportState.atMaxZoomOut = (xMax - xMin) >= (maxSpan - 1);
-    console.debug('[zoom] clampFreeModeXRange exit', {
-        xMin,
-        xMax,
-        span,
-        lastValidXMin: freeViewportState.lastValidXMin,
-        lastValidXMax: freeViewportState.lastValidXMax
-    });
 }
 
 function recenterFreeMode() {
