@@ -2948,6 +2948,38 @@ function backfillLiveGapForSymbol(stock, now = Date.now()) {
     }
 }
 
+function synthesizeCandleFromLivePrice(aktie, symbol, quoteTs, price) {
+    if (!aktie || !Array.isArray(aktie.history) || aktie.history.length === 0) return false;
+    if (!Number.isFinite(quoteTs) || !Number.isFinite(price)) return false;
+
+    const tfConfig = getCurrentTimeframeConfig();
+    const candleMs = tfConfig.ms;
+    const candleTs = Math.floor(quoteTs / candleMs) * candleMs;
+    const last = aktie.history[aktie.history.length - 1];
+
+    if (!last || !Number.isFinite(last.x)) return false;
+
+    if (candleTs === last.x) {
+        last.c = price;
+        last.h = Math.max(last.h, price);
+        last.l = Math.min(last.l, price);
+        mergeCandleIntoCache(symbol, currentTimeframe, [last]);
+        return true;
+    }
+
+    if (candleTs > last.x) {
+        const next = { x: candleTs, o: price, h: price, l: price, c: price, v: 0 };
+        aktie.history.push(next);
+        mergeCandleIntoCache(symbol, currentTimeframe, [next]);
+        if (aktie.history.length > MAX_CANDLES) {
+            aktie.history = aktie.history.slice(-MAX_CANDLES);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 
 
     
@@ -5266,17 +5298,7 @@ async function updateAllPrices() {
             else if (nyttPris < gammaltPris) aktivRiktning = 'down';
         }
 
-        if (aktie.history.length > 0) {
-            const last = aktie.history[aktie.history.length - 1];
-            if (candleTs === last.x) {
-                // Same candle bucket — update in place and sync cache
-                last.c = nyttPris;
-                last.h = Math.max(last.h, nyttPris);
-                last.l = Math.min(last.l, nyttPris);
-                mergeCandleIntoCache(s, currentTimeframe, [last]);
-            }
-            // If candleTs > last.x, a new candle started — the refresh loop will fetch it
-        }
+        synthesizeCandleFromLivePrice(aktie, s, quoteTs, nyttPris);
     }
 
     if (pricesUpdated) lastPriceUpdate = Date.now();
@@ -5313,32 +5335,6 @@ async function updateAllPrices() {
 })();
 
 console.log(`[Price Feed] Smart polling enabled - only open markets will be fetched`);
-
-// Candle refresh loops — fetch real OHLC data from Supabase candle tables
-// This handles new candles appearing and keeps the chart accurate
-async function refreshCandlesForActive() {
-    if (!aktivAktie) return;
-    const tf = currentTimeframe;
-    try {
-        const candles = await fetchTimeframeCandles(aktivAktie, tf);
-        if (!candles.length) return;
-        mergeCandleIntoCache(aktivAktie, tf, candles);
-        aktier[aktivAktie].history = getCachedCandles(aktivAktie, tf);
-        if (chart && currentView === 'chart') updateChartView();
-    } catch (e) {
-        console.warn('[CandleRefresh] Failed:', e);
-    }
-}
-
-// 1-minute candle refresh: every 1 second (matches server write frequency)
-setInterval(() => {
-    if (currentTimeframe === '1min') refreshCandlesForActive();
-}, 1000);
-
-// 1-day candle refresh: every 30 seconds (daily candles change slowly)
-setInterval(() => {
-    if (currentTimeframe === '1day') refreshCandlesForActive();
-}, 30000);
 
 setInterval(async () => { await preloadAllMarketStatuses(); }, MARKET_STATUS_UPDATE_INTERVAL);
 console.log(`[Price Feed] Polling Supabase every ${PRICE_UPDATE_MS}ms`);
