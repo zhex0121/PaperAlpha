@@ -3044,8 +3044,7 @@ async function syncTradeControlsVisibility() {
     const marketClosedMessage = document.getElementById('marketClosedMessage');
     let marketStatus = 'unknown';
 
-    if (currentUser && aktivAktie && !isCompetitionEnded()) {
-        // READ ONLY from cache — never fetch
+    if (aktivAktie) {
         marketStatus = getSymbolMarketStatus(aktivAktie);
         updateMarketStatusIndicator(aktivAktie, marketStatus);
     }
@@ -3053,6 +3052,13 @@ async function syncTradeControlsVisibility() {
     if (currentView === 'league') {
         if (tradeControls) tradeControls.style.display = 'none';
         if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+        return marketStatus;
+    }
+
+    if (!currentUser || !aktivAktie || isCompetitionEnded()) {
+        if (tradeControls) tradeControls.style.display = 'none';
+        if (marketClosedMessage) marketClosedMessage.style.display = 'none';
+        window.tradeLock = true;
         return marketStatus;
     }
 
@@ -3092,12 +3098,6 @@ async function syncTradeControlsVisibility() {
                 <div style="font-size: 0.9rem;">${copy.detail}</div>
             `;
         }
-        window.tradeLock = true;
-    }
-
-    if (!currentUser || !aktivAktie || isCompetitionEnded()) {
-        if (tradeControls) tradeControls.style.display = 'none';
-        if (marketClosedMessage) marketClosedMessage.style.display = 'none';
         window.tradeLock = true;
     }
 
@@ -5446,9 +5446,9 @@ function initMarketStatusTooltip() {
         cursor: pointer; transition: background 0.2s ease, transform 0.1s ease;
     `;
     
-    // Make tooltip clickable + FAST show/hide
+    // Tooltip should only react to the dot itself.
     tooltip.style.cssText += `
-        pointer-events: auto !important;
+        pointer-events: none !important;
         transition: opacity 0.08s ease, transform 0.08s ease !important;
     `;
     
@@ -5471,20 +5471,14 @@ function initMarketStatusTooltip() {
         }
     };
     
-    // Mouse events
+    // Mouse events only on the dot itself
     dot.addEventListener('mouseenter', () => toggleTooltip(true));
     dot.addEventListener('mouseleave', () => toggleTooltip(false));
-    tooltip.addEventListener('mouseenter', () => toggleTooltip(true));
     
     // CLICK/TAP events (mobile + desktop)
     dot.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleTooltip();
-    });
-    
-    tooltip.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleTooltip(true); // Keep open when clicking tooltip
     });
     
     // Hide when clicking elsewhere
