@@ -4618,13 +4618,11 @@ function syncFreeModeZoomLimits() {
     if (!domain) return;
 
     const minRange = FREE_MIN_CANDLES * domain.step;
-    const maxRange = FREE_MAX_CANDLES * domain.step;
     chart.options.plugins.zoom.limits = {
         x: {
             min: domain.domainMin,
             max: domain.domainMax,
-            minRange,
-            maxRange
+            minRange
         }
     };
 }
@@ -4664,6 +4662,9 @@ function clampFreeModeXRange(preferHardStop = false) {
         ) {
             chart.options.scales.x.min = freeViewportState.lastValidXMin;
             chart.options.scales.x.max = freeViewportState.lastValidXMax;
+            freeViewportState.lastInteractionAt = performance.now();
+            freeViewportState.lastValidXMin = chart.options.scales.x.min;
+            freeViewportState.lastValidXMax = chart.options.scales.x.max;
         }
         return;
     } else if (span < minSpan) {
