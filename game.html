@@ -4679,8 +4679,12 @@ function syncFreeModeZoomLimits() {
 
 function clampFreeModeXRange(preferHardStop = false) {
     if (!chart || !aktivAktie) return;
+    const tfConfig = getCurrentTimeframeConfig();
+    const isHighTf = tfConfig.ms > 300000;
+    const currentData = chart?.data?.datasets?.[0]?.data || [];
     const history = aktier[aktivAktie].history || [];
-    if (!history.length) return;
+    const data = (isHighTf && currentData.length) ? currentData : history;
+    if (!data.length) return;
 
     const domain = getFreeModeXDomain();
     if (!domain) return;
@@ -4769,6 +4773,18 @@ function clampFreeModeXRange(preferHardStop = false) {
 
     chart.options.scales.x.min = xMin;
     chart.options.scales.x.max = xMax;
+    const visibleCount = data.filter(c => c.x >= xMin && c.x <= xMax).length;
+    if (visibleCount === 0) {
+        if (
+            Number.isFinite(freeViewportState.lastValidXMin) &&
+            Number.isFinite(freeViewportState.lastValidXMax)
+        ) {
+            chart.options.scales.x.min = freeViewportState.lastValidXMin;
+            chart.options.scales.x.max = freeViewportState.lastValidXMax;
+            console.debug('[zoom] hard stop at chart edge, keeping last valid viewport');
+            return;
+        }
+    }
 
     freeViewportState.lastValidXMin = xMin;
     freeViewportState.lastValidXMax = xMax;
