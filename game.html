@@ -4705,20 +4705,16 @@ function clampFreeModeXRange(preferHardStop = false) {
         lastValidXMax: freeViewportState.lastValidXMax
     });
     if (span > maxSpan) {
-        if (
-            Number.isFinite(freeViewportState.lastValidXMin) &&
-            Number.isFinite(freeViewportState.lastValidXMax)
-        ) {
-            console.debug('[zoom] clampFreeModeXRange hit maxSpan, restoring last valid', {
-                restoredMin: freeViewportState.lastValidXMin,
-                restoredMax: freeViewportState.lastValidXMax
-            });
-            chart.options.scales.x.min = freeViewportState.lastValidXMin;
-            chart.options.scales.x.max = freeViewportState.lastValidXMax;
-            freeViewportState.lastInteractionAt = performance.now();
-            freeViewportState.lastValidXMin = chart.options.scales.x.min;
-            freeViewportState.lastValidXMax = chart.options.scales.x.max;
-        }
+        console.debug('[zoom] clampFreeModeXRange hit maxSpan, hard stop', {
+            currentMin: xMin,
+            currentMax: xMax,
+            currentSpan: span,
+            maxSpan
+        });
+        chart.options.scales.x.min = xMin;
+        chart.options.scales.x.max = xMax;
+        freeViewportState.lastValidXMin = xMin;
+        freeViewportState.lastValidXMax = xMax;
         return;
     } else if (span < minSpan) {
         const mid = (xMin + xMax) / 2;
@@ -4801,7 +4797,9 @@ function setChartMode(mode){
     resetFreeViewportState();
     syncFreeModeZoomLimits();
     applyFreeModeXDefaultBounds();
-    startFreeModeAnimator();
+    if (typeof startFreeModeAnimator === 'function') {
+        startFreeModeAnimator();
+    }
 
     updateChartView();
 }
