@@ -1512,7 +1512,7 @@ SÄLJ
 
 <div id="pendingTradesSection" style="display: none; margin-top: 20px;">
     <div style="border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom: 15px;">
-        <h4 style="margin: 0; font-size: 0.85rem; letter-spacing: 1px; color: var(--accent);">PÅGÅENDE HANDEL</h4>
+        <h4 style="margin: 0; font-size: 0.85rem; letter-spacing: 1px; color: var(--accent);">PÅGÅENDE ORDRAR</h4>
     </div>
     <div id="pendingTradesList" style="font-size: 0.85rem;"></div>
 </div>
@@ -1554,8 +1554,7 @@ SÄLJ
 window.tradeLock = false;
 
 // Pending trades system
-let pendingTrades = []; // Array of pending trades waiting for fresh prices
-const PENDING_PRICE_THRESHOLD_MS = 16 * 1000; // 16 seconds threshold for pending trades
+let pendingTrades = []; // Server-backed trade orders for the active user
 
 const symboler = [
     "S&P 500 (SPY)", "Nasdaq 100 (QQQ)", "Dow Jones (DIA)",
@@ -1724,220 +1723,330 @@ let lastLoggedSymbolMarketStatus = null;
   
 let aktivAktie=null;
 
-// Pending trades management functions
-function savePendingTradesToStorage() {
-    try {
-        localStorage.setItem('paperAlpha_pendingTrades', JSON.stringify(pendingTrades));
-    } catch (error) {
-        console.error('[Pending Trades] Failed to save to localStorage:', error);
-    }
+const TRADE_ORDER_REFRESH_MS = 5000;
+const TRADE_ORDER_TTL_MS = 30 * 1000;
+let pendingTradeRefreshInFlight = false;
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
-function loadPendingTradesFromStorage() {
-    try {
-        const saved = localStorage.getItem('paperAlpha_pendingTrades');
-        if (saved) {
-            const loaded = JSON.parse(saved);
-            // Only restore trades for current user
-            pendingTrades = loaded.filter(trade => trade.userId === currentUser?.id);
-            console.log(`[Pending Trades] Loaded ${pendingTrades.length} trades from storage`);
-            
-            // Apply share reservations for sell orders
-            pendingTrades.forEach(trade => {
-                if (trade.type === 'sälj' && trade.userId === currentUser?.id) {
-                    if (!portfölj[trade.symbol]) {
-                        portfölj[trade.symbol] = {
-                            antal: 0,
-                            totaltInköp: 0
-                        };
-                    }
-                    
-                    // Reserve the shares by reducing available amount
-                    portfölj[trade.symbol].antal = Number((portfölj[trade.symbol].antal - trade.amount).toFixed(6));
-                    
-                    // Remove security from portfolio if amount reaches 0
-                    if (portfölj[trade.symbol].antal <= 0) {
-                        delete portfölj[trade.symbol];
-                        console.log(`[Pending Trades] Removed ${trade.symbol} from portfolio as amount reached 0`);
-                    } else {
-                        console.log(`[Pending Trades] Reserved ${trade.amount} st ${trade.symbol} from restored sell order. Available: ${portfölj[trade.symbol].antal} st`);
-                    }
-                }
-            });
-            
-            // Update displays after applying reservations
-            updatePendingTradesDisplay();
-            uppdateraPortfölj();
-        }
-    } catch (error) {
-        console.error('[Pending Trades] Failed to load from localStorage:', error);
-        pendingTrades = [];
-    }
-}
-
-function addPendingTrade(symbol, type, amount, userId) {
-    const pendingTrade = {
-        id: Date.now() + Math.random(), // Unique ID
-        symbol: symbol,
-        type: type, // 'köp' or 'sälj'
-        amount: amount,
-        userId: userId,
-        createdAt: Date.now()
-    };
-    
-    // For sell orders, immediately reserve shares to prevent over-selling
-    if (type === 'sälj' && userId === currentUser?.id) {
-        if (!portfölj[symbol]) {
-            portfölj[symbol] = {
-                antal: 0,
-                totaltInköp: 0
-            };
-        }
-        
-        // Reserve the shares by reducing available amount
-        portfölj[symbol].antal = Number((portfölj[symbol].antal - amount).toFixed(6));
-        
-        console.log(`[Pending Trade] Reserved ${amount} st ${symbol} for sell order. Available: ${portfölj[symbol].antal} st`);
-        
-        // Remove security from portfolio if amount reaches 0
-        if (portfölj[symbol].antal <= 0) {
-            delete portfölj[symbol];
-            console.log(`[Pending Trade] Removed ${symbol} from portfolio as amount reached 0`);
-        }
-        
-        // Update portfolio display immediately to show reserved shares
-        uppdateraPortfölj();
-        
-        // Immediately save to Supabase so shares are removed from database
-        sparaPortföljTillSupabase().then(() => {
-            console.log(`[Pending Trade] Saved reduced portfolio to Supabase for sell order`);
-        }).catch(err => {
-            console.error(`[Pending Trade] Failed to save to Supabase:`, err);
-        });
-    }
-    
-    pendingTrades.push(pendingTrade);
-    savePendingTradesToStorage();
-    updatePendingTradesDisplay();
-    console.log(`[Pending Trade] Added ${type} ${amount} st ${symbol}`);
-}
-
-function executePendingTrades(symbol, newPrice) {
-    const tradesToExecute = pendingTrades.filter(trade => trade.symbol === symbol);
-    
-    if (tradesToExecute.length > 0) {
-        console.log(`[Pending Trade] Executing ${tradesToExecute.length} trades for ${symbol} at price ${newPrice}`);
-        
-        tradesToExecute.forEach(trade => {
-            // Execute the trade with the new price
-            executeTradeWithPrice(trade.type, trade.symbol, trade.amount, newPrice, trade.userId);
-        });
-        
-        // Remove executed trades from pending list
-        pendingTrades = pendingTrades.filter(trade => trade.symbol !== symbol);
-        savePendingTradesToStorage();
-        updatePendingTradesDisplay();
-    }
-}
-
-function executeTradeWithPrice(type, symbol, amount, price, userId) {
-    // Only execute if this is the current user's trade
-    if (userId !== currentUser?.id) return;
-    
-    const kostnadUSD = price * amount;
-    const kostnad = kostnadUSD * currentExchangeRate;
-    
-    try {
-        if (type === 'köp') {
-            if (saldo >= kostnad) {
-                saldo -= kostnad;
-                
-                if (!portfölj[symbol]) {
-                    portfölj[symbol] = {
-                        antal: 0,
-                        totaltInköp: 0
-                    };
-                }
-                
-                portfölj[symbol].antal = Number((portfölj[symbol].antal + amount).toPrecision(12));
-                portfölj[symbol].totaltInköp += kostnad;
-                
-                console.log(`[Pending Trade] Köpte ${amount} st ${symbol} för ${kostnadUSD} USD (nytt pris)`);
-                
-                // Notify user that pending trade executed
-                document.getElementById('tradeError').innerHTML = `<div style="color:var(--up);font-weight:400;font-size:0.8rem;">Genomförde köp: ${amount} st ${symbol} för ${kostnadUSD.toFixed(2)} USD</div>`;
-                setTimeout(() => rensaTradeFel(), 6000);
-            } else {
-                // Not enough money - notify user
-                const affordableAmount = Math.floor((saldo / kostnad * amount) * 10000) / 10000;
-                const isExpensive = price * currentExchangeRate > saldo;
-                
-                const info = isExpensive
-                    ? `Köp misslyckades: Du har inte råd med ${amount} st. Du kan köpa andelar av ett värdepapper — testa t.ex. <b style="color:var(--up);cursor:pointer;" onclick="document.getElementById('tradeAmount').value='${affordableAmount.toFixed(4).replace('.',',')}';rensaTradeFel();">${affordableAmount.toFixed(4).replace('.',',')} st</b> för ditt hela saldo.`
-                    : "Köp misslyckades: Du har inte råd. Testa ett mindre antal.";
-                
-                document.getElementById('tradeError').innerHTML = `<div style="color:var(--down);font-weight:400;font-size:0.8rem;">${info}</div>`;
-                setTimeout(() => rensaTradeFel(), 6000);
+function normalizePortfolio(rawPortfolio) {
+    const portfolio = {};
+    Object.keys(rawPortfolio || {}).forEach(ticker => {
+        const holding = rawPortfolio[ticker];
+        if (holding && typeof holding === 'object') {
+            const antal = Number(holding.antal || 0);
+            const totaltInköp = Number(holding.totaltInköp || 0);
+            if (antal > 0) {
+                portfolio[ticker] = {
+                    antal: Number(antal),
+                    totaltInköp: Number(totaltInköp)
+                };
             }
-        } else if (type === 'sälj') {
-            // For sell orders, shares were already reserved and possibly removed when added to pending list
-            // So we just need to add the money - the portfolio is already updated in Supabase
-            saldo += kostnad;
-            
-            console.log(`[Pending Trade] Sålde ${amount} st ${symbol} för ${kostnadUSD} USD (nytt pris) - shares were already reserved and removed from portfolio`);
-            
-            // Notify user that pending trade executed
-            document.getElementById('tradeError').innerHTML = `<div style="color:var(--up);font-weight:400;font-size:0.8rem;">Genomförde sälj: ${amount} st ${symbol} för ${kostnadUSD.toFixed(2)} USD</div>`;
-            setTimeout(() => rensaTradeFel(), 6000);
         }
-        
-        // Update UI after executing pending trade
-        uppdateraPortfölj();
-        sparaPortföljTillSupabase();
-        
-    } catch (error) {
-        console.error('[Pending Trade] Error executing trade:', error);
+    });
+    return portfolio;
+}
+
+function applyServerAccountState(account) {
+    if (!account) return;
+    if (Number.isFinite(Number(account.balance))) {
+        saldo = Number(account.balance);
     }
+    if (account.portfolio && typeof account.portfolio === 'object') {
+        portfölj = normalizePortfolio(account.portfolio);
+    }
+    uppdateraPortfölj();
+}
+
+function getTradeOrderStatusLabel(status) {
+    if (status === 'pending') return 'Väntar på färskt pris';
+    if (status === 'filled') return 'Genomförd';
+    if (status === 'expired') return 'Kunde inte hämta färsk kurs, försök igen senare';
+    if (status === 'rejected') return 'Avvisad';
+    return 'Okänd status';
+}
+
+function getTradeOrderTone(status) {
+    if (status === 'filled') return 'var(--up)';
+    if (status === 'pending') return 'var(--text-dim)';
+    if (status === 'expired') return 'var(--text-dim)';
+    if (status === 'rejected') return 'var(--down)';
+    return 'var(--text-dim)';
+}
+
+function formatTradeOrderTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('sv-SE', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
+}
+
+function normalizeTradeOrderRow(row) {
+    return {
+        id: row.id,
+        userId: row.user_id,
+        leagueId: row.league_id,
+        symbol: row.symbol,
+        type: row.side === 'sell' ? 'sälj' : 'köp',
+        side: row.side,
+        amount: Number(row.amount || 0),
+        status: row.status,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        filledAt: row.filled_at,
+        expiresAt: row.expires_at,
+        rejectReason: row.reject_reason,
+        executionPriceUsd: Number(row.execution_price_usd || 0) || null,
+        executionPriceSek: Number(row.execution_price_sek || 0) || null,
+        sourceQuoteUpdatedAt: row.source_quote_updated_at
+    };
+}
+
+function getActiveOrderQuery() {
+    let query = supabaseClient
+        .from('trade_orders')
+        .select('id, user_id, league_id, symbol, side, amount, status, created_at, updated_at, filled_at, expires_at, reject_reason, execution_price_usd, execution_price_sek, source_quote_updated_at')
+        .eq('user_id', currentUser?.id);
+
+    if (currentLeagueId && currentLeague) {
+        query = query.eq('league_id', currentLeagueId);
+    } else {
+        query = query.is('league_id', null);
+    }
+
+    return query.order('created_at', { ascending: false }).limit(25);
+}
+
+async function callGameFunction(functionName, body = {}) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const accessToken = session?.access_token;
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': accessToken ? `Bearer ${accessToken}` : `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(body),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        const err = new Error(data?.error || data?.message || 'Kunde inte köra serverfunktionen');
+        err.response = response;
+        err.data = data;
+        throw err;
+    }
+
+    return data;
 }
 
 function updatePendingTradesDisplay() {
     const section = document.getElementById('pendingTradesSection');
     const list = document.getElementById('pendingTradesList');
-    
-    if (pendingTrades.length === 0) {
+    if (!section || !list) return;
+
+    const recentOrders = (pendingTrades || []).slice(0, 12);
+    if (recentOrders.length === 0) {
         section.style.display = 'none';
+        list.innerHTML = '';
         return;
     }
-    
+
     section.style.display = 'block';
-    
-    // Group by symbol for cleaner display
-    const groupedTrades = {};
-    pendingTrades.forEach(trade => {
-        if (!groupedTrades[trade.symbol]) {
-            groupedTrades[trade.symbol] = [];
-        }
-        groupedTrades[trade.symbol].push(trade);
-    });
-    
-    let html = '';
-    for (const [symbol, trades] of Object.entries(groupedTrades)) {
-        const totalBuy = trades.filter(t => t.type === 'köp').reduce((sum, t) => sum + t.amount, 0);
-        const totalSell = trades.filter(t => t.type === 'sälj').reduce((sum, t) => sum + t.amount, 0);
-        
-        html += `
+
+    const html = recentOrders.map(order => {
+        const statusLabel = getTradeOrderStatusLabel(order.status);
+        const tone = getTradeOrderTone(order.status);
+        const sideLabel = order.type === 'sälj' ? 'Sälj' : 'Köp';
+        const createdAt = formatTradeOrderTime(order.createdAt);
+        const amount = Number(order.amount || 0).toLocaleString('sv-SE', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 4
+        });
+        const reason = order.rejectReason ? `<div style="margin-top:4px; color:var(--text-dim); font-size:0.78rem;">${escapeHtml(order.rejectReason)}</div>` : '';
+
+        return `
             <div class="pending-trade-item" style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-                <div style="font-weight: 600; color: var(--text); margin-bottom: 4px;">${symbol}</div>
-                <div style="color: var(--text-dim); font-size: 0.8rem;">
-                    ${totalBuy > 0 ? `<div style="color: var(--up);">Köper: ${totalBuy} st</div>` : ''}
-                    ${totalSell > 0 ? `<div style="color: var(--down);">Säljer: ${totalSell} st</div>` : ''}
-                    <div style="margin-top: 4px; font-style: italic;">Väntar på färsk pris...</div>
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+                    <div style="min-width:0;">
+                        <div style="font-weight: 600; color: var(--text); margin-bottom: 4px;">${escapeHtml(order.symbol)}</div>
+                        <div style="color: var(--text-dim); font-size: 0.8rem;">
+                            ${sideLabel} • ${amount} st
+                            ${createdAt ? ` • ${createdAt}` : ''}
+                        </div>
+                    </div>
+                    <div style="color:${tone}; font-weight:700; font-size:0.8rem; text-align:right;">
+                        ${escapeHtml(statusLabel)}
+                    </div>
                 </div>
+                ${reason}
             </div>
         `;
-    }
-    
+    }).join('');
+
     list.innerHTML = html;
+}
+
+async function expireTradeOrdersOnServer() {
+    if (!currentUser) return;
+    try {
+        await callGameFunction('expire-trade-orders', {
+            leagueId: currentLeagueId && currentLeague ? currentLeagueId : null
+        });
+    } catch (error) {
+        console.warn('[TradeOrders] Expire sweep failed:', error?.message || error);
+    }
+}
+
+async function refreshTradeOrdersFromServer({ includeExpirySweep = true } = {}) {
+    if (!currentUser) {
+        pendingTrades = [];
+        updatePendingTradesDisplay();
+        return [];
+    }
+
+    if (pendingTradeRefreshInFlight) return pendingTrades;
+    pendingTradeRefreshInFlight = true;
+
+    try {
+        if (includeExpirySweep) {
+            await expireTradeOrdersOnServer();
+        }
+
+        const { data, error } = await getActiveOrderQuery();
+        if (error) throw error;
+
+        pendingTrades = Array.isArray(data) ? data.map(normalizeTradeOrderRow) : [];
+        updatePendingTradesDisplay();
+        return pendingTrades;
+    } catch (error) {
+        console.warn('[TradeOrders] Failed to load server orders:', error?.message || error);
+        return pendingTrades;
+    } finally {
+        pendingTradeRefreshInFlight = false;
+    }
+}
+
+function loadPendingTradesFromStorage() {
+    return refreshTradeOrdersFromServer();
+}
+
+function savePendingTradesToStorage() {
+    return;
+}
+
+function addPendingTrade() {
+    return;
+}
+
+function executePendingTrades() {
+    return;
+}
+
+function executeTradeWithPrice() {
+    return;
+}
+
+async function joinLeagueOnServer(leagueId, inviteCode) {
+    return callGameFunction('join-league', {
+        leagueId,
+        inviteCode
+    });
+}
+
+async function submitTradeOrder(typ) {
+    if (!currentUser) {
+        document.getElementById('tradeError').innerText = 'Vänligen logga in först!';
+        showAuthModal(true);
+        return;
+    }
+
+    const råVärde = document.getElementById('tradeAmount').value.trim().replace(',', '.');
+
+    if (!aktivAktie) {
+        visaTradeFel('Välj ett värdepapper i listan till vänster först.');
+        return;
+    }
+
+    if (!/^\d*\.?\d+$/.test(råVärde)) {
+        visaTradeFel('Ange ett giltigt antal.');
+        return;
+    }
+
+    const antal = parseFloat(råVärde);
+
+    if (!Number.isFinite(antal) || antal <= 0) {
+        visaTradeFel('Antalet måste vara ett positivt tal, t.ex. 2 eller 0,5.');
+        return;
+    }
+
+    const valdAktie = aktier[aktivAktie];
+    const pris = valdAktie.pris;
+    const harLivePris = Number.isFinite(pris) && valdAktie.senasteLivePrisTid !== null;
+
+    if (!harLivePris || pris <= 0) {
+        visaTradeFel('Priserna laddar fortfarande. Vänta ett ögonblick och försök igen.');
+        return;
+    }
+
+    const clientQuoteAgeMs = Date.now() - Number(valdAktie.senasteLivePrisTid || 0);
+    const clientRequestId = `${currentUser.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    try {
+        const data = await callGameFunction('trade-submit', {
+            action: typ,
+            symbol: aktivAktie,
+            amount: antal,
+            leagueId: currentLeagueId && currentLeague ? currentLeagueId : null,
+            inviteCode: currentLeagueCode || null,
+            clientQuoteAgeMs,
+            clientQuotePriceUsd: Number(pris),
+            clientRequestId
+        });
+
+        if (data?.account) {
+            applyServerAccountState(data.account);
+        }
+
+        await refreshTradeOrdersFromServer({ includeExpirySweep: false });
+
+        if (data?.order?.status === 'pending') {
+            document.getElementById('tradeError').innerHTML =
+                '<div style="color:var(--text-dim);font-weight:400;font-size:0.8rem;">Din order ligger pågående och fylls automatiskt när vi får en färsk kurs.</div>';
+        } else {
+            const resultText = data?.status === 'filled'
+                ? 'Genomförd!'
+                : 'Ordern har behandlats.';
+            document.getElementById('tradeError').innerHTML =
+                `<div style="color:var(--up);font-weight:400;font-size:0.8rem;">${resultText}</div>`;
+        }
+
+        setTimeout(() => rensaTradeFel(), 6000);
+
+        if (currentLeagueId && currentLeague) {
+            loadLeaderboard();
+        }
+    } catch (error) {
+        const message = error?.message || 'Transaktion misslyckades!';
+        visaTradeFel(message);
+        console.error('Trade submit failed:', error);
+    } finally {
+        await syncTradeControlsVisibility();
+    }
 }
 
 let hydrated = false;
@@ -2061,23 +2170,13 @@ const marketDataClient = createClient(
 
 setInterval(() => {
   if (authReady && currentUser && hydrated && !document.hidden) {
-    sparaPortföljTillSupabase();
+    refreshTradeOrdersFromServer();
   }
-}, 20000);
+}, TRADE_ORDER_REFRESH_MS);
 
 
 window.addEventListener("beforeunload", () => {
   sparaTillLokalt();
-  if (currentUser && hydrated) {
-    navigator.sendBeacon(
-      "https://jdpwqtoltrkrflopvicr.supabase.co/rest/v1/profiles",
-      JSON.stringify({
-        user_id: currentUser.id,
-        balance: saldo,
-        portfolio: portfölj
-      })
-    );
-  }
 });
 
 function sparaTillLokalt() {
@@ -3064,6 +3163,8 @@ function showLoggedOutUI() {
     document.getElementById('portfolioDisplay').innerHTML = '';
     document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
     document.getElementById('marketClosedMessage').style.display='none';
+    pendingTrades = [];
+    updatePendingTradesDisplay();
     // Show chart view when logged out
     showChartView();
 
@@ -3248,8 +3349,8 @@ async function showLoggedInUI() {
     
     await syncTradeControlsVisibility();
     
-    // Load pending trades from localStorage
-    loadPendingTradesFromStorage();
+    // Load server-backed order status for the pending panel
+    await loadPendingTradesFromStorage();
     
     updateToggleVisibility();
 }
@@ -3292,50 +3393,15 @@ async function handleCompetitionFromURL() {
         
         console.log(`[AutoJoin] League verified: ${league.name}`);
         
-        // Check if user is already a member
-        const { data: existingMember, error: memberCheckError } = await supabaseClient
-            .from('league_members')
-            .select('*')
-            .eq('league_id', leagueId)
-            .eq('user_id', currentUser.id)
-            .maybeSingle();
-            
-        if (memberCheckError) {
-            console.error("[AutoJoin] Error checking membership:", memberCheckError);
-        }
-        
-        if (existingMember) {
-            console.log("[AutoJoin] User is already a member, rejoining...");
-            // User is already a member, just set the league variables and load
-            currentLeagueId = leagueId;
-            currentLeagueCode = code;
-            currentLeague = league;
-            await ensureProfileAndLoad();
+        const joinResult = await joinLeagueOnServer(leagueId, code);
+        if (joinResult?.league) {
+            currentLeague = joinResult.league;
         } else {
-            console.log("[AutoJoin] User not a member, auto-joining...");
-            // Auto-join the competition
-            const { error: joinError } = await supabaseClient
-                .from('league_members')
-                .insert({
-                    league_id: leagueId,
-                    user_id: currentUser.id,
-                    balance: league.starting_balance,
-                    portfolio: {}
-                });
-                
-            if (joinError) {
-                console.error("[AutoJoin] Failed to auto-join:", joinError);
-                await loadIndividualProfile();
-                return;
-            }
-            
-            console.log("[AutoJoin] Successfully auto-joined competition");
-            // Set league variables and load
-            currentLeagueId = leagueId;
-            currentLeagueCode = code;
             currentLeague = league;
-            await ensureProfileAndLoad();
         }
+        currentLeagueId = leagueId;
+        currentLeagueCode = code;
+        await ensureProfileAndLoad();
         
     } catch (error) {
         console.error("[AutoJoin] Error in auto-join process:", error);
@@ -3394,22 +3460,15 @@ async function ensureProfileAndLoad() {
         if (!memberData) {
             // New member in this league
             console.log("Creating new member entry for user in league");
-            const { error: insertError } = await supabaseClient
-                .from('league_members')
-                .insert({
-                    league_id: currentLeagueId,
-                    user_id: userId,
-                    balance: league.starting_balance,
-                    portfolio: {}
-                });
-            
-            if (insertError) {
-                console.error("Member creation error:", insertError);
-                throw insertError;
+            const joinResult = await joinLeagueOnServer(currentLeagueId, currentLeagueCode);
+            currentLeague = joinResult?.league || league;
+            if (joinResult?.account) {
+                saldo = Number(joinResult.account.balance || league.starting_balance || 0);
+                portfölj = normalizePortfolio(joinResult.account.portfolio || {});
+            } else {
+                saldo = Number(league.starting_balance);
+                portfölj = {};
             }
-            
-            saldo = Number(league.starting_balance);
-            portfölj = {};
             console.log("New member created with league starting balance:", saldo);
         } else {
             // Existing member, load their data
@@ -3541,87 +3600,15 @@ portfölj:portfölj
 }
 
 async function sparaPortföljTillSupabase(){
-
-if(!currentUser) return;
-
-const snapshot=getPortfolioSnapshot();
-
-if(snapshot===lastSavedState){
-return;
-}
-
-lastSavedState=snapshot;
-
-saveQueue=saveQueue.then(async ()=>{
-
-try{
-const cleanPortfolio={};
-
-Object.keys(portfölj).forEach(symbol=>{
-
-cleanPortfolio[symbol]={
-
-antal:Number(portfölj[symbol].antal),
-
-totaltInköp:Number(portfölj[symbol].totaltInköp)
-    
-};
-
-});
-
-let error;
-
-// Save to league_members if in league mode, otherwise to profiles
-if (currentLeagueId && currentLeagueCode) {
-    console.log("Saving to league_members table");
-    ({ error } = await supabaseClient
-        .from('league_members')
-        .upsert(
-            {
-                league_id: currentLeagueId,
-                user_id: currentUser.id,
-                balance: Number(saldo),
-                portfolio: cleanPortfolio,
-                updated_at: new Date().toISOString()
-            },
-            {
-                onConflict: 'league_id,user_id'
-            }
-        ));
-} else {
-    console.log("Saving to profiles table");
-    ({ error } = await supabaseClient
-        .from('profiles')
-        .upsert(
-            {
-                user_id: currentUser.id,
-                email: currentUser.email,
-                balance: Number(saldo),
-                portfolio: cleanPortfolio,
-                updated_at: new Date().toISOString()
-            },
-            {
-                onConflict: 'user_id'
-            }
-        ));
-}
-
-if(error) throw error;
-
-sparaTillLokalt();
-
-}
-catch(e){
-
-console.error("Save failed",e);
-
-lastSavedState=null;
-
-}
-
-});
-
-return saveQueue;
+    if(!currentUser) return;
+    // Trade state is authoritative on the server now. This function only refreshes the
+    // pending-order panel so older call sites can keep awaiting it safely.
+    await refreshTradeOrdersFromServer();
+    sparaTillLokalt();
+    return {
+        balance: saldo,
+        portfolio: portfölj
+    };
 
 }
 
@@ -3654,6 +3641,7 @@ async function handleLogout() {
         saldo = undefined;
         portfölj = undefined;
         isLoadingProfile = false;
+        pendingTrades = [];
         
         // Redirect to index.html after logout
         window.location.href = 'index.html';
@@ -3670,6 +3658,7 @@ async function handleLogout() {
         saldo = undefined;
         portfölj = undefined;
         isLoadingProfile = false;
+        pendingTrades = [];
         window.location.href = 'index.html';
     }
 }
@@ -3798,6 +3787,7 @@ let initialLoad = true;
                 // Clear data completely so it gets reloaded on login
                 saldo = undefined;
                 portfölj = undefined;
+                pendingTrades = [];
 
                 showLoggedOutUI();
                 uppdateraPortfölj();
@@ -4922,7 +4912,6 @@ if (!fxReady) {
     return;
 }
 
-// Check if competition has ended
 if (isCompetitionEnded()) {
     visaTradeFel("Tävlingen har avslutats. Handel är inte längre möjlig.");
     return;
@@ -4935,7 +4924,6 @@ if (window.tradeLock) {
     
 
 try{
-    
     if(!currentUser){
         document.getElementById('tradeError').innerText="Vänligen logga in först!";
         showAuthModal(true);
@@ -4954,7 +4942,7 @@ try{
         return;
     }
 
-    let antal=parseFloat(råVärde);
+    const antal=parseFloat(råVärde);
 
     if(!Number.isFinite(antal)||antal<=0){
         visaTradeFel("Antalet måste vara ett positivt tal, t.ex. 2 eller 0,5.");
@@ -4962,18 +4950,14 @@ try{
     }
 
     const valdAktie = aktier[aktivAktie];
-    const pris = valdAktie.pris;
+    const pris = valdAktie?.pris;
     const harLivePris = Number.isFinite(pris) && valdAktie.senasteLivePrisTid !== null;
 
-if(!harLivePris || pris <= 0){
-    visaTradeFel("Priserna laddar fortfarande. Vänta ett ögonblick och försök igen.");
-    return;
-}
+    if(!harLivePris || pris <= 0){
+        visaTradeFel("Priserna laddar fortfarande. Vänta ett ögonblick och försök igen.");
+        return;
+    }
 
-    const kostnadUSD=pris*antal;
-    const kostnad=kostnadUSD*currentExchangeRate;
-
-    // Check sellable/buyable amount FIRST (before price age check)
     if(typ==='sälj'){
         if(!portfölj[aktivAktie] || portfölj[aktivAktie].antal + 0.0000001 < antal){
             visaTradeFel("Du äger inte tillräckligt många. Kontrollera ditt innehav i portföljen.");
@@ -4981,115 +4965,41 @@ if(!harLivePris || pris <= 0){
         }
     }
 
-    // Check if price is older than 16 seconds AFTER amount validation
-    const priceAge = Date.now() - valdAktie.senasteLivePrisTid;
-    const isPriceStale = priceAge > PENDING_PRICE_THRESHOLD_MS;
-
-    if (isPriceStale) {
-        // Add to pending trades instead of executing immediately
-        addPendingTrade(aktivAktie, typ, antal, currentUser.id);
-        visaTradeFel(`Din ${typ === 'köp' ? 'köp' : 'sälj'}order på ${antal} st ${aktivAktie} har lagts till i väntelistan och genomförs så snart ett färsk pris finns tillgängligt.`);
-        return;
-    }
-
-    // For buying, check money availability AFTER price age check (since we need fresh price)
     if(typ==='köp'){
-        if(saldo < kostnad){
-            const affordableAmount = Math.floor((saldo / kostnad * antal) * 10000) / 10000;
-            const isExpensive = pris * currentExchangeRate > saldo;
-            
-            const info = isExpensive
-                ? `Du har inte råd med ${antal} st. Du kan köpa andelar av ett värdepapper — testa t.ex. <b style="color:var(--up);cursor:pointer;" onclick="document.getElementById('tradeAmount').value='${affordableAmount.toFixed(4).replace('.',',')}';rensaTradeFel();">${affordableAmount.toFixed(4).replace('.',',')} st</b> för ditt hela saldo.`
-                : "Du har inte råd. Testa ett mindre antal.";
-            
+        const estimatedCost = Number(pris) * antal * Number(currentExchangeRate || 0);
+        if (Number.isFinite(estimatedCost) && saldo < estimatedCost){
+            const affordableAmount = Math.floor((saldo / estimatedCost * antal) * 10000) / 10000;
+            const info = `Du har inte råd med ${antal} st. Testa t.ex. <b style="color:var(--up);cursor:pointer;" onclick="document.getElementById('tradeAmount').value='${affordableAmount.toFixed(4).replace('.',',')}';rensaTradeFel();">${affordableAmount.toFixed(4).replace('.',',')} st</b> för ditt saldo.`;
             visaTradeFel(info);
             return;
         }
     }
 
-    try {
-        console.log("Trade attempt:", {
-    typ,
-    aktivAktie,
-    antal,
-    pris,
-    saldo,
-    fx: currentExchangeRate
-});
-        if(typ==='köp'){
-            // Money check already done above
-            saldo-=kostnad
+    previousPortValue = null;
+    const result = await submitTradeOrder(typ);
 
-                if(!portfölj[aktivAktie]){
-                    portfölj[aktivAktie]={
-                        antal:0,
-                        totaltInköp:0
-                    };
-                }
-
-                portfölj[aktivAktie].antal=
-Number((portfölj[aktivAktie].antal+antal).toPrecision(12));
-                portfölj[aktivAktie].totaltInköp += kostnad; 
-                rensaTradeFel();
-                
-                console.log(`Köpte ${antal} st ${aktivAktie} för ${kostnadUSD} USD`);
-            }
-
-        if(typ==='sälj'){
-            // Sell validation already done above
-            const snitt=portfölj[aktivAktie].totaltInköp/portfölj[aktivAktie].antal;
-            saldo+=kostnad;
-            portfölj[aktivAktie].antal=
-Number((portfölj[aktivAktie].antal-antal).toFixed(6));
-            portfölj[aktivAktie].totaltInköp-=snitt*antal;
-
-            if(portfölj[aktivAktie].antal===0){
-                delete portfölj[aktivAktie];
-            }
-            rensaTradeFel();
-            
-            console.log(`Sålde ${antal} st ${aktivAktie} för ${kostnadUSD} USD`);
-        }
-
-previousPortValue = null; // No flash on trade
-        
-        uppdateraPortfölj();
-        
-      
-        sparaTillLokalt();
-        
- 
-        try {
-            await sparaPortföljTillSupabase();
-console.log("Transaction saved successfully!");
-         
-            document.getElementById('tradeError').innerHTML = '<div style="color:var(--up);font-weight:400;font-size:0.8rem;">Sparat!</div>';
-            setTimeout(() => rensaTradeFel(), 6000);
-        } catch (saveError) {
-            console.error("Failed to save transaction:", saveError);
-            document.getElementById('tradeError').innerText = "Kunde inte spara till molnet!";
-            
-            // 如果保存失败，尝试重新加载数据以避免状态不一致
-            setTimeout(async () => {
-                try {
-                    await ensureProfileAndLoad();
-                    rensaTradeFel();
-                } catch (loadError) {
-                    console.error("Failed to reload data:", loadError);
-                }
-            }, 2000);
-        }
-        
-    } catch (error) {
-        console.error("Transaction error:", error);
-        document.getElementById('tradeError').innerText =
-"Transaktion misslyckades!";
-
-setTimeout(rensaTradeFel, 6000);
+    if (result?.account) {
+        applyServerAccountState(result.account);
     }
-}
-finally{
-    // Re-sync controls after trade attempt — this sets tradeLock correctly
+
+    if (result?.order?.status === 'pending') {
+        const amountText = Number(antal).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+        document.getElementById('tradeError').innerHTML =
+            `<div style="color:var(--text-dim);font-weight:400;font-size:0.8rem;">Pågående order: ${typ === 'köp' ? 'köp' : 'sälj'} ${amountText} st ${escapeHtml(aktivAktie)}. Vi fyller den automatiskt när priset är färskt.</div>`;
+    } else if (result?.status === 'filled' || result?.order?.status === 'filled') {
+        document.getElementById('tradeError').innerHTML =
+            '<div style="color:var(--up);font-weight:400;font-size:0.8rem;">Genomförd</div>';
+    }
+
+    setTimeout(() => rensaTradeFel(), 6000);
+    sparaTillLokalt();
+    uppdateraPortfölj();
+    await refreshTradeOrdersFromServer({ includeExpirySweep: false });
+    if (currentLeagueId && currentLeague) {
+        loadLeaderboard();
+    }
+    
+}finally{
     await syncTradeControlsVisibility();
 }
 }
@@ -5160,7 +5070,11 @@ for(let s in portfölj){
   const pris = aktier[s].pris;
   
   // Check if there are any pending trades for this symbol
-  const hasPendingTrades = pendingTrades.some(trade => trade.symbol === s && trade.userId === currentUser?.id);
+  const hasPendingTrades = pendingTrades.some(trade =>
+    trade.symbol === s &&
+    trade.userId === currentUser?.id &&
+    trade.status === 'pending'
+  );
   
   // Skip showing securities with 0 shares and no pending trades to avoid infinite average price
   if (antal === 0 && !hasPendingTrades) {
@@ -5329,8 +5243,6 @@ async function updateAllPrices() {
         aktie.pris = nyttPris;
         aktie.senasteLivePrisTid = quoteTs;
 
-        executePendingTrades(s, nyttPris);
-
         if (s === aktivAktie) {
             if (nyttPris > gammaltPris) aktivRiktning = 'up';
             else if (nyttPris < gammaltPris) aktivRiktning = 'down';
@@ -5345,6 +5257,9 @@ async function updateAllPrices() {
     uppdateraPortfölj();
     if (chart && aktivAktie) updateChartView();
     updateStockPricesInList();
+    if (currentUser) {
+        refreshTradeOrdersFromServer({ includeExpirySweep: false });
+    }
     const marketStatus = await syncTradeControlsVisibility();
     if (aktivAktie && marketStatus) updateMarketStatusIndicator(aktivAktie, marketStatus);
 }
