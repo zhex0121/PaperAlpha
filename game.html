@@ -4583,6 +4583,8 @@ function applyFreeModeXDefaultBounds() {
 
     chart.options.scales.x.min = newest - (viewWindow - rightPadding);
     chart.options.scales.x.max = newest + rightPadding;
+    freeViewportState.lastValidXMin = chart.options.scales.x.min;
+    freeViewportState.lastValidXMax = chart.options.scales.x.max;
     freeAxisSet = true;
 }
 
@@ -4656,10 +4658,14 @@ function clampFreeModeXRange(preferHardStop = false) {
 
     let span = xMax - xMin;
     if (span > maxSpan) {
-        const mid = (xMin + xMax) / 2;
-        xMin = mid - (maxSpan / 2);
-        xMax = mid + (maxSpan / 2);
-        span = maxSpan;
+        if (
+            Number.isFinite(freeViewportState.lastValidXMin) &&
+            Number.isFinite(freeViewportState.lastValidXMax)
+        ) {
+            chart.options.scales.x.min = freeViewportState.lastValidXMin;
+            chart.options.scales.x.max = freeViewportState.lastValidXMax;
+        }
+        return;
     } else if (span < minSpan) {
         const mid = (xMin + xMax) / 2;
         xMin = mid - (minSpan / 2);
