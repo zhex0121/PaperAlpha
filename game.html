@@ -1845,6 +1845,9 @@ async function callGameFunction(functionName, body = {}) {
 
     const data = await response.json().catch(() => null);
     if (!response.ok) {
+        if (data?.debug) {
+            console.error(`[${functionName}] debug`, data.debug);
+        }
         const err = new Error(data?.error || data?.message || 'Kunde inte köra serverfunktionen');
         err.response = response;
         err.data = data;
@@ -2042,6 +2045,9 @@ async function submitTradeOrder(typ) {
         }
     } catch (error) {
         const message = error?.message || 'Transaktion misslyckades!';
+        if (error?.data?.debug) {
+            console.error('Trade submit debug payload:', error.data.debug);
+        }
         visaTradeFel(message);
         console.error('Trade submit failed:', error);
     } finally {
