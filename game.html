@@ -4323,7 +4323,11 @@ chart.options.plugins.zoom.onPan = function() {
     if (chartViewMode === 'free') {
         markFreeInteraction();
         clampFreeModeXRange(true);
-        updateYAxisToFitVisible();
+        if (!shouldSkipYRefitAtMaxZoomOut()) {
+            updateYAxisToFitVisible();
+        } else {
+            console.debug('[zoom] skipping y refit at max zoom-out');
+        }
         chart.update('none');
     }
 };
@@ -4339,7 +4343,11 @@ chart.options.plugins.zoom.onZoom = function() {
     if (chartViewMode === 'free') {
         markFreeInteraction();
         clampFreeModeXRange(true);
-        updateYAxisToFitVisible();
+        if (!shouldSkipYRefitAtMaxZoomOut()) {
+            updateYAxisToFitVisible();
+        } else {
+            console.debug('[zoom] skipping y refit at max zoom-out');
+        }
         chart.update('none');
     }
 };
@@ -4360,7 +4368,11 @@ chart.options.plugins.zoom.pan.onPanComplete = function() {
             xMax: chart.options.scales.x.max
         });
         markFreeInteraction();
-        updateYAxisToFitVisible();
+        if (!shouldSkipYRefitAtMaxZoomOut()) {
+            updateYAxisToFitVisible();
+        } else {
+            console.debug('[zoom] skipping y refit at max zoom-out');
+        }
         chart.update('none');
     }
 };
@@ -4381,7 +4393,11 @@ chart.options.plugins.zoom.zoom.onZoomComplete = function() {
             xMax: chart.options.scales.x.max
         });
         markFreeInteraction();
-        updateYAxisToFitVisible();
+        if (!shouldSkipYRefitAtMaxZoomOut()) {
+            updateYAxisToFitVisible();
+        } else {
+            console.debug('[zoom] skipping y refit at max zoom-out');
+        }
         chart.update('none');
     }
 };
@@ -4543,6 +4559,7 @@ function resetFreeViewportState() {
     freeViewportState.yRenderMax = null;
     freeViewportState.lastValidXMin = null;
     freeViewportState.lastValidXMax = null;
+    freeViewportState.atMaxZoomOut = false;
     freeViewportState.lastFrameTs = 0;
     isPanningOrZoomingX = false;
 }
@@ -4755,6 +4772,7 @@ function clampFreeModeXRange(preferHardStop = false) {
 
     freeViewportState.lastValidXMin = xMin;
     freeViewportState.lastValidXMax = xMax;
+    freeViewportState.atMaxZoomOut = (xMax - xMin) >= (maxSpan - 1);
     console.debug('[zoom] clampFreeModeXRange exit', {
         xMin,
         xMax,
@@ -4778,6 +4796,16 @@ function recenterFreeMode() {
     clampFreeModeXRange();
     resetFreeViewportState();
     updateChartView();
+}
+
+function shouldSkipYRefitAtMaxZoomOut() {
+    if (!chart || !aktivAktie || chartViewMode !== 'free') return false;
+    const domain = getFreeModeXDomain();
+    if (!domain) return false;
+    const xMin = Number(chart.options.scales.x.min);
+    const xMax = Number(chart.options.scales.x.max);
+    if (!Number.isFinite(xMin) || !Number.isFinite(xMax)) return false;
+    return freeViewportState.atMaxZoomOut && (xMax - xMin) >= (FREE_MAX_CANDLES * domain.step - 1);
 }
 
 function setChartMode(mode){
