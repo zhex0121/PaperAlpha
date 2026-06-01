@@ -1570,7 +1570,7 @@ window.tradeLock = false;
 // Pending trades system
 let pendingTrades = []; // Server-backed trade orders for the active user
 const COMPLETED_ORDER_ACK_STORAGE_KEY = 'paperalpha_completed_order_ack_v1';
-const COMPLETED_ORDER_DISPLAY_MS = 2000;
+const COMPLETED_ORDER_VISIBLE_MS = 2000;
 const COMPLETED_ORDER_FADE_MS = 1000;
 let recentCompletedTradeOrders = [];
 let recentCompletedTradeOrderTimers = new Map();
@@ -2217,12 +2217,8 @@ async function submitTradeOrder(typ) {
 
         await refreshTradeOrdersFromServer({ includeExpirySweep: false });
 
-        if (data?.order?.status !== 'pending') {
-            const resultText = data?.status === 'filled'
-                ? 'Genomförd!'
-                : 'Ordern har behandlats.';
-            document.getElementById('tradeError').innerHTML =
-                `<div style="color:var(--up);font-weight:400;font-size:0.8rem;">${resultText}</div>`;
+        if (data?.order?.status === 'filled') {
+            queueRecentCompletedTradeOrder(normalizeTradeOrderRow(data.order));
         }
 
         setTimeout(() => rensaTradeFel(), 6000);
