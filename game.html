@@ -1309,8 +1309,18 @@ margin-top:0;
 }
 
 .pending-trade-item.completed-order.fading-out {
-    opacity: 0;
-    transform: translateY(-6px);
+    animation: completedOrderFadeOut 1s linear forwards;
+}
+
+@keyframes completedOrderFadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
 }
 
     /* Give main content a bit more top breathing room on mobile */
