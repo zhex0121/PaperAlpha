@@ -811,6 +811,7 @@ min-height:0;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.15) transparent;
+    padding-bottom: 100px; 
 }
 
     
@@ -1184,13 +1185,14 @@ margin-top:0;
 
     /* Trade side becomes a bottom drawer */
     .trade-side {
-        height: auto;
-        max-height: 38vh;
-        border-left: none;
-        border-top: 1px solid var(--glass-border);
-        padding: 14px 16px;
-        overflow-y: auto;
-    }
+    height: auto;
+    max-height: 38vh;
+    border-left: none;
+    border-top: 1px solid var(--glass-border);
+    padding: 14px 16px 100px 16px; /* CHANGED: added bottom padding */
+    overflow-y: auto;
+    overflow-y: auto !important; /* ADDED: force scrolling */
+}
 
     /* Stat box tighter on mobile */
     .stat-box {
@@ -1738,7 +1740,13 @@ function formatMoney(number) {
         maximumFractionDigits: 2
     });
 }
-
+function getPriceDecimalPlaces(symbol) {
+    // Dogecoin gets 4 decimals, everything else gets 2
+    if (symbol && symbol.includes('Dogecoin')) {
+        return 4;
+    }
+    return 2;
+}
 let liveAutoScrollEnabled = true; // true when we want LIVE to auto pan
 let freeAxisSet = false;
 let isPanningOrZoomingX = false;
@@ -4163,11 +4171,12 @@ symboler.forEach(s => {
 
         categories[catName].forEach(s => {
             const prisData = aktier[s].pris;
-            const prisVisa = (prisData === null || prisData === undefined)
+            const decimals = getPriceDecimalPlaces(s);
+const prisVisa = (prisData === null || prisData === undefined)
 ? "..."
 : Number(prisData).toLocaleString('sv-SE',{
-minimumFractionDigits:2,
-maximumFractionDigits:2
+minimumFractionDigits:decimals,
+maximumFractionDigits:decimals
 });
             
             const div = document.createElement('div');
@@ -4286,12 +4295,13 @@ if(!aktivAktie){
 
 const s=aktier[aktivAktie];
 
+const decimals = getPriceDecimalPlaces(aktivAktie);
 priceEl.innerText =
 s.pris===null
 ? "Laddar priser..."
 : Number(s.pris).toLocaleString('sv-SE',{
-minimumFractionDigits:2,
-maximumFractionDigits:2
+minimumFractionDigits:decimals,
+maximumFractionDigits:decimals
 })+" USD";
 priceEl.classList.remove('up','down');
 
@@ -5349,7 +5359,10 @@ for(const item of portfolioItems){
 Antal: ${Number(item.antal).toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} st
 </div>
       <div style="font-size:0.75rem; color:var(--text-dim); margin-top:2px;">
-        Snittpris: ${item.snitt !== null ? Number(item.snitt).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD' : '...'}
+        Snittpris: ${item.snitt !== null ? (() => {
+  const decimals = getPriceDecimalPlaces(item.symbol);
+  return Number(item.snitt).toLocaleString('sv-SE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + ' USD';
+})() : '...'}
       </div>
 
       <div class="${item.resultat === null ? '' : (item.resultat >= 0 ? 'up' : 'down')}"
