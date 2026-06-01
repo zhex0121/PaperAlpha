@@ -1375,6 +1375,7 @@
     const authError = document.getElementById('authError');
 
     let currentUser = null;
+    let loadingInProgress = false;
     let competitionsLoaded = false;
     let systemTournamentHref = 'index.html';
 
@@ -1779,23 +1780,28 @@ function showLoggedInUI(user) {
         });
     }
 
-    document.addEventListener('visibilitychange', async () => {
-        if (document.hidden) return;
-        console.log('[Tab] Tab became active again');
+    
 
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (!session?.user) {
-            console.log('[Tab] No session on tab return — showing logged out');
-            showLoggedOutUI();
-            return;
-        }
+document.addEventListener('visibilitychange', async () => {
+    if (document.hidden) return;
 
-        console.log('[Tab] Session valid on tab return, re-syncing UI for:', session.user.email);
-        showLoggedInUI(session.user);
+    // Don't wipe the UI or re-run setup — just silently refresh competitions
+    // if we already have a confirmed logged-in user. Let onAuthStateChange
+    // handle any actual session transitions (logout, token expiry, etc.).
+    if (!currentUser) return;
 
+    // Guard against concurrent loads when the user tab-switches rapidly
+    if (loadingInProgress) return;
+
+    try {
+        // Use the cached session first; Supabase refreshes it in the background.
+        // Only refresh competitions — never touch the UI scaffolding here.
         competitionsLoaded = false;
         await loadUserCompetitions();
-    });
+    } catch (e) {
+        console.warn('[Tab] Background competitions refresh failed silently:', e);
+    }
+});
 
     document.addEventListener('DOMContentLoaded', () => {
     setupAuthListener();
@@ -2082,81 +2088,97 @@ function showLoggedInUI(user) {
     }
 
     async function loadUserCompetitions() {
-        if (!currentUser) {
-            console.warn('[Competitions] loadUserCompetitions called with no currentUser — aborting');
+    if (!currentUser) {
+        console.warn('[Competitions] loadUserCompetitions called with no currentUser — aborting');
+        return;
+    }
+    if (loadingInProgress) {
+        console.log('[Competitions] Load already in progress — skipping duplicate call');
+        return;
+    }
+    loadingInProgress = true;
+    console.log('[Competitions] Loading competitions for:', currentUser.email);
+
+    try {
+        const { data: memberships, error: memberError } = await supabaseClient
+            .from('league_members').select('league_id').eq('user_id', currentUser.id);
+
+        if (memberError) throw memberError;
+        console.log('[Competitions] Memberships found:', memberships?.length ?? 0);
+
+        if (!memberships || memberships.length === 0) {
+            document.getElementById('activeCompetitions').innerHTML = '<div class="no-competitions">Inga aktiva tävlingar</div>';
+            document.getElementById('finishedCompetitions').innerHTML = '<div class="no-competitions">Inga avslutade tävlingar</div>';
+            competitionsLoaded = true;
             return;
         }
-        console.log('[Competitions] Loading competitions for:', currentUser.email);
 
-        try {
-            const { data: memberships, error: memberError } = await supabaseClient
-                .from('league_members').select('league_id').eq('user_id', currentUser.id);
+        const leagueIds = memberships.map(m => m.league_id);
+        const { data: leagues, error: leagueError } = await supabaseClient
+            .from('leagues').select('*').in('id', leagueIds).order('created_at', { ascending: false });
 
-            if (memberError) throw memberError;
-            console.log('[Competitions] Memberships found:', memberships?.length ?? 0);
+        if (leagueError) throw leagueError;
+        console.log('[Competitions] Leagues fetched:', leagues?.length ?? 0);
 
-            if (!memberships || memberships.length === 0) {
-                document.getElementById('activeCompetitions').innerHTML = '<div class="no-competitions">Inga aktiva tävlingar</div>';
-                document.getElementById('finishedCompetitions').innerHTML = '<div class="no-competitions">Inga avslutade tävlingar</div>';
-                return;
-            }
+        const now = new Date();
+        const activeCompetitions = leagues.filter(l => new Date(l.end_time) > now);
+        const finishedCompetitions = leagues.filter(l => new Date(l.end_time) <= now);
+        console.log('[Competitions] Active:', activeCompetitions.length, '| Finished:', finishedCompetitions.length);
 
-            const leagueIds = memberships.map(m => m.league_id);
-            const { data: leagues, error: leagueError } = await supabaseClient
-                .from('leagues').select('*').in('id', leagueIds).order('created_at', { ascending: false });
+        const allLeagueIds = leagues.map(l => l.id);
+        const { data: allMembersData } = await supabaseClient
+            .from('league_members')
+            .select('league_id, user_id, balance, portfolio')
+            .in('league_id', allLeagueIds);
 
-            if (leagueError) throw leagueError;
-            console.log('[Competitions] Leagues fetched:', leagues?.length ?? 0);
-
-            const now = new Date();
-            const activeCompetitions = leagues.filter(l => new Date(l.end_time) > now);
-            const finishedCompetitions = leagues.filter(l => new Date(l.end_time) <= now);
-            console.log('[Competitions] Active:', activeCompetitions.length, '| Finished:', finishedCompetitions.length);
-
-            const allLeagueIds = leagues.map(l => l.id);
-            const { data: allMembersData } = await supabaseClient
-                .from('league_members')
-                .select('league_id, user_id, balance, portfolio')
-                .in('league_id', allLeagueIds);
-
-            const allTickers = new Set();
-            if (allMembersData) {
-                for (const member of allMembersData) {
-                    const portfolio = member.portfolio || {};
-                    for (const symbol of Object.keys(portfolio)) {
-                        const ticker = extractTicker(symbol);
-                        if (ticker) allTickers.add(ticker);
-                    }
+        const allTickers = new Set();
+        if (allMembersData) {
+            for (const member of allMembersData) {
+                const portfolio = member.portfolio || {};
+                for (const symbol of Object.keys(portfolio)) {
+                    const ticker = extractTicker(symbol);
+                    if (ticker) allTickers.add(ticker);
                 }
             }
-
-            const [fxRate, priceMap] = await Promise.all([
-                getExchangeRate(),
-                allTickers.size > 0 ? fetchAllPrices(Array.from(allTickers)) : {}
-            ]);
-
-            console.log('[Competitions] Batch fetched', allTickers.size, 'tickers, FX rate:', fxRate);
-
-            const membersByLeague = {};
-            if (allMembersData) {
-                for (const member of allMembersData) {
-                    if (!membersByLeague[member.league_id]) {
-                        membersByLeague[member.league_id] = [];
-                    }
-                    membersByLeague[member.league_id].push(member);
-                }
-            }
-
-            renderCompetitions('activeCompetitions', activeCompetitions, true, membersByLeague, priceMap, fxRate);
-            renderCompetitions('finishedCompetitions', finishedCompetitions, false, membersByLeague, priceMap, fxRate);
-            competitionsLoaded = true;
-
-        } catch (error) {
-            console.error('[Competitions] loadUserCompetitions error:', error);
-            document.getElementById('activeCompetitions').innerHTML = '<div class="no-competitions">Kunde inte ladda tävlingar</div>';
-            document.getElementById('finishedCompetitions').innerHTML = '<div class="no-competitions">Kunde inte ladda tävlingar</div>';
         }
+
+        const [fxRate, priceMap] = await Promise.all([
+            getExchangeRate(),
+            allTickers.size > 0 ? fetchAllPrices(Array.from(allTickers)) : {}
+        ]);
+
+        console.log('[Competitions] Batch fetched', allTickers.size, 'tickers, FX rate:', fxRate);
+
+        const membersByLeague = {};
+        if (allMembersData) {
+            for (const member of allMembersData) {
+                if (!membersByLeague[member.league_id]) {
+                    membersByLeague[member.league_id] = [];
+                }
+                membersByLeague[member.league_id].push(member);
+            }
+        }
+
+        renderCompetitions('activeCompetitions', activeCompetitions, true, membersByLeague, priceMap, fxRate);
+        renderCompetitions('finishedCompetitions', finishedCompetitions, false, membersByLeague, priceMap, fxRate);
+        competitionsLoaded = true;
+
+    } catch (error) {
+        console.error('[Competitions] loadUserCompetitions error:', error);
+        // Only show error state if the containers are still in loading state
+        // (don't wipe a successfully-rendered list just because a background refresh failed)
+        const activeEl = document.getElementById('activeCompetitions');
+        const finishedEl = document.getElementById('finishedCompetitions');
+        if (activeEl?.querySelector('.no-competitions')?.textContent?.includes('Laddar')) {
+            activeEl.innerHTML = '<div class="no-competitions">Kunde inte ladda tävlingar</div>';
+        }
+        if (finishedEl?.querySelector('.no-competitions')?.textContent?.includes('Laddar')) {
+            finishedEl.innerHTML = '<div class="no-competitions">Kunde inte ladda tävlingar</div>';
+        }
+    } finally {
+        loadingInProgress = false;
     }
+}
 
     async function renderCompetitions(containerId, competitions, isActive, membersByLeague, priceMap, fxRate) {
         const container = document.getElementById(containerId);
