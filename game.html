@@ -966,6 +966,25 @@ box-shadow:0 8px 25px rgba(255, 61, 113, 0.4);
     
 .up{color:var(--up);}
 .down{color:var(--down);}
+
+@keyframes flashUp {
+    0%   { color: #00ffaa; text-shadow: 0 0 12px #00ffaa, 0 0 24px #00ffaa; }
+    40%  { color: #00ffaa; text-shadow: 0 0 12px #00ffaa, 0 0 24px #00ffaa; }
+    100% { color: inherit; text-shadow: none; }
+}
+@keyframes flashDown {
+    0%   { color: #ff3d71; text-shadow: 0 0 12px #ff3d71, 0 0 24px #ff3d71; }
+    40%  { color: #ff3d71; text-shadow: 0 0 12px #ff3d71, 0 0 24px #ff3d71; }
+    100% { color: inherit; text-shadow: none; }
+}
+.flash-up {
+    animation: flashUp 2500ms ease-out forwards;
+}
+.flash-down {
+    animation: flashDown 2500ms ease-out forwards;
+}
+
+
 .trade-error{
 color:var(--down);
 font-size:0.95rem;
@@ -1223,10 +1242,29 @@ margin-top:0;
         padding: 16px 14px 14px 14px;
     }
 
-    /* Leaderboard title smaller */
     .leaderboard-big-title {
         font-size: 1.8rem;
         margin-bottom: 14px;
+    }
+
+    /* Leaderboard scrollable on mobile */
+    #leaderboardList {
+        overflow-y: auto !important;
+        max-height: none !important;
+        padding-bottom: 24px !important;
+    }
+
+    #leagueInfoView {
+        overflow-y: auto !important;
+        height: 100% !important;
+        padding-bottom: 20px !important;
+    }
+
+    #leaderboardContainer {
+        min-height: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
     }
 
     /* Chart view: tighter header */
@@ -1881,7 +1919,22 @@ const marketClosureLinesPlugin = {
         ctx.restore();
     }
 };
-    
+const candleGlowPlugin = {
+    id: 'candleGlow',
+    beforeDatasetDraw(chart, args) {
+        if (args.datasetIndex !== 0) return;
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = 'rgba(255,255,255,0.18)';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+    },
+    afterDatasetDraw(chart, args) {
+        chart.ctx.restore();
+    }
+};
+
 let marketIsOpen = false; // Track symbol status transitions for log clarity
 let lastPriceUpdate = null; // Track when we last received fresh prices
 let allMarketStatuses = {};
@@ -4211,12 +4264,13 @@ function updateStockPricesInList() {
         if (!priceEl) return;
 
         const price = aktier[ticker].pris;
-        priceEl.innerText = (price === null || price === undefined)
-            ? "..."
-            : Number(price).toLocaleString('sv-SE', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+        const decimals = getPriceDecimalPlaces(ticker);
+priceEl.innerText = (price === null || price === undefined)
+    ? "..."
+    : Number(price).toLocaleString('sv-SE', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
     });
 }
 
@@ -4306,13 +4360,12 @@ maximumFractionDigits:decimals
 priceEl.classList.remove('up','down');
 
 if(riktning==='up'||riktning==='down'){
-priceEl.classList.add(riktning);
-if(priceFlashTimeout){
-clearTimeout(priceFlashTimeout);
-}
-priceFlashTimeout=setTimeout(()=>{
-priceEl.classList.remove('up','down');
-},700);
+    const flashClass = riktning === 'up' ? 'flash-up' : 'flash-down';
+    priceEl.classList.remove('flash-up','flash-down');
+    void priceEl.offsetWidth; // force reflow to restart animation
+    priceEl.classList.add(flashClass);
+    if(priceFlashTimeout){ clearTimeout(priceFlashTimeout); }
+    priceFlashTimeout = setTimeout(()=>{ priceEl.classList.remove('flash-up','flash-down'); }, 260);
 }
 
 }
@@ -4374,7 +4427,7 @@ chart=new Chart(ctx,{
 
 type:'candlestick',
 
-plugins:[chartBoundaryLabelPlugin, marketClosureLinesPlugin],
+plugins:[chartBoundaryLabelPlugin, marketClosureLinesPlugin, candleGlowPlugin],
 
 data:{
 
@@ -4383,9 +4436,19 @@ datasets:[{
 data:aktier[aktivAktie].history,
 
 color:{
-up:'#00ffaa',
-down:'#ff3d71',
-unchanged:'#00ffaa'
+up:'#00ff88',
+down:'#ff1a4d',
+unchanged:'#00ff88'
+},
+borderColor: function(ctx) {
+    const raw = ctx.raw;
+    if (!raw) return '#00ff88';
+    return (raw.c >= raw.o) ? '#00ff88' : '#ff1a4d';
+},
+backgroundColor: function(ctx) {
+    const raw = ctx.raw;
+    if (!raw) return '#00ff88';
+    return (raw.c >= raw.o) ? '#00ff88' : '#ff1a4d';
 }
 
 }]
@@ -4448,9 +4511,10 @@ const c=r.c!==undefined?r.c:r.close;
 
 if(c===undefined)return'';
 
+const decimals = getPriceDecimalPlaces(aktivAktie);
 return Number(c).toLocaleString('sv-SE',{
-minimumFractionDigits:2,
-maximumFractionDigits:2
+minimumFractionDigits:decimals,
+maximumFractionDigits:decimals
 });
 }
 }
@@ -5480,6 +5544,21 @@ async function updateAllPrices() {
             else if (nyttPris < gammaltPris) aktivRiktning = 'down';
         }
 
+        // Flash the price cell in the stock list
+        if (nyttPris !== gammaltPris && gammaltPris !== null) {
+            const row = document.querySelector(`#stockList .stock-item[data-ticker="${CSS.escape(s)}"]`);
+            if (row) {
+                const priceEl = row.querySelector('[data-role="price"]');
+                if (priceEl) {
+                    const fc = nyttPris > gammaltPris ? 'flash-up' : 'flash-down';
+                    priceEl.classList.remove('flash-up','flash-down');
+                    void priceEl.offsetWidth;
+                    priceEl.classList.add(fc);
+                    setTimeout(()=>priceEl.classList.remove('flash-up','flash-down'), 260);
+                }
+            }
+        }
+
         synthesizeCandleFromLivePrice(aktie, s, quoteTs, nyttPris);
     }
 
@@ -5487,7 +5566,10 @@ async function updateAllPrices() {
 
     uppdateraAktiv(aktivRiktning);
     uppdateraPortfölj();
-    if (chart && aktivAktie) updateChartView();
+    if (chart && aktivAktie) {
+        updateChartView();
+        
+    }
     updateStockPricesInList();
     if (currentUser) {
         refreshTradeOrdersFromServer({ includeExpirySweep: false });
