@@ -2193,7 +2193,8 @@ document.addEventListener('visibilitychange', async () => {
         const memberData = allMembers.find(m => m.user_id === currentUser.id);
 
         if (!memberData) {
-            return { ...league, placement: '-', totalPlayers: allMembers.length, portfolioValue: 0, isProfit: false };
+            // No data for current user – neutral portfolio value (white) and placeholder placement
+            return { ...league, placement: '-', totalPlayers: allMembers.length, portfolioValue: 0, portfolioColor: 'var(--text)' };
         }
 
         const allValues = allMembers.map(m => getMemberTotalValueSekWithPrices(m, fxRate, priceMap));
@@ -2204,14 +2205,20 @@ document.addEventListener('visibilitychange', async () => {
         const totalPlayers = sortedValues.length;
 
         const startingCapital = league.starting_balance || 100000;
-        const isProfit = userValue >= startingCapital;
+        // Determine colour based on profit/loss/neutral (exactly equal)
+        let portfolioColor = 'var(--text)'; // white for neutral (no difference)
+        if (userValue > startingCapital) {
+            portfolioColor = 'var(--up)'; // green for profit
+        } else if (userValue < startingCapital) {
+            portfolioColor = 'var(--down)'; // red for loss
+        }
 
-        console.log(`[Competitions] League "${league.name}" — userValue: ${userValue.toFixed(0)}, placement: ${placement}/${totalPlayers}, profit: ${isProfit}`);
+        console.log(`[Competitions] League "${league.name}" — userValue: ${userValue.toFixed(0)}, placement: ${placement}/${totalPlayers}, colour: ${portfolioColor}`);
 
-        return { ...league, placement, totalPlayers, portfolioValue: userValue, isProfit };
+        return { ...league, placement, totalPlayers, portfolioValue: userValue, portfolioColor };
     } catch (err) {
         console.error(`[Competitions] Error getting data for league ${league.id}:`, err);
-        return { ...league, placement: '-', totalPlayers: '-', portfolioValue: 0, isProfit: false };
+        return { ...league, placement: '-', totalPlayers: '-', portfolioValue: 0, portfolioColor: 'var(--text)' };
     }
 }));
         container.innerHTML = competitionsWithData.map(league => `
@@ -2225,7 +2232,7 @@ document.addEventListener('visibilitychange', async () => {
                         </div>
                         <div class="competition-stat">
                             <div class="stat-label">PORTFÖLJVÄRDE</div>
-                            <div class="stat-value portfolio-value" style="color: ${league.isProfit ? 'var(--up)' : 'var(--down)'}">${Number(league.portfolioValue).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} SEK</div>
+                        <div class="stat-value portfolio-value" style="color: ${league.portfolioColor}">${Number(league.portfolioValue).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} SEK</div>
                         </div>
                     </div>
                 </div>
