@@ -3016,9 +3016,15 @@ async function loadLeaderboard() {
             }
 
             const rankLabel = index === 0 ? '1:a' : index === 1 ? '2:a' : index === 2 ? '3:e' : null;
-            const startingCapital = currentLeague?.starting_balance || 100000;
-            const isProfit = entry.totalValue >= startingCapital;
-            const valueColor = isProfit ? 'var(--up)' : 'var(--down)';
+            const startingCapital = Number(currentLeague?.starting_balance ?? 100000);
+            let valueColor = 'var(--text)';
+            if (entry.totalValue > startingCapital) {
+                valueColor = 'var(--up)';
+            } else if (entry.totalValue < startingCapital) {
+                valueColor = 'var(--down)';
+            } else {
+                valueColor = 'var(--text)';
+            }
 
             return `
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:${isPodium ? '1rem 1.1rem' : '0.85rem 1rem'}; margin-bottom:0.7rem; background:${rowAccent}; border-radius:14px; border:1px solid ${rowBorder}; box-shadow:${boxShadow}; transition:transform 0.15s ease;">
