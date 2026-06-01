@@ -1290,6 +1290,17 @@ margin-top:0;
     100% { left: 100%; }
 }
 
+#pendingTradesList > div.completed-order::before {
+    animation: none;
+    background: none;
+}
+
+@keyframes completedOrderFade {
+    0% { opacity: 1; transform: translateY(0); }
+    75% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-6px); }
+}
+
 .pending-trade-item {
     transition: all 0.2s ease;
 }
@@ -1297,6 +1308,10 @@ margin-top:0;
 .pending-trade-item:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(41, 98, 255, 0.15);
+}
+
+.pending-trade-item.completed-order {
+    animation: completedOrderFade 2s ease forwards;
 }
 
     /* Give main content a bit more top breathing room on mobile */
@@ -1555,6 +1570,82 @@ window.tradeLock = false;
 
 // Pending trades system
 let pendingTrades = []; // Server-backed trade orders for the active user
+const COMPLETED_ORDER_ACK_STORAGE_KEY = 'paperalpha_completed_order_ack_v1';
+const COMPLETED_ORDER_DISPLAY_MS = 2000;
+let recentCompletedTradeOrders = [];
+let recentCompletedTradeOrderTimers = new Map();
+let acknowledgedCompletedTradeOrderIds = new Set();
+let tradeSubmitInFlight = false;
+
+function loadAcknowledgedCompletedTradeOrderIds() {
+    try {
+        const raw = localStorage.getItem(COMPLETED_ORDER_ACK_STORAGE_KEY);
+        if (!raw) return new Set();
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return new Set();
+        return new Set(parsed.filter(id => typeof id === 'string' && id.length > 0));
+    } catch (error) {
+        console.warn('[TradeOrders] Failed to load completed order ack cache:', error);
+        return new Set();
+    }
+}
+
+function persistAcknowledgedCompletedTradeOrderIds() {
+    try {
+        const ids = Array.from(acknowledgedCompletedTradeOrderIds).slice(-500);
+        localStorage.setItem(COMPLETED_ORDER_ACK_STORAGE_KEY, JSON.stringify(ids));
+    } catch (error) {
+        console.warn('[TradeOrders] Failed to persist completed order ack cache:', error);
+    }
+}
+
+function markCompletedTradeOrderAcknowledged(orderId) {
+    if (!orderId || acknowledgedCompletedTradeOrderIds.has(orderId)) return;
+    acknowledgedCompletedTradeOrderIds.add(orderId);
+    persistAcknowledgedCompletedTradeOrderIds();
+}
+
+function isCompletedTradeOrderAcknowledged(orderId) {
+    return acknowledgedCompletedTradeOrderIds.has(orderId);
+}
+
+function clearRecentCompletedTradeOrders() {
+    for (const timeoutId of recentCompletedTradeOrderTimers.values()) {
+        clearTimeout(timeoutId);
+    }
+    recentCompletedTradeOrderTimers.clear();
+    recentCompletedTradeOrders = [];
+}
+
+function queueRecentCompletedTradeOrder(order) {
+    if (!order?.id || isCompletedTradeOrderAcknowledged(order.id)) return;
+
+    markCompletedTradeOrderAcknowledged(order.id);
+
+    const existingIndex = recentCompletedTradeOrders.findIndex(item => item.id === order.id);
+    if (existingIndex !== -1) {
+        recentCompletedTradeOrders[existingIndex] = { ...order, isTransientCompleted: true };
+    } else {
+        recentCompletedTradeOrders = [
+            { ...order, isTransientCompleted: true },
+            ...recentCompletedTradeOrders,
+        ].slice(0, 5);
+    }
+
+    if (recentCompletedTradeOrderTimers.has(order.id)) {
+        clearTimeout(recentCompletedTradeOrderTimers.get(order.id));
+    }
+
+    const timeoutId = setTimeout(() => {
+        recentCompletedTradeOrders = recentCompletedTradeOrders.filter(item => item.id !== order.id);
+        recentCompletedTradeOrderTimers.delete(order.id);
+        updatePendingTradesDisplay();
+    }, COMPLETED_ORDER_DISPLAY_MS);
+
+    recentCompletedTradeOrderTimers.set(order.id, timeoutId);
+}
+
+acknowledgedCompletedTradeOrderIds = loadAcknowledgedCompletedTradeOrderIds();
 
 const symboler = [
     "S&P 500 (SPY)", "Nasdaq 100 (QQQ)", "Dow Jones (DIA)",
@@ -1862,7 +1953,8 @@ function updatePendingTradesDisplay() {
     const list = document.getElementById('pendingTradesList');
     if (!section || !list) return;
 
-    const recentOrders = (pendingTrades || []).slice(0, 12);
+    const activeOrders = (pendingTrades || []).filter(order => order.status !== 'filled');
+    const recentOrders = [...recentCompletedTradeOrders, ...activeOrders].slice(0, 12);
     if (recentOrders.length === 0) {
         section.style.display = 'none';
         list.innerHTML = '';
@@ -1881,9 +1973,11 @@ function updatePendingTradesDisplay() {
             maximumFractionDigits: 4
         });
         const reason = order.rejectReason ? `<div style="margin-top:4px; color:var(--text-dim); font-size:0.78rem;">${escapeHtml(order.rejectReason)}</div>` : '';
+        const completedClass = order.isTransientCompleted ? ' completed-order' : '';
+        const statusStyle = order.isTransientCompleted ? 'opacity:0.95;' : '';
 
         return `
-            <div class="pending-trade-item" style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+            <div class="pending-trade-item${completedClass}" style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 12px; margin-bottom: 8px; ${statusStyle}">
                 <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
                     <div style="min-width:0;">
                         <div style="font-weight: 600; color: var(--text); margin-bottom: 4px;">${escapeHtml(order.symbol)}</div>
@@ -1933,7 +2027,18 @@ async function refreshTradeOrdersFromServer({ includeExpirySweep = true } = {}) 
         const { data, error } = await getActiveOrderQuery();
         if (error) throw error;
 
-        pendingTrades = Array.isArray(data) ? data.map(normalizeTradeOrderRow) : [];
+        const normalizedOrders = Array.isArray(data) ? data.map(normalizeTradeOrderRow) : [];
+        const pendingAndNonFilledOrders = [];
+
+        for (const order of normalizedOrders) {
+            if (order.status === 'filled') {
+                queueRecentCompletedTradeOrder(order);
+                continue;
+            }
+            pendingAndNonFilledOrders.push(order);
+        }
+
+        pendingTrades = pendingAndNonFilledOrders;
         updatePendingTradesDisplay();
         return pendingTrades;
     } catch (error) {
@@ -2010,6 +2115,7 @@ async function submitTradeOrder(typ) {
     const clientRequestId = `${currentUser.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     try {
+        tradeSubmitInFlight = true;
         const data = await callGameFunction('trade-submit', {
             action: typ,
             symbol: aktivAktie,
@@ -2051,6 +2157,7 @@ async function submitTradeOrder(typ) {
         visaTradeFel(message);
         console.error('Trade submit failed:', error);
     } finally {
+        tradeSubmitInFlight = false;
         await syncTradeControlsVisibility();
     }
 }
@@ -3170,6 +3277,7 @@ function showLoggedOutUI() {
     document.getElementById('portfolioValueDisplay').innerText = 'Logga in för att handla';
     document.getElementById('marketClosedMessage').style.display='none';
     pendingTrades = [];
+    clearRecentCompletedTradeOrders();
     updatePendingTradesDisplay();
     // Show chart view when logged out
     showChartView();
@@ -3648,6 +3756,7 @@ async function handleLogout() {
         portfölj = undefined;
         isLoadingProfile = false;
         pendingTrades = [];
+        clearRecentCompletedTradeOrders();
         
         // Redirect to index.html after logout
         window.location.href = 'index.html';
@@ -3665,6 +3774,7 @@ async function handleLogout() {
         portfölj = undefined;
         isLoadingProfile = false;
         pendingTrades = [];
+        clearRecentCompletedTradeOrders();
         window.location.href = 'index.html';
     }
 }
@@ -3794,6 +3904,7 @@ let initialLoad = true;
                 saldo = undefined;
                 portfölj = undefined;
                 pendingTrades = [];
+                clearRecentCompletedTradeOrders();
 
                 showLoggedOutUI();
                 uppdateraPortfölj();
@@ -4923,10 +5034,15 @@ if (isCompetitionEnded()) {
     return;
 }
 
-if (window.tradeLock) {
-    await syncTradeControlsVisibility();
-    return;
-}
+    if (window.tradeLock) {
+        await syncTradeControlsVisibility();
+        return;
+    }
+
+    if (tradeSubmitInFlight) {
+        visaTradeFel('Skickar order...');
+        return;
+    }
     
 
 try{
@@ -4982,6 +5098,7 @@ try{
     }
 
     previousPortValue = null;
+    visaTradeFel('Skickar order...');
     const result = await submitTradeOrder(typ);
 
     if (result?.account) {
