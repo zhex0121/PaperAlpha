@@ -1295,12 +1295,6 @@ margin-top:0;
     background: none;
 }
 
-@keyframes completedOrderFade {
-    0% { opacity: 1; transform: translateY(0); }
-    75% { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-6px); }
-}
-
 .pending-trade-item {
     transition: all 0.2s ease;
 }
@@ -1312,6 +1306,11 @@ margin-top:0;
 
 .pending-trade-item.completed-order {
     will-change: opacity, transform;
+}
+
+.pending-trade-item.completed-order.fading-out {
+    opacity: 0;
+    transform: translateY(-6px);
 }
 
     /* Give main content a bit more top breathing room on mobile */
@@ -1572,8 +1571,10 @@ window.tradeLock = false;
 let pendingTrades = []; // Server-backed trade orders for the active user
 const COMPLETED_ORDER_ACK_STORAGE_KEY = 'paperalpha_completed_order_ack_v1';
 const COMPLETED_ORDER_DISPLAY_MS = 2000;
+const COMPLETED_ORDER_FADE_MS = 1000;
 let recentCompletedTradeOrders = [];
 let recentCompletedTradeOrderTimers = new Map();
+let recentCompletedTradeOrderFadeTimers = new Map();
 let acknowledgedCompletedTradeOrderIds = new Set();
 let tradeSubmitInFlight = false;
 
@@ -1614,6 +1615,10 @@ function clearRecentCompletedTradeOrders() {
         clearTimeout(timeoutId);
     }
     recentCompletedTradeOrderTimers.clear();
+    for (const timeoutId of recentCompletedTradeOrderFadeTimers.values()) {
+        clearTimeout(timeoutId);
+    }
+    recentCompletedTradeOrderFadeTimers.clear();
     recentCompletedTradeOrders = [];
 }
 
@@ -1652,12 +1657,12 @@ function queueRecentCompletedTradeOrder(order) {
 
     markCompletedTradeOrderAcknowledged(order.id);
 
-    const now = Date.now();
     const completedOrder = normalizeTransientTradeOrderRow({
         ...order,
         isTransientCompleted: true,
-        phaseStartedAt: now,
-        phaseEndsAt: now + COMPLETED_ORDER_VISIBLE_MS + COMPLETED_ORDER_FADE_MS
+        isFadingOut: false,
+        phaseStartedAt: Date.now(),
+        phaseEndsAt: Date.now() + COMPLETED_ORDER_VISIBLE_MS + COMPLETED_ORDER_FADE_MS
     });
 
     const existingIndex = recentCompletedTradeOrders.findIndex(item => item.id === order.id);
@@ -1674,7 +1679,16 @@ function queueRecentCompletedTradeOrder(order) {
         clearTimeout(recentCompletedTradeOrderTimers.get(order.id));
     }
 
+    if (recentCompletedTradeOrderFadeTimers.has(order.id)) {
+        clearTimeout(recentCompletedTradeOrderFadeTimers.get(order.id));
+    }
+
     const fadeTimeoutId = setTimeout(() => {
+        recentCompletedTradeOrders = recentCompletedTradeOrders.map(item => {
+            if (item.id !== order.id) return item;
+            return { ...item, isFadingOut: true };
+        });
+        recentCompletedTradeOrderFadeTimers.delete(order.id);
         updatePendingTradesDisplay();
     }, COMPLETED_ORDER_VISIBLE_MS);
 
@@ -1682,9 +1696,14 @@ function queueRecentCompletedTradeOrder(order) {
         recentCompletedTradeOrders = recentCompletedTradeOrders.filter(item => item.id !== order.id);
         recentCompletedTradeOrderTimers.delete(order.id);
         clearTimeout(fadeTimeoutId);
+        if (recentCompletedTradeOrderFadeTimers.has(order.id)) {
+            clearTimeout(recentCompletedTradeOrderFadeTimers.get(order.id));
+            recentCompletedTradeOrderFadeTimers.delete(order.id);
+        }
         updatePendingTradesDisplay();
     }, COMPLETED_ORDER_VISIBLE_MS + COMPLETED_ORDER_FADE_MS);
 
+    recentCompletedTradeOrderFadeTimers.set(order.id, fadeTimeoutId);
     recentCompletedTradeOrderTimers.set(order.id, timeoutId);
 }
 
@@ -2034,27 +2053,11 @@ function updatePendingTradesDisplay() {
             maximumFractionDigits: 4
         });
         const reason = order.rejectReason ? `<div style="margin-top:4px; color:var(--text-dim); font-size:0.78rem;">${escapeHtml(order.rejectReason)}</div>` : '';
-        const completedClass = order.isTransientCompleted ? ' completed-order' : '';
-        const statusStyle = (() => {
-            if (order.isTransientSubmitting) return 'opacity:0.98;';
-            if (!order.isTransientCompleted) return '';
-            const elapsed = Date.now() - Number(order.phaseStartedAt || Date.now());
-            const visibleMs = COMPLETED_ORDER_VISIBLE_MS;
-            const fadeMs = COMPLETED_ORDER_FADE_MS;
-            if (elapsed <= visibleMs) {
-                return 'opacity:1; transform:translateY(0);';
-            }
-            if (elapsed >= visibleMs + fadeMs) {
-                return 'opacity:0; transform:translateY(-6px);';
-            }
-            const fadeProgress = (elapsed - visibleMs) / fadeMs;
-            const opacity = Math.max(0, 1 - fadeProgress);
-            const translateY = -6 * fadeProgress;
-            return `opacity:${opacity.toFixed(3)}; transform:translateY(${translateY.toFixed(2)}px);`;
-        })();
+        const completedClass = order.isTransientCompleted ? ` completed-order${order.isFadingOut ? ' fading-out' : ''}` : '';
+        const statusStyle = order.isTransientSubmitting ? 'opacity:0.98;' : '';
 
         return `
-            <div class="pending-trade-item${completedClass}" style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 12px; margin-bottom: 8px; transition: opacity 0.2s ease, transform 0.2s ease; ${statusStyle}">
+            <div class="pending-trade-item${completedClass}" style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 12px; margin-bottom: 8px; transition: opacity 1s ease, transform 1s ease; ${statusStyle}">
                 <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
                     <div style="min-width:0;">
                         <div style="font-weight: 600; color: var(--text); margin-bottom: 4px;">${escapeHtml(order.symbol)}</div>
